@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "weather": {
+      "url": "https://weather-api.example.com/mcp",
+      "transport": "http"
+    },
+    "database": {
+      "url": "https://db-api.example.com/mcp",
+      "transport": "http"
+    }
+  }
+}

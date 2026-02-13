@@ -1,0 +1,16 @@
+services:
+  mcp-proxy:
+    build: .
+    image: drunk-mcp-proxy:latest
+    container_name: mcp-proxy-server
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount config file
+      - ./config.json:/app/config.json:ro
+      # Mount data directory for persistent dynamic proxies
+      - ./data:/app/data
+    environment:
+      - MCP_CONFIG_FILE=/app/config.json
+      - MCP_PROXIES_FILE=/app/data/proxies.json
+    restart: unless-stopped
