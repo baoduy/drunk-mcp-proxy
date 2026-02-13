@@ -179,6 +179,73 @@ MCP Proxy Server is ready!
 - Python 3.11+
 - FastMCP 2.0.0+
 
+## Troubleshooting
+
+### Port Already in Use
+If port 8000 is already in use, modify `docker-compose.yml` to use a different port:
+```yaml
+ports:
+  - "8080:8000"  # Use port 8080 instead
+```
+
+### Proxy Configuration Not Loading
+1. Check that `config.json` exists and has valid JSON syntax
+2. Verify file permissions allow reading
+3. Check Docker volume mounts in `docker-compose.yml`
+
+### Container Fails to Start
+1. Check logs: `docker-compose logs mcp-proxy`
+2. Verify network connectivity to backend MCP servers
+3. Ensure config file is properly mounted
+
+## Examples
+
+### Multiple Server Configuration
+```json
+{
+  "mcpServers": {
+    "weather": {
+      "url": "https://weather-api.example.com/mcp",
+      "transport": "http"
+    },
+    "database": {
+      "url": "https://db-api.example.com/mcp",
+      "transport": "http"
+    },
+    "analytics": {
+      "url": "https://analytics.example.com/mcp",
+      "transport": "http"
+    }
+  }
+}
+```
+
+### Using with MCP Clients
+Connect to this proxy server as you would any MCP server. The proxy will route requests to the configured backend servers and aggregate their responses.
+
+## Architecture
+
+```
+┌─────────────────┐
+│   MCP Client    │
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│  drunk-mcp-     │
+│     proxy       │
+│  (This Server)  │
+└────────┬────────┘
+         │
+         ├──────────────┬──────────────┐
+         v              v              v
+   ┌─────────┐    ┌─────────┐    ┌─────────┐
+   │Backend  │    │Backend  │    │Backend  │
+   │MCP      │    │MCP      │    │MCP      │
+   │Server 1 │    │Server 2 │    │Server N │
+   └─────────┘    └─────────┘    └─────────┘
+```
+
 ## License
 
 MIT License - See LICENSE file for details
