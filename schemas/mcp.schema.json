@@ -1,36 +1,80 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/baoduy/drunk-mcp-proxy/schemas/mcp.schema.json",
-  "title": "MCP Server Configuration",
-  "description": "Configuration schema for MCP proxy static server definitions",
+  "$id": "https://gofastmcp.com/public/schemas/mcp-proxy.json/v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MCP Proxy Configuration",
   "type": "object",
   "properties": {
     "mcpServers": {
       "type": "object",
-      "description": "Map of server names to their configurations",
-      "patternProperties": {
-        "^[a-zA-Z0-9_-]+$": {
-          "type": "object",
-          "description": "MCP server configuration",
-          "properties": {
-            "url": {
-              "type": "string",
-              "description": "The URL of the MCP server (required for http/sse transports)",
-              "format": "uri"
-            },
-            "transport": {
-              "type": "string",
-              "description": "Transport protocol to use",
-              "enum": ["http", "sse", "stdio"],
-              "default": "http"
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "path": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "http",
+              "sse",
+              "streamable-http",
+              "stdio"
+            ],
+            "default": "http"
+          }
+        },
+        "required": [
+          "transport"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "command"
+            ],
+            "properties": {
+              "transport": {
+                "const": "stdio"
+              }
+            }
+          },
+          {
+            "required": [
+              "url"
+            ]
+          },
+          {
+            "required": [
+              "path"
+            ]
+          }
+        ],
+        "additionalProperties": true
+      }
     }
   },
-  "required": ["mcpServers"],
-  "additionalProperties": false
+  "required": [
+    "mcpServers"
+  ],
+  "additionalProperties": true
 }

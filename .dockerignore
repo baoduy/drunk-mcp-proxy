@@ -35,7 +35,6 @@ htmlcov/
 
 # Runtime files (should be mounted as volumes)
 proxies.json
-data/
 
 # Examples
 config.example.json

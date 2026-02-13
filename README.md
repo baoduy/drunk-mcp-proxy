@@ -6,11 +6,9 @@ A dynamic proxy server for Model Context Protocol (MCP) built with Python and Fa
 
 - 🚀 **Dynamic Proxy Management**: Add and manage MCP servers on the fly
 - 📝 **Static Configuration**: Define default servers in `config.json`
-- 💾 **Persistent Storage**: Dynamic proxies are saved to `proxies.json`
 - 🐳 **Docker Support**: Fully containerized with Docker and Docker Compose
 - 🔌 **Multiple Transports**: Support for HTTP and SSE transports
-- 🛠️ **Built-in Tools**: List, add, and manage proxy servers via MCP tools
-- 🔐 **Authentication**: API key-based authentication for secure access
+- 🔐 **Authentication**: MCP auth providers configured via environment variables
 - 🌐 **DeepWiki Integration**: Pre-configured with DeepWiki MCP server for GitHub documentation access
 
 ## Quick Start
@@ -99,9 +97,20 @@ python src/main.py
 
 All configuration files are validated against JSON schemas to ensure correctness.
 
+### Server Bind and Transport
+
+The proxy server binds to `0.0.0.0:9123` (fixed).
+
+The server transport can be controlled with:
+- `FASTMCP_SERVER_TRANSPORT` (`http`, `sse`, or `auto`)
+
+When running, each configured MCP server is exposed as:
+- `http://localhost:9123/<mcp-name>/mcp`
+- `http://localhost:9123/<mcp-name>/sse`
+
 ### Static Configuration (mcp.json)
 
-Define your default MCP servers in `data/mcp.json`:
+Define your default MCP servers in `data/*.mcp.json`:
 
 ```json
 {
@@ -122,21 +131,44 @@ Define your default MCP servers in `data/mcp.json`:
 }
 ```
 
+For local stdio-based MCP servers, set `transport` to `stdio` and supply the command in the URL field your MCP client expects (or leave the URL as a placeholder if your client launches the process directly).
+
+```json
+{
+  "mcpServers": {
+    "local-tool": {
+      "url": "stdio://local-tool",
+      "transport": "stdio"
+    }
+  }
+}
+```
+
 **Schema:** `schemas/mcp.schema.json`
 
-### Dynamic Proxies
+#### Namespaced Config Files
 
-Dynamic proxies are added at runtime using the `add_proxy` tool and stored in `data/proxies.json`. These persist across restarts.
+You can place multiple config files in the same directory using the naming
+pattern `*.mcp.json`. Each file is mounted under a namespace equal to the file
+name without the `.mcp.json` suffix.
 
-**Schema:** `schemas/proxies.schema.json`
+Example:
+
+```
+data/
+  deepwiki.mcp.json   -> namespace "deepwiki"
+  finance.mcp.json    -> namespace "finance"
+```
+
+Set `FASTMCP_CONFIG_FILE` to the directory path (e.g. `./data`) to load all of them.
+
 
 ### JSON Schema Validation
 
 All configuration files are automatically validated against their JSON schemas:
 
 - **mcp.json**: Validated against `schemas/mcp.schema.json`
-- **proxies.json**: Validated against `schemas/proxies.schema.json`
-- **auth.json**: Validated against `schemas/auth.schema.json`
+- **auth.json**: Reserved (authentication is configured via environment variables)
 
 Validation errors are logged but non-fatal to allow the server to start. Fix validation errors to ensure proper configuration.
 
@@ -144,120 +176,46 @@ Validation errors are logged but non-fatal to allow the server to start. Fix val
 - Server name/proxy name: alphanumeric, hyphens, underscores (1-64 chars)
 - URLs: Must be valid HTTP/HTTPS URLs
 - Transport: Must be one of: `http`, `sse`, `stdio`
-- API key hashes: Must be 64-character hex strings (SHA-256)
+- API key hashes: Must be 64-character hex strings (SHA-256) if you use auth.json elsewhere
 
 ## Available Tools
 
-The proxy server exposes the following MCP tools:
-
-### add_proxy
-Add a new MCP proxy server dynamically.
-
-**Parameters:**
-- `name` (string): Name identifier for the proxy
-- `url` (string): URL of the MCP server to proxy
-- `transport` (string, optional): Transport protocol (default: "http")
-
-**Example:**
-```python
-add_proxy(name="my-server", url="https://my-server.com/mcp", transport="http")
-```
-
-### list_proxies
-List all configured MCP proxy servers (both static and dynamic).
-
-**Returns:** List of all configured proxies with their URLs and transport types.
-
-### get_server_info
-Get information about this MCP proxy server.
-
-**Returns:** Server version, features, and usage information.
+The proxy server does not register any custom MCP tools by default.
 
 ## Authentication
 
-The proxy server supports API key-based authentication to secure access to your MCP backend servers. Authentication is **disabled by default** to allow easy setup and testing.
+Authentication is configured via FastMCP auth providers and environment variables. If no auth provider is configured, authentication is disabled.
 
-### Authentication Management
+### Configure an Auth Provider
 
-Use the `manage_auth` tool to manage authentication:
+Set `FASTMCP_SERVER_AUTH` to a provider class path or one of the built-in aliases:
 
-#### Enable Authentication
-```python
-manage_auth(action="enable")
+```bash
+# Example: JWT verifier
+export FASTMCP_SERVER_AUTH=jwt
+export JWKS_URI=https://example.com/.well-known/jwks.json
+export ISSUER=https://issuer.example.com/
+export AUDIENCE=my-audience
 ```
 
-#### Create an API Key
-```python
-manage_auth(action="create_key", client_name="my-client")
-# Returns: API key (save it securely - it won't be shown again!)
-```
-
-#### Check Authentication Status
-```python
-manage_auth(action="status")
-# Returns: Current authentication status and list of configured clients
-```
-
-#### Revoke an API Key
-```python
-manage_auth(action="revoke_key", client_name="my-client")
-```
-
-#### Disable Authentication
-```python
-manage_auth(action="disable")
-```
-
-### Authentication Model
-
-**Important Note:** The current authentication implementation is designed for **local/trusted environments** where the proxy server manages API keys for backend MCP servers it connects to. 
-
-For production deployments where you need to authenticate **incoming client requests**, you would need to:
-
-1. Implement transport-layer authentication (e.g., HTTP headers, bearer tokens)
-2. Use FastMCP's built-in authentication hooks if available
-3. Deploy behind an API gateway that handles authentication
-
-The `manage_auth` tool currently provides API key management infrastructure that can be extended for request-level authentication in future versions.
-
-### Using API Keys
-
-The authentication system stores hashed API keys that can be used to secure connections to backend services. Keys are managed through the `manage_auth` tool:
-
-```python
-# Enable authentication tracking
-manage_auth(action="enable")
-
-# Create a key for a backend service
-manage_auth(action="create_key", client_name="backend-service")
-
-# Check status
-manage_auth(action="status")
-```
-
-### Security Best Practices
-
-The authentication implementation follows MCP security best practices:
-
-1. **Secure Token Storage**: API keys are hashed using SHA-256 before storage
-2. **Per-Client Authorization**: Each client has a unique API key for tracking and revocation
-3. **No Plaintext Tokens**: Raw API keys are never stored, only their hashes
-4. **Persistent Configuration**: Authentication settings persist in `data/auth.json`
-5. **TLS Support**: Always use HTTPS in production to protect API keys in transit
-
-**Note:** Authentication configuration is stored in `data/auth.json` (gitignored by default).
+Provider parameters can be supplied either via:
+- `FASTMCP_SERVER_AUTH_<PROVIDER>_*` env vars (v2-style), or
+- env vars matching the provider's constructor arguments (e.g. `CLIENT_ID`, `CLIENT_SECRET`, `BASE_URL`)
 
 ## Environment Variables
 
-- `MCP_CONFIG_FILE`: Path to the static configuration file
-  - Local development default: `./data/mcp.json`
-  - Docker default: `/app/data/mcp.json`
-- `MCP_PROXIES_FILE`: Path to the dynamic proxies file
-  - Local development default: `./data/proxies.json`
-  - Docker default: `/app/data/proxies.json`
-- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file
-  - Local development default: `./data/auth.json`
-  - Docker default: `/app/data/auth.json`
+- `FASTMCP_CONFIG_FILE`: Path to the static configuration directory
+  - Local development default: `./data`
+  - Docker default: `/app/data`
+- `FASTMCP_SERVER_AUTH`: Auth provider class path or alias (e.g. `jwt`, `github`)
+- `FASTMCP_STATELESS_HTTP`: Enable stateless HTTP mode (`true`/`false`, default: `false`)
+- `FASTMCP_CORS_ALLOW_ORIGINS`: Comma-separated list of allowed origins (e.g. `https://example.com`)
+- `FASTMCP_CORS_ALLOW_METHODS`: Comma-separated list of allowed methods (e.g. `GET,POST,DELETE,OPTIONS`)
+- `FASTMCP_CORS_ALLOW_HEADERS`: Comma-separated list of allowed headers
+- `FASTMCP_CORS_EXPOSE_HEADERS`: Comma-separated list of exposed headers
+
+Note: When CORS is enabled, the server uses `uvicorn` to serve the ASGI app with middleware.
+- Provider-specific env vars (e.g. `JWKS_URI`, `ISSUER`, `AUDIENCE`, `CLIENT_ID`, `CLIENT_SECRET`)
 - `PYTHONPATH`: Python module search path
   - Local development: `./src`
   - Docker: `/app/src`
@@ -268,16 +226,12 @@ The authentication implementation follows MCP security best practices:
 drunk-mcp-proxy/
 ├── src/
 │   ├── main.py          # Main application code
-│   ├── auth.py          # Authentication module
-│   └── validation.py    # JSON schema validation
+│   └── mcp_proxy/       # Proxy implementation
 ├── schemas/
 │   ├── mcp.schema.json      # Schema for mcp.json
-│   ├── proxies.schema.json  # Schema for proxies.json
-│   └── auth.schema.json     # Schema for auth.json
+│   └── auth.schema.json     # Reserved for auth.json if used elsewhere
 ├── data/
 │   ├── mcp.json         # Static server configuration
-│   ├── proxies.json     # Dynamic proxies (created at runtime)
-│   └── auth.json        # Authentication config (created at runtime)
 ├── mcp.example.json     # Example MCP server configuration
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile          # Docker image definition
@@ -315,7 +269,7 @@ MCP Proxy Server is ready!
 ## Requirements
 
 - Python 3.11+
-- FastMCP 2.0.0+
+- FastMCP 3.0.0 or later
 
 ## Troubleshooting
 

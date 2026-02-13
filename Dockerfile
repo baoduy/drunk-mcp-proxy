@@ -1,32 +1,99 @@
-FROM python:3.11-slim
+ARG TARGETPLATFORM
+FROM --platform=$TARGETPLATFORM python:3.11-slim as builder
 
-# Set working directory
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy requirements and pre-install ALL packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install uv and related tools in venv
+RUN pip install --no-cache-dir uv
+
+# ============================================================
+# Final stage - minimal runtime image
+# ============================================================
+FROM --platform=$TARGETPLATFORM python:3.11-slim
+
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Create non-root user early
+RUN useradd -m -u 10001 appuser
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install only runtime dependencies (no build tools)
+# Include nodejs for npx availability
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      nodejs \
+      npm \
+      curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copy source code
-COPY src/ ./src/
+# Copy pre-built virtual environment from builder
+COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
 
-# Copy schemas
-COPY schemas/ ./schemas/
+# Activate venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV="/opt/venv" \
+    PIP_NO_INPUT=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Create directory for runtime files and copy default config
-RUN mkdir -p /app/data
-COPY mcp.json /app/data/mcp.json
+# Copy application code
+COPY --chown=appuser:appuser requirements.txt .
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser schemas/ ./schemas/
 
-# Environment variables
-ENV MCP_CONFIG_FILE=/app/data/mcp.json
-ENV MCP_PROXIES_FILE=/app/data/proxies.json
-ENV MCP_AUTH_CONFIG_FILE=/app/data/auth.json
-ENV PYTHONPATH=/app/src
+# Create data directory
+RUN mkdir -p /app/data && chown appuser:appuser /app/data
 
-# Expose port (if running HTTP server)
-EXPOSE 8000
+# Create pip cache directory for runtime installations
+RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 
-# Run the application
+# Consolidate environment variables
+ENV FASTMCP_CONFIG_FILE=/app/data \
+    FASTMCP_HOST=0.0.0.0 \
+    FASTMCP_PORT=9123 \
+    PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    HOME=/home/appuser \
+    NPM_CONFIG_PREFIX=/home/appuser/.npm-global \
+    NPM_CONFIG_CACHE=/home/appuser/.npm \
+    UV_CACHE_DIR=/home/appuser/.cache/uv \
+    UV_TOOL_DIR=/home/appuser/.local/uv/tools \
+    PIP_CACHE_DIR=/tmp/pip-cache \
+    PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}"
+
+# Setup user directories
+RUN mkdir -p /home/appuser/.npm-global \
+             /home/appuser/.npm \
+             /home/appuser/.cache/uv \
+             /home/appuser/.local/uv/tools && \
+    chown -R appuser:appuser /home/appuser
+
+EXPOSE $FASTMCP_PORT
+
+# Verify npx is available before switching user
+RUN npx --version
+
+# Switch to non-root user
+USER appuser
+
+# Verify both npx and uvx are available (uv already in venv from builder)
+RUN npx --version && uvx --version
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://$FASTMCP_HOST:${FASTMCP_PORT}/health || exit 1
+
 CMD ["python", "src/main.py"]

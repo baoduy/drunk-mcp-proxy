@@ -1,4 +1,4 @@
-#!/bin/bash
+h#!/bin/bash
 # Test script for drunk-mcp-proxy
 
 set -e
@@ -10,7 +10,7 @@ echo ""
 
 # Test 1: Python syntax check
 echo "✓ Test 1: Python syntax check"
-python3 -m py_compile src/main.py src/auth.py src/validation.py
+python3 -m py_compile src/main.py
 echo "  ✓ Source files syntax is valid"
 echo ""
 
