@@ -24,6 +24,8 @@ import json
 from pathlib import Path
 from typing import Union
 
+from src.tools.env import SCHEMA_DIR
+
 # Conditional Import: jsonschema is optional
 # If not available, validation will be skipped with a warning
 try:
@@ -49,9 +51,10 @@ SchemaDict = dict[str, JsonValue]
 # Schema File Paths
 # =================
 # Schemas are located in the schemas/ directory at project root
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "schemas"
-MCP_SCHEMA = SCHEMA_DIR / "mcp.schema.json"
-AUTH_SCHEMA = SCHEMA_DIR / "auth.schema.json"
+# Override with FASTMCP_SCHEMA_DIR if needed
+path = Path(SCHEMA_DIR)
+MCP_SCHEMA = path / "mcp.schema.json"
+AUTH_SCHEMA = path / "auth.schema.json"
 
 
 # Schema Loading

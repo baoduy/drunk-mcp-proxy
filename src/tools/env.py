@@ -44,6 +44,8 @@ import os
 # ===================
 # Directory containing MCP server configuration files (*.mcp.json)
 CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "data")
+# Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
+SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "schemas")
 
 # Logging Configuration
 # =====================
@@ -56,12 +58,6 @@ LOG_LEVEL = os.environ.get("FASTMCP_LOG_LEVEL", "INFO").upper()
 # These values identify the server in logs and health checks
 SERVER_NAME = os.environ.get("FASTMCP_SERVER_NAME", "drunk-mcp-proxy-server").strip()
 SERVER_VERSION = os.environ.get("FASTMCP_SERVER_VERSION", "1.0.0").strip()
-
-# Transport Configuration
-# =======================
-# Override transport protocol (http, sse, streamable-http)
-# Empty string means use default (http)
-SERVER_TRANSPORT = os.environ.get("FASTMCP_SERVER_TRANSPORT", "").strip().lower()
 
 # CORS Configuration
 # ==================

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable, Any
 
 from fastmcp.server import create_proxy
+from fastmcp.server.providers.proxy import FastMCPProxy
 
 from src.tools.env import SERVER_NAME
 from src.tools.logging_config import setup_logging
@@ -108,7 +109,6 @@ def _load_config_file(config_file: str) -> ConfigDict:
         FileNotFoundError: If the config file doesn't exist
         JSONDecodeError: If the file contains invalid JSON
     """
-    logger.debug("Loading MCP config from %s", config_file)
 
     # Read and parse the JSON configuration file
     with open(config_file, "r") as f:
@@ -145,8 +145,9 @@ def _load_config_files(config_dir: str) -> list[tuple[str | None, ConfigDict]]:
 
     File Naming Convention:
         - Files MUST end with .mcp.json (e.g., stock.mcp.json)
+        - A root config can be named mcp.json (namespace None)
         - The filename prefix becomes the namespace (stock.mcp.json -> "stock")
-        - Files ending with just .json are ignored
+        - Files ending with just .json (except mcp.json) are ignored
 
     Process:
         1. Check if config_dir exists and is a directory
@@ -167,48 +168,33 @@ def _load_config_files(config_dir: str) -> list[tuple[str | None, ConfigDict]]:
         If FASTMCP_CONFIG_DIR environment variable is explicitly set but points
         to an invalid directory, the application will exit with an error message.
     """
-    if not config_dir:
+    if not config_dir or not os.path.isdir(config_dir):
         return []
 
-    # Verify the config directory exists and is a directory
-    if os.path.isdir(config_dir):
-        # Find all files matching the *.mcp.json pattern
-        pattern = os.path.join(config_dir, "*.mcp.json")
-        files = sorted(glob.glob(pattern))
+    # Find all files matching the *.mcp.json pattern plus root mcp.json
+    pattern = os.path.join(config_dir, "*.mcp.json")
+    files = sorted(glob.glob(pattern))
+    root_config = os.path.join(config_dir, "mcp.json")
+    if os.path.isfile(root_config):
+        files = [root_config, *files]
 
-        # Warn about json files that don't follow the *.mcp.json convention
-        # This helps users identify misconfigured files
-        for other_path in sorted(glob.glob(os.path.join(config_dir, "*.json"))):
-            if not other_path.endswith(".mcp.json"):
-                logger.warning("Ignoring non-conforming config file (expected *.mcp.json): %s", other_path)
+    # If no .mcp.json files found, return empty list
+    if not files:
+        logger.info("No mcp.json or *.mcp.json files found in %s", config_dir)
+        return []
 
-        # If no .mcp.json files found, return empty list
-        if not files:
-            logger.info("No *.mcp.json files found in %s", config_dir)
-            return []
-
-        # Load each configuration file and pair it with its namespace
-        results: list[tuple[str | None, ConfigDict]] = []
-        for file_path in files:
-            namespace = _namespace_from_path(file_path)
-            results.append((namespace, _load_config_file(file_path)))
-        return results
-
-    # Directory doesn't exist or is not a directory
-    logger.error("Config directory not found or not a directory: %s", config_dir)
-
-    # If FASTMCP_CONFIG_DIR was explicitly set, this is a critical error
-    # Exit the application to prevent running with invalid configuration
-    if os.environ.get("FASTMCP_CONFIG_DIR", "").strip():
-        import sys
-        print("Critical: FASTMCP_CONFIG_DIR must point to a directory. Exiting.", file=sys.stderr)
-        sys.exit(1)
-    return []
+    # Load each configuration file and pair it with its namespace
+    results: list[tuple[str | None, ConfigDict]] = []
+    for file_path in files:
+        namespace = _namespace_from_path(file_path)
+        results.append((namespace, _load_config_file(file_path)))
+        logger.info("Loaded (namespace %s) file %s, ", namespace or "None", file_path)
+    return results
 
 
 def _create_proxies_from_configs(
         configs: list[tuple[str | None, ConfigDict]]
-) -> list[tuple[str | None, Any]]:
+) -> list[tuple[str | None, FastMCPProxy]]:
     """
     Create proxy instances from all loaded configurations.
 
