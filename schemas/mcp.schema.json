@@ -15,9 +15,8 @@
           "properties": {
             "url": {
               "type": "string",
-              "description": "The URL of the MCP server",
-              "format": "uri",
-              "pattern": "^https?://"
+              "description": "The URL of the MCP server (required for http/sse transports)",
+              "format": "uri"
             },
             "transport": {
               "type": "string",
@@ -26,7 +25,6 @@
               "default": "http"
             }
           },
-          "required": ["url"],
           "additionalProperties": false
         }
       },

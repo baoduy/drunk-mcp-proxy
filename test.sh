@@ -10,13 +10,21 @@ echo ""
 
 # Test 1: Python syntax check
 echo "✓ Test 1: Python syntax check"
-python3 -m py_compile src/main.py src/auth.py
+python3 -m py_compile src/main.py src/auth.py src/validation.py
 echo "  ✓ Source files syntax is valid"
 echo ""
 
 # Test 2: Config file validation
 echo "✓ Test 2: Config file validation"
-if [ -f mcp.json ]; then
+# Create data directory and copy config if needed for testing
+mkdir -p data
+if [ ! -f data/mcp.json ] && [ -f mcp.json ]; then
+    cp mcp.json data/mcp.json
+fi
+if [ -f data/mcp.json ]; then
+    python3 -m json.tool data/mcp.json > /dev/null
+    echo "  ✓ data/mcp.json is valid JSON"
+elif [ -f mcp.json ]; then
     python3 -m json.tool mcp.json > /dev/null
     echo "  ✓ mcp.json is valid JSON"
 else

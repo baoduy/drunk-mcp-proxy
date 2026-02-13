@@ -123,7 +123,6 @@ Define your default MCP servers in `data/mcp.json`:
 ```
 
 **Schema:** `schemas/mcp.schema.json`
-```
 
 ### Dynamic Proxies
 

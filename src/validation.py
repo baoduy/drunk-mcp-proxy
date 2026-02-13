@@ -4,18 +4,17 @@ Validates mcp.json, proxies.json, and auth.json against their schemas.
 """
 
 import json
-import os
 from typing import Dict, Any, Optional
 from pathlib import Path
 
 try:
-    import jsonschema
-    from jsonschema import validate, ValidationError, Draft7Validator
+    from jsonschema import validate, ValidationError, Draft7Validator, FormatChecker
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
-    print("Warning: jsonschema package not installed. Schema validation disabled.")
-    print("Install with: pip install jsonschema")
+    ValidationError = None
+    Draft7Validator = None
+    FormatChecker = None
 
 
 # Schema file paths
@@ -59,7 +58,7 @@ def validate_config(config: Dict[str, Any], schema_path: Path, config_name: str 
         return True  # Skip validation if schema can't be loaded
     
     try:
-        validate(instance=config, schema=schema)
+        validate(instance=config, schema=schema, format_checker=FormatChecker())
         return True
     except ValidationError as e:
         print(f"Validation error in {config_name}:")
@@ -100,7 +99,7 @@ def get_schema_errors(config: Dict[str, Any], schema_path: Path) -> list:
     if schema is None:
         return []
     
-    validator = Draft7Validator(schema)
+    validator = Draft7Validator(schema, format_checker=FormatChecker())
     errors = []
     
     for error in validator.iter_errors(config):

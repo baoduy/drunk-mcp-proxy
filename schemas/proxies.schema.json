@@ -21,9 +21,8 @@
           },
           "url": {
             "type": "string",
-            "description": "The URL of the MCP server to proxy",
-            "format": "uri",
-            "pattern": "^https?://"
+            "description": "The URL of the MCP server to proxy (required for http/sse transports)",
+            "format": "uri"
           },
           "transport": {
             "type": "string",

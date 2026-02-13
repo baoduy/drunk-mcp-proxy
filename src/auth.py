@@ -13,7 +13,7 @@ import hmac
 import secrets
 import asyncio
 from typing import Optional, Dict, Any
-from functools import wraps
+from pathlib import Path
 from validation import validate_auth_config
 
 
@@ -52,27 +52,21 @@ async def save_auth_config_async(config: Dict[str, Any]) -> None:
                 if not validate_auth_config(config):
                     raise ValueError("Auth configuration validation failed")
                 
+                # Ensure parent directory exists
+                auth_path = Path(AUTH_CONFIG_FILE)
+                auth_path.parent.mkdir(parents=True, exist_ok=True)
+                
                 # Atomic write: write to temp file and rename
-                temp_file = AUTH_CONFIG_FILE + '.tmp'
+                temp_file = str(auth_path) + '.tmp'
                 with open(temp_file, 'w') as f:
                     json.dump(config, f, indent=2)
-                os.replace(temp_file, AUTH_CONFIG_FILE)
+                os.replace(temp_file, str(auth_path))
             except Exception as e:
                 print(f"Error saving auth config: {e}")
                 raise
         
         # Run file I/O in thread pool to avoid blocking event loop
         await asyncio.to_thread(_save)
-
-
-def save_auth_config(config: Dict[str, Any]) -> None:
-    """Save authentication configuration to file (synchronous wrapper)."""
-    try:
-        with open(AUTH_CONFIG_FILE, 'w') as f:
-            json.dump(config, f, indent=2)
-    except Exception as e:
-        print(f"Error saving auth config: {e}")
-        raise
 
 
 def generate_api_key() -> str:
