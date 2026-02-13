@@ -5,7 +5,6 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 
 import json
 import os
-from typing import Dict, Any, List
 import asyncio
 from fastmcp import FastMCP
 from fastmcp.server.proxy import ProxyClient, FastMCPProxy
@@ -18,7 +17,7 @@ PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "proxies.json")
 mcp = FastMCP("MCP Proxy Server", version="1.0.0")
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, any]:
     """Load the MCP server configuration from config file."""
     if not os.path.exists(CONFIG_FILE):
         return {"mcpServers": {}}
@@ -31,7 +30,7 @@ def load_config() -> Dict[str, Any]:
         return {"mcpServers": {}}
 
 
-def load_proxies() -> List[Dict[str, str]]:
+def load_proxies() -> list[dict[str, str]]:
     """Load dynamically added proxies from proxies file."""
     if not os.path.exists(PROXIES_FILE):
         return []
