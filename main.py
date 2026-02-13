@@ -5,7 +5,9 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 
 import json
 import os
+import sys
 import asyncio
+from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.proxy import ProxyClient, FastMCPProxy
 
@@ -13,11 +15,14 @@ from fastmcp.server.proxy import ProxyClient, FastMCPProxy
 CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "config.json")
 PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "proxies.json")
 
+# Lock for file operations to prevent race conditions
+_proxies_lock = asyncio.Lock()
+
 # Initialize FastMCP server
 mcp = FastMCP("MCP Proxy Server", version="1.0.0")
 
 
-def load_config() -> dict[str, any]:
+def load_config() -> dict[str, Any]:
     """Load the MCP server configuration from config file."""
     if not os.path.exists(CONFIG_FILE):
         return {"mcpServers": {}}
@@ -26,7 +31,11 @@ def load_config() -> dict[str, any]:
         with open(CONFIG_FILE, 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.")
+        print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.", file=sys.stderr)
+        # Exit on critical config error in production/Docker environments
+        if os.environ.get("MCP_CONFIG_FILE"):
+            print(f"Critical: Custom config file specified but failed to load. Exiting.", file=sys.stderr)
+            sys.exit(1)
         return {"mcpServers": {}}
 
 
@@ -40,33 +49,38 @@ def load_proxies() -> list[dict[str, str]]:
             data = json.load(f)
             return data.get("proxies", [])
     except Exception as e:
-        print(f"Error loading proxies file '{PROXIES_FILE}': {e}. Please verify the file contains valid JSON.")
+        print(f"Error loading proxies file '{PROXIES_FILE}': {e}. Please verify the file contains valid JSON.", file=sys.stderr)
         return []
 
 
 async def save_proxy_async(name: str, url: str, transport: str = "http") -> None:
     """Save a proxy configuration to the proxies file asynchronously."""
-    def _save():
-        proxies = load_proxies()
+    async with _proxies_lock:  # Prevent race conditions on concurrent writes
+        def _save():
+            proxies = load_proxies()
+            
+            # Update existing or add new proxy
+            for p in proxies:
+                if p.get("name") == name:
+                    p["url"] = url
+                    p["transport"] = transport
+                    break
+            else:
+                proxies.append({"name": name, "url": url, "transport": transport})
+            
+            with open(PROXIES_FILE, 'w') as f:
+                json.dump({"proxies": proxies}, f, indent=2)
         
-        # Update existing or add new proxy
-        for p in proxies:
-            if p["name"] == name:
-                p["url"] = url
-                p["transport"] = transport
-                break
-        else:
-            proxies.append({"name": name, "url": url, "transport": transport})
-        
-        with open(PROXIES_FILE, 'w') as f:
-            json.dump({"proxies": proxies}, f, indent=2)
-    
-    # Run file I/O in thread pool to avoid blocking event loop
-    await asyncio.to_thread(_save)
+        # Run file I/O in thread pool to avoid blocking event loop
+        await asyncio.to_thread(_save)
 
 
 def mount_proxy(name: str, url: str, transport: str = "http") -> None:
-    """Mount a proxy server to the MCP instance."""
+    """Mount a proxy server to the MCP instance.
+    
+    Note: Currently the transport parameter is stored in configuration but not used
+    by ProxyClient, which automatically determines the transport from the URL.
+    """
     def client_factory():
         return ProxyClient(url)
     
@@ -85,10 +99,33 @@ async def add_proxy(name: str, url: str, transport: str = "http") -> str:
         transport: Transport protocol (default: http)
     
     Returns:
-        Success message
+        Success or error message
     """
+    # Prevent conflicts with statically configured servers
+    config = load_config()
+    static_servers = config.get("mcpServers", {}) or {}
+    if name in static_servers:
+        return (
+            f"✗ Cannot add proxy '{name}': a static server with this name is already "
+            f"defined in {CONFIG_FILE}."
+        )
+    
+    # Prevent conflicts with existing dynamic proxies
+    existing_proxies = load_proxies()
+    if any(p.get("name") == name for p in existing_proxies):
+        return (
+            f"✗ Cannot add proxy '{name}': a dynamic proxy with this name is already "
+            f"defined in {PROXIES_FILE}."
+        )
+    
+    # Mount first, only save if mount succeeds
+    try:
+        mount_proxy(name, url, transport)
+    except Exception as e:
+        return f"✗ Failed to mount proxy '{name}' at {url}: {e}"
+    
+    # Save only after successful mount
     await save_proxy_async(name, url, transport)
-    mount_proxy(name, url, transport)
     return f"✓ Added and mounted proxy '{name}' at {url}"
 
 
@@ -118,7 +155,7 @@ def list_proxies() -> str:
     if proxies:
         result.append("\nDynamic Proxies (from proxies.json):")
         for p in proxies:
-            result.append(f"  - {p['name']}: {p['url']} ({p.get('transport', 'http')})")
+            result.append(f"  - {p.get('name', 'Unknown')}: {p.get('url', 'N/A')} ({p.get('transport', 'http')})")
     
     if not result:
         return "No proxies configured"

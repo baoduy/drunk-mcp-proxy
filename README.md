@@ -33,24 +33,34 @@ cd drunk-mcp-proxy
 }
 ```
 
-3. Start the service:
+3. Create the data directory for persistent storage:
+```bash
+mkdir -p data
+```
+
+4. Start the service:
 ```bash
 docker-compose up -d
 ```
 
-4. View logs:
+5. View logs:
 ```bash
 docker-compose logs -f
 ```
 
 ### Using Docker
 
-1. Build the image:
+1. Create the data directory for persistent storage:
+```bash
+mkdir -p data
+```
+
+2. Build the image:
 ```bash
 docker build -t drunk-mcp-proxy .
 ```
 
-2. Run the container:
+3. Run the container:
 ```bash
 docker run -d \
   -p 8000:8000 \
