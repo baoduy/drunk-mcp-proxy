@@ -15,7 +15,7 @@ services:
     env_file:
       - .env
     environment:
-      - FASTMCP_CONFIG_FILE=/app/data
+      - FASTMCP_CONFIG_DIR=/app/data
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
       - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-drunk-mcp-proxy-server}

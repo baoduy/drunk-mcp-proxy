@@ -44,11 +44,11 @@ fi
 
 # Set environment variables
 export PYTHONUNBUFFERED=1
-export FASTMCP_CONFIG_FILE="data"
+export FASTMCP_CONFIG_DIR="data"
 export PYTHONPATH="src"
 
 echo "${GREEN}Configuration:${NC}"
-echo "  FASTMCP_CONFIG_FILE: $FASTMCP_CONFIG_FILE"
+echo "  FASTMCP_CONFIG_DIR: $FASTMCP_CONFIG_DIR"
 echo "  PYTHONPATH: $PYTHONPATH"
 echo ""
 

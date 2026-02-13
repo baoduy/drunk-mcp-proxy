@@ -1,10 +1,13 @@
 """Static proxy initialization module."""
 
 import glob
+import inspect
 import json
 import os
 from pathlib import Path
 from typing import Any
+
+from fastmcp.server import create_proxy
 
 from ..tools.logging_config import setup_logging
 from ..tools.validation import validate_mcp_config
@@ -42,16 +45,20 @@ def _load_config_file(config_file: str) -> dict[str, Any]:
     return config
 
 
-def load_config_files(config_path: str) -> list[tuple[str | None, dict[str, Any]]]:
-    """Load one or more MCP config files. Returns (namespace, config) pairs."""
-    if not config_path:
+def _load_config_files(config_dir: str) -> list[tuple[str | None, dict[str, Any]]]:
+    """Load one or more MCP config files from a directory."""
+    if not config_dir:
         return []
 
-    if os.path.isdir(config_path):
-        pattern = os.path.join(config_path, "*.mcp.json")
+    if os.path.isdir(config_dir):
+        pattern = os.path.join(config_dir, "*.mcp.json")
         files = sorted(glob.glob(pattern))
+        # Warn about json files that don't follow the *.mcp.json convention.
+        for other_path in sorted(glob.glob(os.path.join(config_dir, "*.json"))):
+            if not other_path.endswith(".mcp.json"):
+                logger.warning("Ignoring non-conforming config file (expected *.mcp.json): %s", other_path)
         if not files:
-            logger.info("No *.mcp.json files found in %s", config_path)
+            logger.info("No *.mcp.json files found in %s", config_dir)
             return []
         results: list[tuple[str | None, dict[str, Any]]] = []
         for file_path in files:
@@ -59,118 +66,112 @@ def load_config_files(config_path: str) -> list[tuple[str | None, dict[str, Any]
             results.append((namespace, _load_config_file(file_path)))
         return results
 
-    if not os.path.exists(config_path):
-        logger.info("Config file not found at %s; using empty config", config_path)
-        return [(None, {"mcpServers": {}})]
-
-    try:
-        return [(_namespace_from_path(config_path), _load_config_file(config_path))]
-    except Exception as e:
-        logger.exception("Error loading config file '%s'", config_path)
+    logger.error("Config directory not found or not a directory: %s", config_dir)
+    if os.environ.get("FASTMCP_CONFIG_DIR", "").strip():
         import sys
-        print(
-            f"Error loading config file '{config_path}': {e}. Please verify the file exists and contains valid JSON.",
-            file=sys.stderr,
-        )
-        if os.environ.get("FASTMCP_CONFIG_FILE", "").strip():
-            print("Critical: Custom config file specified but failed to load. Exiting.", file=sys.stderr)
-            sys.exit(1)
-        return [(None, {"mcpServers": {}})]
+        print("Critical: FASTMCP_CONFIG_DIR must point to a directory. Exiting.", file=sys.stderr)
+        sys.exit(1)
+    return []
 
 
-def load_config(config_file: str) -> dict[str, Any]:
-    """Load a single MCP server configuration from config file."""
-    configs = load_config_files(config_file)
+def _load_config(config_dir: str) -> dict[str, Any]:
+    """Load the first MCP server configuration from a directory."""
+    configs = _load_config_files(config_dir)
     return configs[0][1] if configs else {"mcpServers": {}}
 
 
-def get_static_server_names(config_file: str) -> set[str]:
+def _get_static_server_names(config_dir: str) -> set[str]:
     """Return a set of all static server names from all loaded configs."""
     names: set[str] = set()
-    for _namespace, config in load_config_files(config_file):
+    for _namespace, config in _load_config_files(config_dir):
         servers = config.get("mcpServers", {})
         if isinstance(servers, dict):
             names.update(servers.keys())
     return names
 
 
-def _try_mount_multi_server_proxy(mcp: Any, config: dict[str, Any], namespace: str | None) -> bool:
-    """Try to mount a config-based proxy provider if supported by fastmcp."""
-    try:
-        from fastmcp.server import create_proxy
-    except Exception:
-        return False
+def _create_proxies_from_configs(
+        configs: list[tuple[str | None, dict[str, Any]]]
+) -> list[tuple[str | None, Any]]:
+    """Create proxy instances from all loaded configurations.
 
-    try:
-        proxy = create_proxy(config, name="StaticConfigProxy")
-        mcp.mount(proxy, namespace=namespace)
-        logger.info("Mounted config-based proxy provider from mcp.json (namespace=%s)", namespace or "none")
-        return True
-    except Exception:
-        logger.exception("Failed to mount config-based proxy provider; falling back")
-        return False
+    Args:
+        configs: List of (namespace, config) tuples
 
-
-def mount_single_proxy(mcp: Any, name: str, url: str, transport: str = "http") -> None:
-    """Mount a single proxy server to the MCP instance."""
-    from fastmcp.server import create_proxy
-
-    effective_transport = (transport or "http").lower()
-    logger.info("Mounting proxy '%s' at %s (transport=%s)", name, url, effective_transport)
-
-    config = {
-        "mcpServers": {
-            name: {
-                "url": url,
-                "transport": effective_transport,
-            }
-        }
-    }
-    proxy_server = create_proxy(config, name=name)
-    mcp.mount(proxy_server)
-
-
-def initialize_static_proxies(mcp: Any, config_file: str, host: str, port: int) -> None:
-    """Initialize and mount proxies from one or more static configuration files."""
-    configs = load_config_files(config_file)
-    if not configs:
-        logger.info("No static servers found")
-        print("No static servers found")
-        return
-
-    display_host = "localhost" if host in {"0.0.0.0", "::"} else host
+    Returns:
+        List of (namespace, proxy) tuples
+    """
+    proxies: list[tuple[str, Any]] = []
 
     for namespace, config in configs:
         if not config.get("mcpServers"):
             logger.info("No static servers found in config (namespace=%s)", namespace or "none")
             continue
 
-        # Try to use multi-server proxy provider first (FastMCP v3+)
-        if _try_mount_multi_server_proxy(mcp, config, namespace):
+        try:
+            proxy_name = f"{namespace}-mcp-proxy" if namespace else "mcp-proxy"
+            proxy = create_proxy(config, name=proxy_name)
+            proxies.append((namespace, proxy))
+            logger.debug("Created proxy (namespace=%s, name=%s)", namespace, proxy_name)
+        except Exception:
+            logger.exception("Failed to create proxy for namespace=%s", namespace)
+
+    return proxies
+
+
+def _mount_proxies(mcp: Any, proxies: list[tuple[str, Any]]) -> None:
+    """Mount all proxy instances to the MCP server.
+
+    Args:
+        mcp: MCP server instance
+        proxies: List of (namespace, proxy) tuples
+    """
+    for namespace, proxy in proxies:
+        try:
+            mcp.mount(proxy, namespace=namespace)
+            logger.info("Mounted proxy to MCP server (namespace=%s)", namespace)
+        except Exception:
+            logger.exception("Failed to mount proxy (namespace=%s)", namespace)
+
+
+def setup_static_proxies(mcp: Any, config_dir: str) -> list[Any]:
+    """Initialize and mount proxies from all static configuration files.
+
+    Process:
+    1. Load all config files from directory
+    2. Create proxy instances for each config
+    3. Mount all proxies to the MCP server
+    """
+    # Step 1: Load all config files
+    configs = _load_config_files(config_dir)
+    if not configs:
+        logger.info("No static servers found")
+        print("No static servers found")
+        return []
+
+    # Step 2: Create proxy instances
+    proxies = _create_proxies_from_configs(configs)
+    if not proxies:
+        logger.warning("No proxies could be created from configs")
+        return []
+
+    # Step 3: Mount proxies to MCP server
+    _mount_proxies(mcp, proxies)
+
+    # Return list of proxy instances (without namespaces)
+    return [proxy for _, proxy in proxies]
+
+
+async def warm_up_proxies(proxies: list[Any]) -> None:
+    """Warm up proxied servers by listing tools once."""
+    for proxy in proxies:
+        list_tools = getattr(proxy, "list_tools", None)
+        if list_tools is None:
             continue
-
-        # Fallback to per-server mounting
-        logger.info("Mounting static servers from mcp.json (namespace=%s)", namespace or "none")
-        print(f"Mounting static servers from mcp.json (namespace={namespace or 'none'}):")
-        for name, details in config["mcpServers"].items():
-            url = details.get("url")
-            transport = details.get("transport", "http")
-
-            if url:
-                try:
-                    mount_single_proxy(mcp, name, url, transport)
-                    logger.info(
-                        "Static proxy '%s' loaded (transport=%s) endpoints: http://%s:%s/%s/mcp , http://%s:%s/%s/sse",
-                        name,
-                        transport,
-                        display_host,
-                        port,
-                        name,
-                        display_host,
-                        port,
-                        name,
-                    )
-                    print(f"  ✓ Mounted '{name}' at {url}")
-                except Exception as e:
-                    logger.exception("Failed to mount static server '%s'", name)
-                    print(f"  ✗ Failed to mount '{name}': {e}")
+        try:
+            if inspect.iscoroutinefunction(list_tools):
+                await list_tools()
+            else:
+                list_tools()
+        except Exception:
+            logger.exception("Proxy warm-up failed")

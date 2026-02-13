@@ -61,7 +61,7 @@ RUN mkdir -p /app/data && chown appuser:appuser /app/data
 RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 
 # Consolidate environment variables
-ENV FASTMCP_CONFIG_FILE=/app/data \
+ENV FASTMCP_CONFIG_DIR=/app/data \
     FASTMCP_HOST=0.0.0.0 \
     FASTMCP_PORT=9123 \
     PYTHONPATH=/app/src \
@@ -91,9 +91,5 @@ USER appuser
 
 # Verify both npx and uvx are available (uv already in venv from builder)
 RUN npx --version && uvx --version
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://$FASTMCP_HOST:${FASTMCP_PORT}/health || exit 1
 
 CMD ["python", "src/main.py"]

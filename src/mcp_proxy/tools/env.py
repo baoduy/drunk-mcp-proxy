@@ -3,7 +3,7 @@
 import os
 
 # Configuration files
-CONFIG_FILE = os.environ.get("FASTMCP_CONFIG_FILE", "data")
+CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "data")
 
 # Logging
 LOG_LEVEL = os.environ.get("FASTMCP_LOG_LEVEL", "INFO").upper()

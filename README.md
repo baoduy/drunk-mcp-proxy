@@ -21,7 +21,7 @@ git clone https://github.com/baoduy/drunk-mcp-proxy.git
 cd drunk-mcp-proxy
 ```
 
-2. Edit `data/mcp.json` to add your default MCP servers (or copy from `mcp.example.json`):
+2. Edit `data/*.mcp.json` to add your default MCP servers (or copy from `mcp.example.json`):
 ```json
 {
   "mcpServers": {
@@ -38,8 +38,8 @@ cd drunk-mcp-proxy
 3. Create the data directory for persistent storage:
 ```bash
 mkdir -p data
-cp mcp.example.json data/mcp.json
-# Edit data/mcp.json with your MCP servers
+cp mcp.example.json data/deepwiki.mcp.json
+# Edit data/*.mcp.json with your MCP servers
 ```
 
 4. Start the service:
@@ -57,8 +57,8 @@ docker-compose logs -f
 1. Create the data directory and configuration:
 ```bash
 mkdir -p data
-cp mcp.example.json data/mcp.json
-# Edit data/mcp.json with your MCP servers
+cp mcp.example.json data/deepwiki.mcp.json
+# Edit data/*.mcp.json with your MCP servers
 ```
 
 2. Build the image:
@@ -160,14 +160,14 @@ data/
   finance.mcp.json    -> namespace "finance"
 ```
 
-Set `FASTMCP_CONFIG_FILE` to the directory path (e.g. `./data`) to load all of them.
+Set `FASTMCP_CONFIG_DIR` to the directory path (e.g. `./data`) to load all of them.
 
 
 ### JSON Schema Validation
 
 All configuration files are automatically validated against their JSON schemas:
 
-- **mcp.json**: Validated against `schemas/mcp.schema.json`
+- **mcp.json**: Validated against `schemas/mcp.schema.json` (applies to each `*.mcp.json` file)
 - **auth.json**: Reserved (authentication is configured via environment variables)
 
 Validation errors are logged but non-fatal to allow the server to start. Fix validation errors to ensure proper configuration.
@@ -204,7 +204,7 @@ Provider parameters can be supplied either via:
 
 ## Environment Variables
 
-- `FASTMCP_CONFIG_FILE`: Path to the static configuration directory
+- `FASTMCP_CONFIG_DIR`: Path to the static configuration directory
   - Local development default: `./data`
   - Docker default: `/app/data`
 - `FASTMCP_SERVER_AUTH`: Auth provider class path or alias (e.g. `jwt`, `github`)
@@ -231,7 +231,7 @@ drunk-mcp-proxy/
 │   ├── mcp.schema.json      # Schema for mcp.json
 │   └── auth.schema.json     # Reserved for auth.json if used elsewhere
 ├── data/
-│   ├── mcp.json         # Static server configuration
+│   ├── *.mcp.json       # Static server configuration(s)
 ├── mcp.example.json     # Example MCP server configuration
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile          # Docker image definition
@@ -281,7 +281,7 @@ ports:
 ```
 
 ### Proxy Configuration Not Loading
-1. Check that `data/mcp.json` exists and has valid JSON syntax
+1. Check that `data/*.mcp.json` exists and has valid JSON syntax
 2. Verify file permissions allow reading
 3. Check Docker volume mounts in `docker-compose.yml`
 

@@ -117,13 +117,13 @@ echo ""
 echo "${GREEN}Setting debug environment variables:${NC}"
 export PYTHONUNBUFFERED=1
 export PYTHONDONTWRITEBYTECODE=1
-export FASTMCP_CONFIG_FILE="data"
+export FASTMCP_CONFIG_DIR="data"
 export PYTHONPATH="src"
 export DEBUG=1
 
 echo "  PYTHONUNBUFFERED=1"
 echo "  PYTHONDONTWRITEBYTECODE=1"
-echo "  FASTMCP_CONFIG_FILE=data"
+echo "  FASTMCP_CONFIG_DIR=data"
 echo "  PYTHONPATH=src"
 echo "  DEBUG=1"
 echo ""

@@ -9,9 +9,9 @@ from starlette.responses import JSONResponse
 from .auth import build_auth_provider
 from .middleware import build_middleware
 from .server import resolve_server_bind, run_server_async
-from ..proxies.static_proxies import initialize_static_proxies
+from ..proxies.static_proxies import setup_static_proxies
 from ..tools.env import (
-    CONFIG_FILE,
+    CONFIG_DIR,
     SERVER_TRANSPORT,
     HOST,
     PORT,
@@ -25,14 +25,14 @@ logger = setup_logging("mcp-proxy")
 
 # Initialize FastMCP server
 _auth_provider = build_auth_provider()
-mcp = FastMCP(
+mcp_server = FastMCP(
     SERVER_NAME,
     version=SERVER_VERSION,
     auth=_auth_provider,
 )
 
 
-@mcp.custom_route("/health", methods=["GET"])
+@mcp_server.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "healthy", "service": "drunk-mcp-server"})
 
@@ -46,18 +46,17 @@ async def main_async() -> None:
     host, port = resolve_server_bind(HOST, PORT)
 
     # Initialize proxies from configuration files
-    initialize_static_proxies(mcp, CONFIG_FILE, host, port)
+    proxies = setup_static_proxies(mcp_server, CONFIG_DIR)
+    ##await warm_up_proxies(proxies)
 
-    print("=" * 50)
     print("MCP Proxy Server is ready!")
     print("=" * 50)
 
     # Run the MCP server
-    await run_server_async(mcp, host, port, SERVER_TRANSPORT, build_middleware())
+    await run_server_async(mcp_server, host, port, SERVER_TRANSPORT, build_middleware())
 
 
 def main() -> None:
     """Main entry point for the MCP proxy server."""
     import asyncio
-
     asyncio.run(main_async())

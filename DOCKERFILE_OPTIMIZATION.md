@@ -93,13 +93,13 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 ```dockerfile
 # BEFORE - Multiple blocks
-ENV FASTMCP_CONFIG_FILE=/app/data
+ENV FASTMCP_CONFIG_DIR=/app/data
 ENV FASTMCP_HOST=0.0.0.0
 ...
 ENV HOME=/home/appuser
 
 # AFTER - Single block
-ENV FASTMCP_CONFIG_FILE=/app/data \
+ENV FASTMCP_CONFIG_DIR=/app/data \
     FASTMCP_HOST=0.0.0.0 \
     ...
     HOME=/home/appuser

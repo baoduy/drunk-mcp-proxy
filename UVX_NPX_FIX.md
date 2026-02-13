@@ -86,7 +86,7 @@ RUN npx --version && uv --version
 ### Environment Variables
 
 ```dockerfile
-ENV FASTMCP_CONFIG_FILE=/app/data \
+ENV FASTMCP_CONFIG_DIR=/app/data \
     FASTMCP_HOST=0.0.0.0 \
     FASTMCP_PORT=9123 \
     PYTHONPATH=/app/src \
@@ -248,4 +248,3 @@ Both commands should work correctly.
 **Date**: February 13, 2026  
 **Status**: ✅ Fixed and Verified  
 **Result**: Both `uvx` and `npx` available in container
-

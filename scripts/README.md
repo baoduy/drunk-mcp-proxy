@@ -247,7 +247,7 @@ These scripts set helpful environment variables for development:
 ```bash
 PYTHONUNBUFFERED=1           # Unbuffered Python output
 PYTHONDONTWRITEBYTECODE=1    # Don't write .pyc files
-FASTMCP_CONFIG_FILE          # Path to config directory
+FASTMCP_CONFIG_DIR           # Path to config directory
 PYTHONPATH=src               # Add src to Python path
 DEBUG=1                      # Enable debug mode
 ```
