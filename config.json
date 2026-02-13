@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "default": {
-      "url": "https://example.com/mcp",
-      "transport": "http"
-    }
-  }
-}

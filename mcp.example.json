@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
+      "transport": "http"
+    },
     "weather": {
       "url": "https://weather-api.example.com/mcp",
       "transport": "http"
