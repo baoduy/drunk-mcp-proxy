@@ -39,6 +39,7 @@ env/
 
 # MCP configuration
 proxies.json
+auth.json
 
 # Testing
 .pytest_cache/

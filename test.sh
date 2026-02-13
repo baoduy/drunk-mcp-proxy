@@ -10,8 +10,8 @@ echo ""
 
 # Test 1: Python syntax check
 echo "✓ Test 1: Python syntax check"
-python3 -m py_compile main.py
-echo "  ✓ main.py syntax is valid"
+python3 -m py_compile src/main.py src/auth.py
+echo "  ✓ Source files syntax is valid"
 echo ""
 
 # Test 2: Config file validation
@@ -50,7 +50,7 @@ echo ""
 
 # Test 5: Docker container test
 echo "✓ Test 5: Docker container test"
-docker run --rm drunk-mcp-proxy:test python -c "import main; print('Module imports OK')" > /tmp/docker-test.log 2>&1
+docker run --rm -e PYTHONPATH=/app/src drunk-mcp-proxy:test python -c "import sys; sys.path.insert(0, '/app/src'); import main; print('Module imports OK')" > /tmp/docker-test.log 2>&1
 if [ $? -eq 0 ]; then
     echo "  ✓ Container runs and imports work"
 else

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "default": {
-      "url": "https://example.com/mcp",
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
       "transport": "http"
     }
   }

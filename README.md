@@ -10,6 +10,8 @@ A dynamic proxy server for Model Context Protocol (MCP) built with Python and Fa
 - 🐳 **Docker Support**: Fully containerized with Docker and Docker Compose
 - 🔌 **Multiple Transports**: Support for HTTP and SSE transports
 - 🛠️ **Built-in Tools**: List, add, and manage proxy servers via MCP tools
+- 🔐 **Authentication**: API key-based authentication for secure access
+- 🌐 **DeepWiki Integration**: Pre-configured with DeepWiki MCP server for GitHub documentation access
 
 ## Quick Start
 
@@ -25,13 +27,15 @@ cd drunk-mcp-proxy
 ```json
 {
   "mcpServers": {
-    "default": {
-      "url": "https://example.com/mcp",
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
       "transport": "http"
     }
   }
 }
 ```
+
+> **Note:** The DeepWiki MCP server is pre-configured by default, providing access to GitHub repository documentation.
 
 3. Create the data directory for persistent storage:
 ```bash
@@ -85,7 +89,7 @@ pip install -r requirements.txt
 
 3. Run the server:
 ```bash
-python main.py
+python src/main.py
 ```
 
 ## Configuration
@@ -97,6 +101,10 @@ Define your default MCP servers in `config.json`:
 ```json
 {
   "mcpServers": {
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
+      "transport": "http"
+    },
     "server1": {
       "url": "https://api.example.com/mcp",
       "transport": "http"
@@ -140,16 +148,82 @@ Get information about this MCP proxy server.
 
 **Returns:** Server version, features, and usage information.
 
+## Authentication
+
+The proxy server supports API key-based authentication to secure access to your MCP backend servers. Authentication is **disabled by default** to allow easy setup and testing.
+
+### Authentication Management
+
+Use the `manage_auth` tool to manage authentication:
+
+#### Enable Authentication
+```python
+manage_auth(action="enable")
+```
+
+#### Create an API Key
+```python
+manage_auth(action="create_key", client_name="my-client")
+# Returns: API key (save it securely - it won't be shown again!)
+```
+
+#### Check Authentication Status
+```python
+manage_auth(action="status")
+# Returns: Current authentication status and list of configured clients
+```
+
+#### Revoke an API Key
+```python
+manage_auth(action="revoke_key", client_name="my-client")
+```
+
+#### Disable Authentication
+```python
+manage_auth(action="disable")
+```
+
+### Using API Keys
+
+When authentication is enabled, clients must provide an API key via the `MCP_API_KEY` environment variable:
+
+```bash
+export MCP_API_KEY=your-api-key-here
+python your-client.py
+```
+
+Or in Docker:
+```bash
+docker run -e MCP_API_KEY=your-api-key-here your-client-image
+```
+
+### Security Best Practices
+
+The authentication implementation follows MCP security best practices:
+
+1. **Secure Token Storage**: API keys are hashed using SHA-256 before storage
+2. **Per-Client Authorization**: Each client has a unique API key for tracking and revocation
+3. **No Plaintext Tokens**: Raw API keys are never stored, only their hashes
+4. **Persistent Configuration**: Authentication settings persist in `data/auth.json`
+5. **TLS Support**: Always use HTTPS in production to protect API keys in transit
+
+**Note:** Authentication configuration is stored in `auth.json` (gitignored by default).
+
 ## Environment Variables
 
 - `MCP_CONFIG_FILE`: Path to the static configuration file (default: `config.json`)
 - `MCP_PROXIES_FILE`: Path to the dynamic proxies file (default: `proxies.json`)
+- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file (default: `auth.json`)
+- `MCP_API_KEY`: API key for authentication (when enabled)
+- `PYTHONPATH`: Python module search path (set to `/app/src` for Docker)
 
 ## Project Structure
 
 ```
 drunk-mcp-proxy/
-├── main.py              # Main application code
+├── src/
+│   ├── main.py          # Main application code
+│   └── auth.py          # Authentication module
 ├── config.json          # Static server configuration
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile          # Docker image definition
@@ -169,7 +243,7 @@ pip install -r requirements.txt
 
 2. Run the server:
 ```bash
-python main.py
+python src/main.py
 ```
 
 3. The server will start and display mounted proxies:
@@ -178,7 +252,7 @@ python main.py
 Starting MCP Proxy Server
 ==================================================
 Mounting static servers from config.json:
-  ✓ Mounted 'default' at https://example.com/mcp
+  ✓ Mounted 'deepwiki' at https://mcp.deepwiki.com/mcp
 ==================================================
 MCP Proxy Server is ready!
 ==================================================
@@ -214,6 +288,10 @@ ports:
 ```json
 {
   "mcpServers": {
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
+      "transport": "http"
+    },
     "weather": {
       "url": "https://weather-api.example.com/mcp",
       "transport": "http"

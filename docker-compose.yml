@@ -13,4 +13,6 @@ services:
     environment:
       - MCP_CONFIG_FILE=/app/config.json
       - MCP_PROXIES_FILE=/app/data/proxies.json
+      - MCP_AUTH_CONFIG_FILE=/app/data/auth.json
+      - PYTHONPATH=/app/src
     restart: unless-stopped
