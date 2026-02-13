@@ -5,7 +5,8 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
+import asyncio
 from fastmcp import FastMCP
 from fastmcp.server.proxy import ProxyClient, FastMCPProxy
 
@@ -26,11 +27,11 @@ def load_config() -> Dict[str, Any]:
         with open(CONFIG_FILE, 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading config file: {e}")
+        print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.")
         return {"mcpServers": {}}
 
 
-def load_proxies() -> list:
+def load_proxies() -> List[Dict[str, str]]:
     """Load dynamically added proxies from proxies file."""
     if not os.path.exists(PROXIES_FILE):
         return []
@@ -40,25 +41,29 @@ def load_proxies() -> list:
             data = json.load(f)
             return data.get("proxies", [])
     except Exception as e:
-        print(f"Error loading proxies file: {e}")
+        print(f"Error loading proxies file '{PROXIES_FILE}': {e}. Please verify the file contains valid JSON.")
         return []
 
 
-def save_proxy(name: str, url: str, transport: str = "http") -> None:
-    """Save a proxy configuration to the proxies file."""
-    proxies = load_proxies()
+async def save_proxy_async(name: str, url: str, transport: str = "http") -> None:
+    """Save a proxy configuration to the proxies file asynchronously."""
+    def _save():
+        proxies = load_proxies()
+        
+        # Update existing or add new proxy
+        for p in proxies:
+            if p["name"] == name:
+                p["url"] = url
+                p["transport"] = transport
+                break
+        else:
+            proxies.append({"name": name, "url": url, "transport": transport})
+        
+        with open(PROXIES_FILE, 'w') as f:
+            json.dump({"proxies": proxies}, f, indent=2)
     
-    # Update existing or add new proxy
-    for p in proxies:
-        if p["name"] == name:
-            p["url"] = url
-            p["transport"] = transport
-            break
-    else:
-        proxies.append({"name": name, "url": url, "transport": transport})
-    
-    with open(PROXIES_FILE, 'w') as f:
-        json.dump({"proxies": proxies}, f, indent=2)
+    # Run file I/O in thread pool to avoid blocking event loop
+    await asyncio.to_thread(_save)
 
 
 def mount_proxy(name: str, url: str, transport: str = "http") -> None:
@@ -83,7 +88,7 @@ async def add_proxy(name: str, url: str, transport: str = "http") -> str:
     Returns:
         Success message
     """
-    save_proxy(name, url, transport)
+    await save_proxy_async(name, url, transport)
     mount_proxy(name, url, transport)
     return f"✓ Added and mounted proxy '{name}' at {url}"
 
