@@ -10,10 +10,20 @@ import asyncio
 from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.proxy import ProxyClient, FastMCPProxy
+from auth import (
+    is_auth_enabled,
+    create_api_key,
+    revoke_api_key,
+    enable_authentication,
+    disable_authentication,
+    load_auth_config,
+    validate_api_key,
+)
+from validation import validate_mcp_config, validate_proxies_config
 
 # Configuration file paths
-CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "config.json")
-PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "proxies.json")
+CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "data/mcp.json")
+PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "data/proxies.json")
 
 # Lock for file operations to prevent race conditions
 _proxies_lock = asyncio.Lock()
@@ -29,7 +39,14 @@ def load_config() -> dict[str, Any]:
     
     try:
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+        
+        # Validate configuration against schema
+        if not validate_mcp_config(config):
+            print(f"Warning: Configuration validation failed for '{CONFIG_FILE}'", file=sys.stderr)
+            # Continue with potentially invalid config (non-fatal)
+        
+        return config
     except Exception as e:
         print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.", file=sys.stderr)
         # Exit on critical config error in production/Docker environments
@@ -47,7 +64,12 @@ def load_proxies() -> list[dict[str, str]]:
     try:
         with open(PROXIES_FILE, 'r') as f:
             data = json.load(f)
-            return data.get("proxies", [])
+        
+        # Validate configuration against schema
+        if not validate_proxies_config(data):
+            print(f"Warning: Proxies configuration validation failed for '{PROXIES_FILE}'", file=sys.stderr)
+        
+        return data.get("proxies", [])
     except Exception as e:
         print(f"Error loading proxies file '{PROXIES_FILE}': {e}. Please verify the file contains valid JSON.", file=sys.stderr)
         return []
@@ -68,8 +90,13 @@ async def save_proxy_async(name: str, url: str, transport: str = "http") -> None
             else:
                 proxies.append({"name": name, "url": url, "transport": transport})
             
+            # Validate before saving
+            data = {"proxies": proxies}
+            if not validate_proxies_config(data):
+                raise ValueError("Proxy configuration validation failed")
+            
             with open(PROXIES_FILE, 'w') as f:
-                json.dump({"proxies": proxies}, f, indent=2)
+                json.dump(data, f, indent=2)
         
         # Run file I/O in thread pool to avoid blocking event loop
         await asyncio.to_thread(_save)
@@ -145,7 +172,7 @@ def list_proxies() -> str:
     
     # Add static servers from config
     if config.get("mcpServers"):
-        result.append("Static Servers (from config.json):")
+        result.append("Static Servers (from mcp.json):")
         for name, details in config["mcpServers"].items():
             url = details.get("url", "N/A")
             transport = details.get("transport", "http")
@@ -171,7 +198,8 @@ def get_server_info() -> str:
     Returns:
         Server information
     """
-    return """
+    auth_status = "enabled" if is_auth_enabled() else "disabled"
+    return f"""
 MCP Proxy Server v1.0.0
 -----------------------
 A dynamic proxy server for Model Context Protocol.
@@ -181,10 +209,71 @@ Features:
 - HTTP/SSE transport support
 - Persistent configuration
 - Multiple backend servers
+- API key authentication ({auth_status})
 
 Use 'add_proxy' to add new backend servers.
 Use 'list_proxies' to view all configured servers.
+Use 'manage_auth' for authentication management.
 """
+
+
+@mcp.tool()
+async def manage_auth(action: str, client_name: str = "") -> str:
+    """
+    Manage authentication for the MCP proxy server.
+    
+    Args:
+        action: Action to perform (enable, disable, create_key, revoke_key, status)
+        client_name: Client name (required for create_key and revoke_key)
+    
+    Returns:
+        Result message
+    """
+    if action == "enable":
+        await enable_authentication()
+        return "✓ Authentication enabled. Create API keys for clients using 'create_key' action."
+    
+    elif action == "disable":
+        await disable_authentication()
+        return "✓ Authentication disabled. All requests are now allowed."
+    
+    elif action == "create_key":
+        if not client_name:
+            return "✗ Client name is required for create_key action"
+        
+        try:
+            api_key = await create_api_key(client_name)
+            return f"✓ API key created for '{client_name}':\n\n{api_key}\n\n⚠️  Save this key securely - it won't be shown again!"
+        except Exception as e:
+            return f"✗ Failed to create API key: {e}"
+    
+    elif action == "revoke_key":
+        if not client_name:
+            return "✗ Client name is required for revoke_key action"
+        
+        if await revoke_api_key(client_name):
+            return f"✓ API key revoked for '{client_name}'"
+        else:
+            return f"✗ No API key found for '{client_name}'"
+    
+    elif action == "status":
+        config = load_auth_config()
+        enabled = config.get("enabled", False)
+        api_keys = config.get("api_keys", {})
+        
+        result = [f"Authentication: {'enabled' if enabled else 'disabled'}"]
+        
+        if api_keys:
+            result.append(f"\nConfigured API keys ({len(api_keys)}):")
+            for client in api_keys.keys():
+                result.append(f"  - {client}")
+        else:
+            result.append("\nNo API keys configured")
+        
+        return "\n".join(result)
+    
+    else:
+        return f"✗ Unknown action: {action}. Valid actions: enable, disable, create_key, revoke_key, status"
 
 
 def initialize_static_proxies():
@@ -192,10 +281,10 @@ def initialize_static_proxies():
     config = load_config()
     
     if not config.get("mcpServers"):
-        print("No static servers found in config.json")
+        print("No static servers found in mcp.json")
         return
     
-    print("Mounting static servers from config.json:")
+    print("Mounting static servers from mcp.json:")
     for name, details in config["mcpServers"].items():
         url = details.get("url")
         transport = details.get("transport", "http")

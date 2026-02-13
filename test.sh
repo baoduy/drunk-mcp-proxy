@@ -10,28 +10,36 @@ echo ""
 
 # Test 1: Python syntax check
 echo "✓ Test 1: Python syntax check"
-python3 -m py_compile main.py
-echo "  ✓ main.py syntax is valid"
+python3 -m py_compile src/main.py src/auth.py src/validation.py
+echo "  ✓ Source files syntax is valid"
 echo ""
 
 # Test 2: Config file validation
 echo "✓ Test 2: Config file validation"
-if [ -f config.json ]; then
-    python3 -m json.tool config.json > /dev/null
-    echo "  ✓ config.json is valid JSON"
+# Create data directory and copy config if needed for testing
+mkdir -p data
+if [ ! -f data/mcp.json ] && [ -f mcp.json ]; then
+    cp mcp.json data/mcp.json
+fi
+if [ -f data/mcp.json ]; then
+    python3 -m json.tool data/mcp.json > /dev/null
+    echo "  ✓ data/mcp.json is valid JSON"
+elif [ -f mcp.json ]; then
+    python3 -m json.tool mcp.json > /dev/null
+    echo "  ✓ mcp.json is valid JSON"
 else
-    echo "  ✗ config.json not found"
+    echo "  ✗ mcp.json not found"
     exit 1
 fi
 echo ""
 
 # Test 3: Example config validation
 echo "✓ Test 3: Example config validation"
-if [ -f config.example.json ]; then
-    python3 -m json.tool config.example.json > /dev/null
-    echo "  ✓ config.example.json is valid JSON"
+if [ -f mcp.example.json ]; then
+    python3 -m json.tool mcp.example.json > /dev/null
+    echo "  ✓ mcp.example.json is valid JSON"
 else
-    echo "  ✗ config.example.json not found"
+    echo "  ✗ mcp.example.json not found"
     exit 1
 fi
 echo ""
@@ -50,7 +58,7 @@ echo ""
 
 # Test 5: Docker container test
 echo "✓ Test 5: Docker container test"
-docker run --rm drunk-mcp-proxy:test python -c "import main; print('Module imports OK')" > /tmp/docker-test.log 2>&1
+docker run --rm -e PYTHONPATH=/app/src drunk-mcp-proxy:test python -c "import sys; sys.path.insert(0, '/app/src'); import main; print('Module imports OK')" > /tmp/docker-test.log 2>&1
 if [ $? -eq 0 ]; then
     echo "  ✓ Container runs and imports work"
 else
