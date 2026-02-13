@@ -186,18 +186,31 @@ manage_auth(action="revoke_key", client_name="my-client")
 manage_auth(action="disable")
 ```
 
+### Authentication Model
+
+**Important Note:** The current authentication implementation is designed for **local/trusted environments** where the proxy server manages API keys for backend MCP servers it connects to. 
+
+For production deployments where you need to authenticate **incoming client requests**, you would need to:
+
+1. Implement transport-layer authentication (e.g., HTTP headers, bearer tokens)
+2. Use FastMCP's built-in authentication hooks if available
+3. Deploy behind an API gateway that handles authentication
+
+The `manage_auth` tool currently provides API key management infrastructure that can be extended for request-level authentication in future versions.
+
 ### Using API Keys
 
-When authentication is enabled, clients must provide an API key via the `MCP_API_KEY` environment variable:
+The authentication system stores hashed API keys that can be used to secure connections to backend services. Keys are managed through the `manage_auth` tool:
 
-```bash
-export MCP_API_KEY=your-api-key-here
-python your-client.py
-```
+```python
+# Enable authentication tracking
+manage_auth(action="enable")
 
-Or in Docker:
-```bash
-docker run -e MCP_API_KEY=your-api-key-here your-client-image
+# Create a key for a backend service
+manage_auth(action="create_key", client_name="backend-service")
+
+# Check status
+manage_auth(action="status")
 ```
 
 ### Security Best Practices
@@ -214,11 +227,18 @@ The authentication implementation follows MCP security best practices:
 
 ## Environment Variables
 
-- `MCP_CONFIG_FILE`: Path to the static configuration file (default: `/app/data/mcp.json`)
-- `MCP_PROXIES_FILE`: Path to the dynamic proxies file (default: `/app/data/proxies.json`)
-- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file (default: `/app/data/auth.json`)
-- `MCP_API_KEY`: API key for authentication (when enabled)
-- `PYTHONPATH`: Python module search path (set to `/app/src` for Docker)
+- `MCP_CONFIG_FILE`: Path to the static configuration file
+  - Local development default: `./data/mcp.json`
+  - Docker default: `/app/data/mcp.json`
+- `MCP_PROXIES_FILE`: Path to the dynamic proxies file
+  - Local development default: `./data/proxies.json`
+  - Docker default: `/app/data/proxies.json`
+- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file
+  - Local development default: `./data/auth.json`
+  - Docker default: `/app/data/auth.json`
+- `PYTHONPATH`: Python module search path
+  - Local development: `./src`
+  - Docker: `/app/src`
 
 ## Project Structure
 

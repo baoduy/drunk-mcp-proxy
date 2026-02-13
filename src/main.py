@@ -21,8 +21,8 @@ from auth import (
 )
 
 # Configuration file paths
-CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "/app/data/mcp.json")
-PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "/app/data/proxies.json")
+CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "data/mcp.json")
+PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "data/proxies.json")
 
 # Lock for file operations to prevent race conditions
 _proxies_lock = asyncio.Lock()
@@ -200,7 +200,7 @@ Use 'manage_auth' for authentication management.
 
 
 @mcp.tool()
-def manage_auth(action: str, client_name: str = "") -> str:
+async def manage_auth(action: str, client_name: str = "") -> str:
     """
     Manage authentication for the MCP proxy server.
     
@@ -212,11 +212,11 @@ def manage_auth(action: str, client_name: str = "") -> str:
         Result message
     """
     if action == "enable":
-        enable_authentication()
+        await enable_authentication()
         return "✓ Authentication enabled. Create API keys for clients using 'create_key' action."
     
     elif action == "disable":
-        disable_authentication()
+        await disable_authentication()
         return "✓ Authentication disabled. All requests are now allowed."
     
     elif action == "create_key":
@@ -224,7 +224,7 @@ def manage_auth(action: str, client_name: str = "") -> str:
             return "✗ Client name is required for create_key action"
         
         try:
-            api_key = create_api_key(client_name)
+            api_key = await create_api_key(client_name)
             return f"✓ API key created for '{client_name}':\n\n{api_key}\n\n⚠️  Save this key securely - it won't be shown again!"
         except Exception as e:
             return f"✗ Failed to create API key: {e}"
@@ -233,7 +233,7 @@ def manage_auth(action: str, client_name: str = "") -> str:
         if not client_name:
             return "✗ Client name is required for revoke_key action"
         
-        if revoke_api_key(client_name):
+        if await revoke_api_key(client_name):
             return f"✓ API key revoked for '{client_name}'"
         else:
             return f"✗ No API key found for '{client_name}'"
