@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir uv
 # ============================================================
 FROM --platform=$TARGETPLATFORM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /mcp_proxy
 
 # Create non-root user early
 RUN useradd -m -u 10001 appuser
@@ -55,31 +55,31 @@ COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser schemas/ ./schemas/
 
 # Create data directory
-RUN mkdir -p /app/data && chown appuser:appuser /app/data
+RUN mkdir -p /mcp_proxy/data && chown appuser:appuser /mcp_proxy/data
 
 # Create pip cache directory for runtime installations
 RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 
 # Consolidate environment variables
-ENV FASTMCP_CONFIG_DIR=/app/data \
+ENV FASTMCP_CONFIG_DIR=/mcp_proxy/data \
     FASTMCP_HOST=0.0.0.0 \
     FASTMCP_PORT=9123 \
-    PYTHONPATH=/app/src \
+    PYTHONPATH=/mcp_proxy/src \
     PYTHONUNBUFFERED=1 \
-    HOME=/home/appuser \
-    NPM_CONFIG_PREFIX=/home/appuser/.npm-global \
-    NPM_CONFIG_CACHE=/home/appuser/.npm \
-    UV_CACHE_DIR=/home/appuser/.cache/uv \
-    UV_TOOL_DIR=/home/appuser/.local/uv/tools \
+    HOME=/home/mcp_proxyuser \
+    NPM_CONFIG_PREFIX=/home/mcp_proxyuser/.npm-global \
+    NPM_CONFIG_CACHE=/home/mcp_proxyuser/.npm \
+    UV_CACHE_DIR=/home/mcp_proxyuser/.cache/uv \
+    UV_TOOL_DIR=/home/mcp_proxyuser/.local/uv/tools \
     PIP_CACHE_DIR=/tmp/pip-cache \
-    PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}"
+    PATH="/opt/venv/bin:/home/mcp_proxyuser/.npm-global/bin:/home/mcp_proxyuser/.local/bin:${PATH}"
 
 # Setup user directories
-RUN mkdir -p /home/appuser/.npm-global \
-             /home/appuser/.npm \
-             /home/appuser/.cache/uv \
-             /home/appuser/.local/uv/tools && \
-    chown -R appuser:appuser /home/appuser
+RUN mkdir -p /home/mcp_proxyuser/.npm-global \
+             /home/mcp_proxyuser/.npm \
+             /home/mcp_proxyuser/.cache/uv \
+             /home/mcp_proxyuser/.local/uv/tools && \
+    chown -R appuser:appuser /home/mcp_proxyuser
 
 EXPOSE $FASTMCP_PORT
 
