@@ -64,7 +64,7 @@ RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 ENV FASTMCP_CONFIG_DIR=/mcp_proxy/data \
     FASTMCP_HOST=0.0.0.0 \
     FASTMCP_PORT=9123 \
-    PYTHONPATH=/mcp_proxy/src \
+    PYTHONPATH=/mcp_proxy \
     PYTHONUNBUFFERED=1 \
     HOME=/home/mcp_proxyuser \
     NPM_CONFIG_PREFIX=/home/mcp_proxyuser/.npm-global \
@@ -92,4 +92,4 @@ USER appuser
 # Verify both npx and uvx are available (uv already in venv from builder)
 RUN npx --version && uvx --version
 
-CMD ["python", "src/main.py"]
+CMD ["python", "-m", "src.main"]

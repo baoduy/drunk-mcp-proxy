@@ -31,10 +31,8 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .auth import build_auth_provider
-from .middleware import build_middleware
-from ..proxies.static_proxies import create_static_proxies
-from ..tools.env import (
+from src.proxies.static_proxies import create_static_proxies
+from src.tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
     SERVER_TRANSPORT,
@@ -43,7 +41,9 @@ from ..tools.env import (
     SERVER_NAME,
     SERVER_VERSION,
 )
-from ..tools.logging_config import setup_logging
+from src.tools.logging_config import setup_logging
+from .auth import build_auth_provider
+from .middleware import build_middleware
 
 # Initialize logging with server name from environment
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable

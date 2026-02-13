@@ -34,8 +34,8 @@ import inspect
 import os
 from typing import Union
 
-from ..tools.env import SERVER_NAME
-from ..tools.logging_config import setup_logging
+from src.tools.env import SERVER_NAME
+from src.tools.logging_config import setup_logging
 
 logger = setup_logging(SERVER_NAME)
 
