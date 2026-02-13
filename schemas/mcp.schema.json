@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/baoduy/drunk-mcp-proxy/schemas/mcp.schema.json",
+  "title": "MCP Server Configuration",
+  "description": "Configuration schema for MCP proxy static server definitions",
+  "type": "object",
+  "properties": {
+    "mcpServers": {
+      "type": "object",
+      "description": "Map of server names to their configurations",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "description": "MCP server configuration",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL of the MCP server",
+              "format": "uri",
+              "pattern": "^https?://"
+            },
+            "transport": {
+              "type": "string",
+              "description": "Transport protocol to use",
+              "enum": ["http", "sse", "stdio"],
+              "default": "http"
+            }
+          },
+          "required": ["url"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["mcpServers"],
+  "additionalProperties": false
+}

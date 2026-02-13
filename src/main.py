@@ -19,6 +19,7 @@ from auth import (
     load_auth_config,
     validate_api_key,
 )
+from validation import validate_mcp_config, validate_proxies_config
 
 # Configuration file paths
 CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "data/mcp.json")
@@ -38,7 +39,14 @@ def load_config() -> dict[str, Any]:
     
     try:
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+        
+        # Validate configuration against schema
+        if not validate_mcp_config(config):
+            print(f"Warning: Configuration validation failed for '{CONFIG_FILE}'", file=sys.stderr)
+            # Continue with potentially invalid config (non-fatal)
+        
+        return config
     except Exception as e:
         print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.", file=sys.stderr)
         # Exit on critical config error in production/Docker environments
@@ -56,7 +64,12 @@ def load_proxies() -> list[dict[str, str]]:
     try:
         with open(PROXIES_FILE, 'r') as f:
             data = json.load(f)
-            return data.get("proxies", [])
+        
+        # Validate configuration against schema
+        if not validate_proxies_config(data):
+            print(f"Warning: Proxies configuration validation failed for '{PROXIES_FILE}'", file=sys.stderr)
+        
+        return data.get("proxies", [])
     except Exception as e:
         print(f"Error loading proxies file '{PROXIES_FILE}': {e}. Please verify the file contains valid JSON.", file=sys.stderr)
         return []
@@ -77,8 +90,13 @@ async def save_proxy_async(name: str, url: str, transport: str = "http") -> None
             else:
                 proxies.append({"name": name, "url": url, "transport": transport})
             
+            # Validate before saving
+            data = {"proxies": proxies}
+            if not validate_proxies_config(data):
+                raise ValueError("Proxy configuration validation failed")
+            
             with open(PROXIES_FILE, 'w') as f:
-                json.dump({"proxies": proxies}, f, indent=2)
+                json.dump(data, f, indent=2)
         
         # Run file I/O in thread pool to avoid blocking event loop
         await asyncio.to_thread(_save)

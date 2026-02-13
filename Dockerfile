@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY src/ ./src/
 
+# Copy schemas
+COPY schemas/ ./schemas/
+
 # Create directory for runtime files and copy default config
 RUN mkdir -p /app/data
 COPY mcp.json /app/data/mcp.json

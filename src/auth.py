@@ -14,6 +14,7 @@ import secrets
 import asyncio
 from typing import Optional, Dict, Any
 from functools import wraps
+from validation import validate_auth_config
 
 
 # Auth configuration file
@@ -30,7 +31,13 @@ def load_auth_config() -> Dict[str, Any]:
     
     try:
         with open(AUTH_CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+        
+        # Validate configuration against schema
+        if not validate_auth_config(config):
+            print(f"Warning: Auth configuration validation failed for '{AUTH_CONFIG_FILE}'")
+        
+        return config
     except Exception as e:
         print(f"Warning: Error loading auth config: {e}")
         return {"enabled": False, "api_keys": {}}
@@ -41,6 +48,10 @@ async def save_auth_config_async(config: Dict[str, Any]) -> None:
     async with _auth_lock:  # Prevent race conditions on concurrent writes
         def _save():
             try:
+                # Validate before saving
+                if not validate_auth_config(config):
+                    raise ValueError("Auth configuration validation failed")
+                
                 # Atomic write: write to temp file and rename
                 temp_file = AUTH_CONFIG_FILE + '.tmp'
                 with open(temp_file, 'w') as f:

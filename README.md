@@ -97,6 +97,8 @@ python src/main.py
 
 ## Configuration
 
+All configuration files are validated against JSON schemas to ensure correctness.
+
 ### Static Configuration (mcp.json)
 
 Define your default MCP servers in `data/mcp.json`:
@@ -120,9 +122,30 @@ Define your default MCP servers in `data/mcp.json`:
 }
 ```
 
+**Schema:** `schemas/mcp.schema.json`
+```
+
 ### Dynamic Proxies
 
 Dynamic proxies are added at runtime using the `add_proxy` tool and stored in `data/proxies.json`. These persist across restarts.
+
+**Schema:** `schemas/proxies.schema.json`
+
+### JSON Schema Validation
+
+All configuration files are automatically validated against their JSON schemas:
+
+- **mcp.json**: Validated against `schemas/mcp.schema.json`
+- **proxies.json**: Validated against `schemas/proxies.schema.json`
+- **auth.json**: Validated against `schemas/auth.schema.json`
+
+Validation errors are logged but non-fatal to allow the server to start. Fix validation errors to ensure proper configuration.
+
+**Requirements:**
+- Server name/proxy name: alphanumeric, hyphens, underscores (1-64 chars)
+- URLs: Must be valid HTTP/HTTPS URLs
+- Transport: Must be one of: `http`, `sse`, `stdio`
+- API key hashes: Must be 64-character hex strings (SHA-256)
 
 ## Available Tools
 
@@ -246,7 +269,12 @@ The authentication implementation follows MCP security best practices:
 drunk-mcp-proxy/
 ├── src/
 │   ├── main.py          # Main application code
-│   └── auth.py          # Authentication module
+│   ├── auth.py          # Authentication module
+│   └── validation.py    # JSON schema validation
+├── schemas/
+│   ├── mcp.schema.json      # Schema for mcp.json
+│   ├── proxies.schema.json  # Schema for proxies.json
+│   └── auth.schema.json     # Schema for auth.json
 ├── data/
 │   ├── mcp.json         # Static server configuration
 │   ├── proxies.json     # Dynamic proxies (created at runtime)
