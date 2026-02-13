@@ -5,6 +5,5 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 
 from mcp_proxy.server.app import main
 
-
 if __name__ == "__main__":
     main()

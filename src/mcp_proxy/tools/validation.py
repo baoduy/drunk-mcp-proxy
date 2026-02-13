@@ -1,103 +1,217 @@
 """
 JSON Schema validation module for configuration files.
-Validates mcp.json against its schema.
+
+This module provides JSON schema validation for MCP configuration files,
+ensuring that loaded configurations conform to the expected structure
+before they're used to create proxies.
+
+Validation Features:
+- Validates mcp.json files against mcp.schema.json
+- Validates auth.json files against auth.schema.json
+- Gracefully handles missing jsonschema package
+- Provides detailed error messages with path information
+
+Schema Location:
+    schemas/
+    ├── mcp.schema.json     - MCP server configuration schema
+    └── auth.schema.json    - Authentication configuration schema
+
+Dependencies:
+    - jsonschema (optional): If not installed, validation is skipped
 """
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Union
 
+# Conditional Import: jsonschema is optional
+# If not available, validation will be skipped with a warning
 try:
     from jsonschema import validate, ValidationError, Draft7Validator, FormatChecker
 
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
-    ValidationError = None
-    Draft7Validator = None
-    FormatChecker = None
+    validate = None  # type: ignore
+    ValidationError = None  # type: ignore
+    Draft7Validator = None  # type: ignore
+    FormatChecker = None  # type: ignore
 
-# Schema file paths
+# Type Definitions
+# ================
+# Recursive type for representing any valid JSON value
+JsonValue = Union[str, int, float, bool, None, dict[str, "JsonValue"], list["JsonValue"]]
+# Configuration dictionary type
+ConfigDict = dict[str, JsonValue]
+# Schema dictionary type
+SchemaDict = dict[str, JsonValue]
+
+# Schema File Paths
+# =================
+# Schemas are located in the schemas/ directory at project root
 SCHEMA_DIR = Path(__file__).resolve().parents[3] / "schemas"
 MCP_SCHEMA = SCHEMA_DIR / "mcp.schema.json"
 AUTH_SCHEMA = SCHEMA_DIR / "auth.schema.json"
 
 
-def load_schema(schema_path: Path) -> Optional[Dict[str, Any]]:
-    """Load a JSON schema from file."""
+# Schema Loading
+# ==============
+
+
+def load_schema(schema_path: Path) -> SchemaDict | None:
+    """
+    Load a JSON schema file from disk.
+
+    Reads and parses a JSON schema file, handling errors gracefully.
+    Used internally by validation functions to load schema definitions.
+
+    Args:
+        schema_path: Path to the JSON schema file
+
+    Returns:
+        Parsed schema dictionary, or None if loading fails
+
+    Error Handling:
+        - Missing file: Prints warning and returns None
+        - Invalid JSON: Prints error and returns None
+        - Other errors: Prints error and returns None
+
+    Example:
+        schema = load_schema(Path("schemas/mcp.schema.json"))
+    """
+    # Check if schema file exists
     if not schema_path.exists():
         print(f"Warning: Schema file not found: {schema_path}")
         return None
 
     try:
+        # Read and parse JSON schema
         with open(schema_path, 'r') as f:
-            return json.load(f)
+            schema: SchemaDict = json.load(f)
+            return schema
     except Exception as e:
         print(f"Error loading schema from {schema_path}: {e}")
         return None
 
 
-def validate_config(config: Dict[str, Any], schema_path: Path, config_name: str = "config") -> bool:
+# Validation Functions
+# ====================
+
+
+def validate_config(config: ConfigDict, schema_path: Path, config_name: str = "config") -> bool:
     """
     Validate a configuration dictionary against a JSON schema.
+
+    This is the core validation function that checks if a configuration
+    conforms to its schema definition. It uses the jsonschema library
+    for validation and provides user-friendly error messages.
+
+    Validation Behavior:
+        - If jsonschema is not installed: Always returns True (validation skipped)
+        - If schema cannot be loaded: Returns True (validation skipped)
+        - If validation passes: Returns True
+        - If validation fails: Prints error details and returns False
+
+    Error Information:
+        The function prints detailed error information including:
+        - Path to the invalid field (e.g., "mcpServers -> stock -> command")
+        - Validation error message (e.g., "Field is required")
 
     Args:
         config: Configuration dictionary to validate
         schema_path: Path to the JSON schema file
-        config_name: Name of the config (for error messages)
+        config_name: Name for error messages (default: "config")
 
     Returns:
-        True if validation passes, False otherwise
+        True if validation passes or is skipped, False if validation fails
+
+    Example:
+        config = {"mcpServers": {...}}
+        is_valid = validate_config(config, MCP_SCHEMA, "stock.mcp.json")
+        if not is_valid:
+            print("Configuration is invalid!")
     """
+    # Skip validation if jsonschema package not available
     if not JSONSCHEMA_AVAILABLE:
         return True  # Skip validation if jsonschema not installed
 
+    # Load the schema
     schema = load_schema(schema_path)
     if schema is None:
         return True  # Skip validation if schema can't be loaded
 
     try:
+        # Perform validation with format checking (e.g., email, uri)
         validate(instance=config, schema=schema, format_checker=FormatChecker())
         return True
+
     except ValidationError as e:
+        # Validation failed - print detailed error information
         print(f"Validation error in {config_name}:")
+        # Build path string showing where the error occurred
         print(f"  Path: {' -> '.join(str(p) for p in e.path) if e.path else 'root'}")
         print(f"  Error: {e.message}")
         return False
+
     except Exception as e:
+        # Unexpected error during validation
         print(f"Unexpected error validating {config_name}: {e}")
         return False
 
 
-def validate_mcp_config(config: Dict[str, Any]) -> bool:
-    """Validate MCP server configuration (mcp.json)."""
+# Configuration-Specific Validators
+# ==================================
+
+
+def validate_mcp_config(config: ConfigDict) -> bool:
+    """
+    Validate MCP server configuration (mcp.json).
+
+    Convenience function for validating MCP server configurations.
+    Uses the mcp.schema.json schema file.
+
+    Expected Structure:
+        {
+            "mcpServers": {
+                "server_name": {
+                    "command": "python",
+                    "args": ["server.py"],
+                    "env": {...}
+                }
+            }
+        }
+
+    Args:
+        config: MCP configuration dictionary to validate
+
+    Returns:
+        True if valid or validation skipped, False if invalid
+
+    Example:
+        config = load_config_file("stock.mcp.json")
+        if validate_mcp_config(config):
+            proxy = create_proxy(config)
+    """
     return validate_config(config, MCP_SCHEMA, "mcp.json")
 
 
-def validate_auth_config(config: Dict[str, Any]) -> bool:
-    """Validate authentication configuration (auth.json)."""
-    return validate_config(config, AUTH_SCHEMA, "auth.json")
-
-
-def get_schema_errors(config: Dict[str, Any], schema_path: Path) -> list:
+def validate_auth_config(config: ConfigDict) -> bool:
     """
-    Get detailed validation errors for a configuration.
+    Validate authentication configuration (auth.json).
+
+    Convenience function for validating authentication configurations.
+    Uses the auth.schema.json schema file.
+
+    Args:
+        config: Auth configuration dictionary to validate
 
     Returns:
-        List of error messages
+        True if valid or validation skipped, False if invalid
+
+    Example:
+        config = load_config_file("auth.json")
+        if validate_auth_config(config):
+            # Use auth configuration
+            pass
     """
-    if not JSONSCHEMA_AVAILABLE:
-        return []
-
-    schema = load_schema(schema_path)
-    if schema is None:
-        return []
-
-    validator = Draft7Validator(schema, format_checker=FormatChecker())
-    errors = []
-
-    for error in validator.iter_errors(config):
-        path = ' -> '.join(str(p) for p in error.path) if error.path else 'root'
-        errors.append(f"At {path}: {error.message}")
-
-    return errors
+    return validate_config(config, AUTH_SCHEMA, "auth.json")
