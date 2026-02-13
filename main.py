@@ -33,7 +33,7 @@ def load_config() -> dict[str, Any]:
     except Exception as e:
         print(f"Error loading config file '{CONFIG_FILE}': {e}. Please verify the file exists and contains valid JSON.", file=sys.stderr)
         # Exit on critical config error in production/Docker environments
-        if os.environ.get("MCP_CONFIG_FILE"):
+        if os.environ.get("MCP_CONFIG_FILE", "").strip():
             print(f"Critical: Custom config file specified but failed to load. Exiting.", file=sys.stderr)
             sys.exit(1)
         return {"mcpServers": {}}
@@ -103,7 +103,7 @@ async def add_proxy(name: str, url: str, transport: str = "http") -> str:
     """
     # Prevent conflicts with statically configured servers
     config = load_config()
-    static_servers = config.get("mcpServers", {}) or {}
+    static_servers = config.get("mcpServers", {})
     if name in static_servers:
         return (
             f"✗ Cannot add proxy '{name}': a static server with this name is already "
