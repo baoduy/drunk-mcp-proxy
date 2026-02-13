@@ -6,12 +6,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount config file
-      - ./config.json:/app/config.json:ro
-      # Mount data directory for persistent dynamic proxies
+      # Mount data directory for all configuration files
       - ./data:/app/data
     environment:
-      - MCP_CONFIG_FILE=/app/config.json
+      - MCP_CONFIG_FILE=/app/data/mcp.json
       - MCP_PROXIES_FILE=/app/data/proxies.json
       - MCP_AUTH_CONFIG_FILE=/app/data/auth.json
       - PYTHONPATH=/app/src

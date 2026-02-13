@@ -23,7 +23,7 @@ git clone https://github.com/baoduy/drunk-mcp-proxy.git
 cd drunk-mcp-proxy
 ```
 
-2. Edit `config.json` to add your default MCP servers:
+2. Edit `data/mcp.json` to add your default MCP servers (or copy from `mcp.example.json`):
 ```json
 {
   "mcpServers": {
@@ -40,6 +40,8 @@ cd drunk-mcp-proxy
 3. Create the data directory for persistent storage:
 ```bash
 mkdir -p data
+cp mcp.example.json data/mcp.json
+# Edit data/mcp.json with your MCP servers
 ```
 
 4. Start the service:
@@ -54,9 +56,11 @@ docker-compose logs -f
 
 ### Using Docker
 
-1. Create the data directory for persistent storage:
+1. Create the data directory and configuration:
 ```bash
 mkdir -p data
+cp mcp.example.json data/mcp.json
+# Edit data/mcp.json with your MCP servers
 ```
 
 2. Build the image:
@@ -68,7 +72,6 @@ docker build -t drunk-mcp-proxy .
 ```bash
 docker run -d \
   -p 8000:8000 \
-  -v $(pwd)/config.json:/app/config.json:ro \
   -v $(pwd)/data:/app/data \
   --name mcp-proxy \
   drunk-mcp-proxy
@@ -94,9 +97,9 @@ python src/main.py
 
 ## Configuration
 
-### Static Configuration (config.json)
+### Static Configuration (mcp.json)
 
-Define your default MCP servers in `config.json`:
+Define your default MCP servers in `data/mcp.json`:
 
 ```json
 {
@@ -119,7 +122,7 @@ Define your default MCP servers in `config.json`:
 
 ### Dynamic Proxies
 
-Dynamic proxies are added at runtime using the `add_proxy` tool and stored in `proxies.json`. These persist across restarts.
+Dynamic proxies are added at runtime using the `add_proxy` tool and stored in `data/proxies.json`. These persist across restarts.
 
 ## Available Tools
 
@@ -207,13 +210,13 @@ The authentication implementation follows MCP security best practices:
 4. **Persistent Configuration**: Authentication settings persist in `data/auth.json`
 5. **TLS Support**: Always use HTTPS in production to protect API keys in transit
 
-**Note:** Authentication configuration is stored in `auth.json` (gitignored by default).
+**Note:** Authentication configuration is stored in `data/auth.json` (gitignored by default).
 
 ## Environment Variables
 
-- `MCP_CONFIG_FILE`: Path to the static configuration file (default: `config.json`)
-- `MCP_PROXIES_FILE`: Path to the dynamic proxies file (default: `proxies.json`)
-- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file (default: `auth.json`)
+- `MCP_CONFIG_FILE`: Path to the static configuration file (default: `/app/data/mcp.json`)
+- `MCP_PROXIES_FILE`: Path to the dynamic proxies file (default: `/app/data/proxies.json`)
+- `MCP_AUTH_CONFIG_FILE`: Path to the authentication configuration file (default: `/app/data/auth.json`)
 - `MCP_API_KEY`: API key for authentication (when enabled)
 - `PYTHONPATH`: Python module search path (set to `/app/src` for Docker)
 
@@ -224,7 +227,11 @@ drunk-mcp-proxy/
 ├── src/
 │   ├── main.py          # Main application code
 │   └── auth.py          # Authentication module
-├── config.json          # Static server configuration
+├── data/
+│   ├── mcp.json         # Static server configuration
+│   ├── proxies.json     # Dynamic proxies (created at runtime)
+│   └── auth.json        # Authentication config (created at runtime)
+├── mcp.example.json     # Example MCP server configuration
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile          # Docker image definition
 ├── docker-compose.yml  # Docker Compose configuration
@@ -251,7 +258,7 @@ python src/main.py
 ==================================================
 Starting MCP Proxy Server
 ==================================================
-Mounting static servers from config.json:
+Mounting static servers from mcp.json:
   ✓ Mounted 'deepwiki' at https://mcp.deepwiki.com/mcp
 ==================================================
 MCP Proxy Server is ready!
@@ -273,7 +280,7 @@ ports:
 ```
 
 ### Proxy Configuration Not Loading
-1. Check that `config.json` exists and has valid JSON syntax
+1. Check that `data/mcp.json` exists and has valid JSON syntax
 2. Verify file permissions allow reading
 3. Check Docker volume mounts in `docker-compose.yml`
 

@@ -16,22 +16,22 @@ echo ""
 
 # Test 2: Config file validation
 echo "✓ Test 2: Config file validation"
-if [ -f config.json ]; then
-    python3 -m json.tool config.json > /dev/null
-    echo "  ✓ config.json is valid JSON"
+if [ -f mcp.json ]; then
+    python3 -m json.tool mcp.json > /dev/null
+    echo "  ✓ mcp.json is valid JSON"
 else
-    echo "  ✗ config.json not found"
+    echo "  ✗ mcp.json not found"
     exit 1
 fi
 echo ""
 
 # Test 3: Example config validation
 echo "✓ Test 3: Example config validation"
-if [ -f config.example.json ]; then
-    python3 -m json.tool config.example.json > /dev/null
-    echo "  ✓ config.example.json is valid JSON"
+if [ -f mcp.example.json ]; then
+    python3 -m json.tool mcp.example.json > /dev/null
+    echo "  ✓ mcp.example.json is valid JSON"
 else
-    echo "  ✗ config.example.json not found"
+    echo "  ✗ mcp.example.json not found"
     exit 1
 fi
 echo ""

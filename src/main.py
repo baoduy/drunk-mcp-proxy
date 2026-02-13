@@ -21,8 +21,8 @@ from auth import (
 )
 
 # Configuration file paths
-CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "config.json")
-PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "proxies.json")
+CONFIG_FILE = os.environ.get("MCP_CONFIG_FILE", "/app/data/mcp.json")
+PROXIES_FILE = os.environ.get("MCP_PROXIES_FILE", "/app/data/proxies.json")
 
 # Lock for file operations to prevent race conditions
 _proxies_lock = asyncio.Lock()
@@ -154,7 +154,7 @@ def list_proxies() -> str:
     
     # Add static servers from config
     if config.get("mcpServers"):
-        result.append("Static Servers (from config.json):")
+        result.append("Static Servers (from mcp.json):")
         for name, details in config["mcpServers"].items():
             url = details.get("url", "N/A")
             transport = details.get("transport", "http")
@@ -263,10 +263,10 @@ def initialize_static_proxies():
     config = load_config()
     
     if not config.get("mcpServers"):
-        print("No static servers found in config.json")
+        print("No static servers found in mcp.json")
         return
     
-    print("Mounting static servers from config.json:")
+    print("Mounting static servers from mcp.json:")
     for name, details in config["mcpServers"].items():
         url = details.get("url")
         transport = details.get("transport", "http")

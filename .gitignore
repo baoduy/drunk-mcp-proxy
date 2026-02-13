@@ -38,8 +38,9 @@ env/
 .env.local
 
 # MCP configuration
-proxies.json
-auth.json
+data/proxies.json
+data/auth.json
+data/mcp.json
 
 # Testing
 .pytest_cache/

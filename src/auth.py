@@ -15,7 +15,7 @@ from functools import wraps
 
 
 # Auth configuration file
-AUTH_CONFIG_FILE = os.environ.get("MCP_AUTH_CONFIG_FILE", "auth.json")
+AUTH_CONFIG_FILE = os.environ.get("MCP_AUTH_CONFIG_FILE", "/app/data/auth.json")
 
 
 def load_auth_config() -> Dict[str, Any]:
