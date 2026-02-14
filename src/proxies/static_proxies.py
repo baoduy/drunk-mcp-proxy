@@ -21,7 +21,7 @@ import json
 import os
 from logging import Logger
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, TYPE_CHECKING
 
 from fastmcp import FastMCP
 from fastmcp.server import create_proxy
@@ -30,6 +30,9 @@ from fastmcp.server.providers.proxy import FastMCPProxy
 from src.tools.env import SERVER_NAME, SERVER_VERSION
 from src.tools.logging_config import setup_logging
 from src.tools.validation import validate_mcp_config
+
+if TYPE_CHECKING:
+    from fastmcp.server.auth import AuthProvider
 
 
 # Type Definitions
@@ -321,7 +324,7 @@ class StaticProxyLoader:
     def build_mcp_servers(
             self,
             root_server: FastMCP,
-            auth_provider: object | None = None
+            auth_provider: "AuthProvider | None" = None
     ) -> list[tuple[str | None, FastMCP]]:
         """
         Build FastMCP servers and mount all proxies with namespace handling.

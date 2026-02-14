@@ -25,6 +25,7 @@ Supported Transports:
 """
 
 from functools import partial
+from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
 from fastmcp.server.http import StarletteWithLifespan
@@ -34,6 +35,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
+from src.proxies.openapi_proxies import OpenApiMcpProxyLoader
 from src.proxies.static_proxies import StaticProxyLoader
 from src.tools.env import (
     CONFIG_DIR,
@@ -47,6 +49,9 @@ from src.tools.logging_config import setup_logging
 from .auth import build_auth_provider
 from .lifespan import AppLifespanManager
 from .middleware import build_middleware
+
+if TYPE_CHECKING:
+    pass
 
 # Initialize logging with server name from environment
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable
@@ -67,7 +72,7 @@ class MCPProxyServer:
 
     Attributes:
         logger: Logger instance for server logs
-        auth_provider: Authentication provider instance
+        auth_provider: Authentication provider instance (AuthProvider | None)
         lifespan_manager: Manager for application lifespan handling
     """
 
@@ -265,16 +270,31 @@ class MCPProxyServer:
 
             # Step 1: Load and build proxy servers using StaticProxyLoader
             self.logger.info("Loading proxy configurations from %s", CONFIG_DIR)
-            loader = StaticProxyLoader(CONFIG_DIR)
+            static_loader = StaticProxyLoader(CONFIG_DIR)
 
             # Create root FastMCP server and build all proxy servers
             root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION, auth=self.auth_provider)
-            mcp_list = loader.build_mcp_servers(root_mcp, auth_provider=self.auth_provider)
+            mcp_list = static_loader.build_mcp_servers(root_mcp, auth_provider=self.auth_provider)
 
             if not mcp_list or len(mcp_list) == 1:
-                self.logger.warning("No proxies loaded from configuration directory")
+                self.logger.warning("No static proxies loaded from configuration directory")
             else:
-                self.logger.info("Loaded and built %d proxy server(s)", len(mcp_list) - 1)
+                self.logger.info("Loaded and built %d static proxy server(s)", len(mcp_list) - 1)
+
+            # Step 2: Load and build OpenAPI servers using OpenApiMcpProxyLoader
+            self.logger.info("Loading OpenAPI configurations from %s", CONFIG_DIR)
+            openapi_loader = OpenApiMcpProxyLoader(CONFIG_DIR)
+            openapi_servers = openapi_loader.load_all_servers(auth_provider=self.auth_provider)
+
+            if not openapi_servers:
+                self.logger.info("No OpenAPI servers loaded from configuration directory")
+            else:
+                self.logger.info("Loaded and built %d OpenAPI server(s)", len(openapi_servers))
+                # Merge OpenAPI servers into the main server list
+                mcp_list.extend(openapi_servers)
+
+            total_servers = len(mcp_list) - 1 if mcp_list else 0  # Subtract 1 for root server
+            self.logger.info("Total MCP servers loaded: %d", total_servers)
 
             print("MCP Proxy Server is ready!")
             print("=" * 50)

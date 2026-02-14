@@ -32,10 +32,13 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
-from typing import Union
+from typing import Union, TYPE_CHECKING
 
 from src.tools.env import SERVER_NAME
 from src.tools.logging_config import setup_logging
+
+if TYPE_CHECKING:
+    from fastmcp.server.auth import AuthProvider
 
 logger = setup_logging(SERVER_NAME)
 
@@ -253,7 +256,7 @@ def _env_kwargs_for_provider(provider_cls: type) -> dict[str, Union[bool, list[s
 # ====================
 
 
-def build_auth_provider() -> object | None:
+def build_auth_provider() -> "AuthProvider | None":
     """
     Build a FastMCP auth provider from environment variables.
 

@@ -58,7 +58,7 @@ import json
 import os
 from logging import Logger
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import httpx
 from fastmcp import FastMCP
@@ -66,6 +66,9 @@ from fastmcp.server.providers.openapi import OpenAPIProvider
 
 from src.tools.env import SERVER_NAME, SERVER_VERSION
 from src.tools.logging_config import setup_logging
+
+if TYPE_CHECKING:
+    from fastmcp.server.auth import AuthProvider
 
 # Type Definitions
 # ================
@@ -279,7 +282,7 @@ class OpenApiMcpProxyLoader:
     def create_servers_from_specs(
             self,
             specs: list[tuple[str, OpenAPISpec]],
-            auth_provider: object | None = None
+            auth_provider: "AuthProvider | None" = None
     ) -> list[tuple[str, FastMCP]]:
         """
         Create FastMCP servers from all loaded OpenAPI specifications.
@@ -392,7 +395,7 @@ class OpenApiMcpProxyLoader:
     def build_mcp_servers(
             self,
             root_server: FastMCP,
-            auth_provider: object | None = None
+            auth_provider: "AuthProvider | None" = None
     ) -> list[tuple[str | None, FastMCP]]:
         """
         Build FastMCP servers from OpenAPI specifications and mount them to the root server.
@@ -468,7 +471,7 @@ class OpenApiMcpProxyLoader:
     # Public API Methods
     # ==================
 
-    def load_all_servers(self, auth_provider: object | None = None) -> list[tuple[str, FastMCP]]:
+    def load_all_servers(self, auth_provider: "AuthProvider | None" = None) -> list[tuple[str, FastMCP]]:
         """
         Load and create all FastMCP servers from OpenAPI specification files.
 
@@ -560,7 +563,7 @@ class OpenApiMcpProxyLoader:
 # Legacy Function API for Backward Compatibility
 # ===============================================
 
-def create_openapi_servers(config_dir: str, auth_provider: object | None = None) -> list[tuple[str, FastMCP]]:
+def create_openapi_servers(config_dir: str, auth_provider: "AuthProvider | None" = None) -> list[tuple[str, FastMCP]]:
     """
     Create FastMCP servers from all OpenAPI specification files (Legacy API).
 
