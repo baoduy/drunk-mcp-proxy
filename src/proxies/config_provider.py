@@ -119,6 +119,80 @@ class ProxyConfigProvider:
         self._load_configs()
         return [config for config in self.configs if config.spec_type == spec_type and config.spec_data is not None]
     
+    def _get_mcp_services(self) -> list[McpProxyConfig]:
+        """
+        Set up MCP services based on loaded MCP configurations.
+        
+        This method creates FastMCP server instances for each MCP configuration
+        and returns a list of McpProxyConfig containing the server details.
+        
+        Returns:
+            List of McpProxyConfig instances with initialized FastMCP servers
+        """
+        mcp_configs = self.mcp_configs
+        if(len(mcp_configs) == 0):
+            self.logger.warning("No MCP configurations found in config file")
+            return []
+        
+        root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
+        
+        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(name="root", mcp_server=root_mcp)]
+
+        for config in mcp_configs:
+            if(config.spec_data is None):
+                self.logger.warning(f"Skipping MCP config '{config.name}' because spec_data is None")
+                continue
+           
+            proxy = create_proxy(config.spec_data, name=config.name)
+            if(config.path=="/"):
+                root_mcp.mount(proxy,namespace=config.namespace)
+                self.logger.info(f"Set up MCP proxy for config: {config.name} at root (path='/')")
+            else:
+                mcp = FastMCP(f"{SERVER_NAME}-{config.name}", version=SERVER_VERSION)
+                mcp.mount(proxy,namespace=config.namespace)
+                mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
+                self.logger.info(f"Set up MCP proxy for config: {config.name}, path='{config.path}')")
+           
+        return mcp_proxy_configs
+    
+    def _get_openapi_services(self) -> list[McpProxyConfig]:
+        """
+        Set up MCP services based on loaded MCP configurations.
+        
+        This method creates FastMCP server instances for each MCP configuration
+        and returns a list of McpProxyConfig containing the server details.
+        
+        Returns:
+            List of McpProxyConfig instances with initialized FastMCP servers
+        """
+        openapi_configs = self.openapi_configs
+        if(len(openapi_configs) == 0):
+            self.logger.warning("No OpenAPI configurations found in config file")
+            return []
+        
+        root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
+        
+        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(name="root", mcp_server=root_mcp)]
+
+        for config in openapi_configs:
+            if(config.spec_data is None):
+                self.logger.warning(f"Skipping OpenAPI config '{config.name}' because spec_data is None")
+                continue
+           
+            assert config.base_url is not None
+            client = httpx.AsyncClient(base_url=config.base_url)
+            mcp = mcp = FastMCP.from_openapi(
+                    name=f"{SERVER_NAME}-{config.name}",
+                    openapi_spec=config.spec_data, 
+                    client=client,
+                    route_maps=[RouteMap(mcp_type=MCPType.TOOL),
+                                #RouteMap(tags={"internal"}, mcp_type=MCPType.EXCLUDE)
+                                ]
+            )
+            mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
+            self.logger.info(f"Set up OpenAPI proxy for config: {config.name}, path='{config.path}')")
+        return mcp_proxy_configs
+    
     def get_config_services(self) -> list[McpProxyConfig]:
         """
         Set up MCP services based on loaded MCP configurations.
@@ -129,42 +203,9 @@ class ProxyConfigProvider:
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
-        mcp_configs = self._load_configs()
-        if(len(mcp_configs) == 0):
-            self.logger.warning("No MCP configurations found in config file")
-            return []
-        
-        root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
-        
-        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(name="root", mcp_server=root_mcp)]
-
-        for config in mcp_configs:
-           if(config.spec_data is None):
-                self.logger.warning(f"Skipping MCP config '{config.name}' because spec_data is None")
-                continue
-           if(config.spec_type == SpecType.MCP):
-                proxy = create_proxy(config.spec_data, name=config.name)
-                if(config.path=="/"):
-                    root_mcp.mount(proxy,namespace=config.namespace)
-                    self.logger.info(f"Set up MCP proxy for config: {config.name} at root (path='/')")
-                else:
-                    mcp = FastMCP(f"{SERVER_NAME}-{config.name}", version=SERVER_VERSION)
-                    mcp.mount(proxy,namespace=config.namespace)
-                    mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
-                    self.logger.info(f"Set up MCP proxy for config: {config.name}, path='{config.path}')")
-           else:
-                assert config.base_url is not None
-                client = httpx.AsyncClient(base_url=config.base_url)
-                mcp = mcp = FastMCP.from_openapi(
-                    name=f"{SERVER_NAME}-{config.name}",
-                    openapi_spec=config.spec_data, 
-                    client=client,
-                    route_maps=[RouteMap(mcp_type=MCPType.TOOL),
-                                #RouteMap(tags={"internal"}, mcp_type=MCPType.EXCLUDE)
-                                ]
-                )
-                mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
-                self.logger.info(f"Set up OpenAPI proxy for config: {config.name}, path='{config.path}')")
+        mcp_proxy_configs = self._get_mcp_services()
+        openapi_proxy_configs = self._get_openapi_services()
+        mcp_proxy_configs.extend(openapi_proxy_configs)
         return mcp_proxy_configs
            
     @property
