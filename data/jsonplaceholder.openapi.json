@@ -1,0 +1,292 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "JSONPlaceholder API",
+    "description": "Free fake REST API for testing and prototyping",
+    "contact": {
+      "name": "JSONPlaceholder",
+      "url": "https://jsonplaceholder.typicode.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://jsonplaceholder.typicode.com"
+    }
+  ],
+  "paths": {
+    "/posts": {
+      "get": {
+        "summary": "Get all posts",
+        "description": "Returns a list of all posts",
+        "operationId": "getAllPosts",
+        "parameters": [
+          {
+            "name": "_start",
+            "in": "query",
+            "description": "Start index",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "_limit",
+            "in": "query",
+            "description": "Limit number of results",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Post"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/posts/{id}": {
+      "get": {
+        "summary": "Get a post by ID",
+        "description": "Returns a single post by its ID",
+        "operationId": "getPostById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Post ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found"
+          }
+        }
+      }
+    },
+    "/posts/{id}/comments": {
+      "get": {
+        "summary": "Get comments for a post",
+        "description": "Returns all comments for a given post ID",
+        "operationId": "getPostComments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Post ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Comment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "Get all users",
+        "description": "Returns a list of all users",
+        "operationId": "getAllUsers",
+        "responses": {
+          "200": {
+            "description": "Array of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "summary": "Get a user by ID",
+        "description": "Returns a single user by their ID",
+        "operationId": "getUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Post": {
+        "type": "object",
+        "required": [
+          "userId",
+          "id",
+          "title",
+          "body"
+        ],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "description": "ID of the user who created the post"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Post ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Post title"
+          },
+          "body": {
+            "type": "string",
+            "description": "Post content"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "required": [
+          "postId",
+          "id",
+          "name",
+          "email",
+          "body"
+        ],
+        "properties": {
+          "postId": {
+            "type": "integer",
+            "description": "ID of the post this comment belongs to"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Comment ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Comment title/name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Commenter's email"
+          },
+          "body": {
+            "type": "string",
+            "description": "Comment content"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "username",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "User ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "User's full name"
+          },
+          "username": {
+            "type": "string",
+            "description": "User's username"
+          },
+          "email": {
+            "type": "string",
+            "description": "User's email address"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "zipcode": {
+                "type": "string"
+              }
+            }
+          },
+          "phone": {
+            "type": "string",
+            "description": "User's phone number"
+          },
+          "website": {
+            "type": "string",
+            "description": "User's website"
+          }
+        }
+      }
+    }
+  }
+}
+
