@@ -24,19 +24,17 @@ Supported Transports:
 - streamable-http: HTTP with streaming support
 """
 
-from contextlib import asynccontextmanager
-from typing import AsyncContextManager
+from functools import partial
 
 from fastmcp import FastMCP
 from fastmcp.server.http import StarletteWithLifespan
-from fastmcp.server.providers.proxy import FastMCPProxy
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from src.proxies.static_proxies import create_static_proxies
+from src.proxies.static_proxies import StaticProxyLoader
 from src.tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
@@ -47,6 +45,7 @@ from src.tools.env import (
 )
 from src.tools.logging_config import setup_logging
 from .auth import build_auth_provider
+from .lifespan import AppLifespanManager
 from .middleware import build_middleware
 
 # Initialize logging with server name from environment
@@ -58,199 +57,248 @@ logger = setup_logging(SERVER_NAME)
 _auth_provider = build_auth_provider()
 
 
-# Health Check Endpoint
-# =====================
-
-async def _health_check_starlette(request: Request) -> JSONResponse:
+class MCPProxyServer:
     """
-    Health check endpoint for monitoring and load balancers.
+    MCP Proxy Server class for managing MCP proxy server lifecycle and configuration.
 
-    This endpoint can be used by:
-    - Kubernetes liveness/readiness probes
-    - Load balancers to check server health
-    - Monitoring systems to verify server is running
+    This class encapsulates the server startup process, proxy mounting, and request routing.
+    It provides a clean interface for creating and running an MCP proxy server with
+    multiple backend MCP servers.
 
-    Returns:
-        JSON response with status and service name
-
-    Example Response:
-        {"status": "healthy", "service": "drunk-mcp-server"}
-    """
-    return JSONResponse({"status": "healthy", "service": "drunk-mcp-server"})
-
-
-async def _run_server_async(
-        mcp_list: list[tuple[str | None, FastMCP]],
-        middleware: list[Middleware] | None = None,
-) -> None:
-    """
-    Run the MCP server asynchronously using Starlette and uvicorn.
-
-    This function builds a Starlette app that mounts each FastMCP app at its
-    configured path and exposes a `/health` endpoint. The assembled app is
-    served via uvicorn for ASGI middleware support.
-
-    Mounting Rules:
-        - If name is None: mount at "/"
-        - If name is set: mount at f"/{name}"
-
-    Args:
-        mcp_list: List of (name, FastMCP) tuples to mount
-        middleware: Optional list of Starlette middleware
-
-    Raises:
-        ImportError: If uvicorn is required but not installed
-        Exception: Various server startup errors
-
-    Example:
-        await _run_server_async(
-            [("stock", stock_mcp), (None, root_mcp)],
-            [cors_middleware]
-        )
+    Attributes:
+        logger: Logger instance for server logs
+        auth_provider: Authentication provider instance
+        lifespan_manager: Manager for application lifespan handling
     """
 
-    mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
-    routes: list[Mount | Route] = [
-        Route("/health", endpoint=_health_check_starlette, methods=["GET"]),
-    ]
+    def __init__(self):
+        """Initialize the MCP Proxy Server."""
+        self.logger = logger
+        self.auth_provider = _auth_provider
+        self.lifespan_manager = AppLifespanManager()
 
-    for name, mcp in mcp_list:
-        if name is None:
-            # Root mount: serve at /mcp
-            mount_path = "/mcp"
-            mcp_app = mcp.http_app(path="/")
-            logger.info("Mounting MCP app (name=%s) at %s", name, mount_path)
-        else:
-            # Namespaced mount: mount at /{name}
-            mount_path = f"/{name}/mcp"
-            mcp_app = mcp.http_app(path="/")
-            logger.info("Mounting MCP app (name=%s) at %s", name, mount_path)
+    # Health Check Endpoint
+    # =====================
 
-        routes.append(Mount(mount_path, app=mcp_app))
-        mcp_apps.append((name, mcp_app))
+    @staticmethod
+    async def _handle_health_check(_: Request) -> JSONResponse:
+        """
+        Health check endpoint handler for monitoring and load balancers.
 
-    @asynccontextmanager
-    async def _combined_lifespan(app: Starlette):
-        lifespan_contexts: list[AsyncContextManager[None]] = []
+        This endpoint can be used by:
+        - Kubernetes liveness/readiness probes
+        - Load balancers to check server health
+        - Monitoring systems to verify server is running
+
+        Args:
+            _: The incoming HTTP request (unused)
+
+        Returns:
+            JSON response with status and service name
+
+        Example Response:
+            {"status": "healthy", "service": "drunk-mcp-server"}
+        """
+        return JSONResponse({"status": "healthy", "service": "drunk-mcp-server"})
+
+    # Server Management Methods
+    # =========================
+
+    async def _start_server(
+            self,
+            mcp_list: list[tuple[str | None, FastMCP]],
+            middleware: list[Middleware] | None = None,
+    ) -> None:
+        """
+        Initialize and run the MCP server with Starlette and uvicorn.
+
+        This method builds a Starlette application that mounts each FastMCP server at its
+        configured endpoint and exposes a `/health` health check route. The complete application
+        is then served via uvicorn for ASGI compatibility and middleware support.
+
+        Mount Paths:
+            - Root server (name=None): /mcp
+            - Namespaced servers: /{namespace}/mcp
+
+        Args:
+            mcp_list: List of (name, FastMCP) tuples to mount
+            middleware: Optional list of Starlette middleware
+
+        Raises:
+            ImportError: If uvicorn is not installed
+            Exception: On server startup or configuration errors
+
+        Example:
+            await server._start_server(
+                [("stock", stock_mcp), (None, root_mcp)],
+                [cors_middleware]
+            )
+        """
         try:
-            for name, mcp_app in mcp_apps:
-                lifespan = getattr(mcp_app, "lifespan", None)
-                if lifespan is None:
-                    logger.warning("MCP app missing lifespan (name=%s)", name)
-                    continue
-                ctx: AsyncContextManager[None] = lifespan(mcp_app)
-                await ctx.__aenter__()
-                lifespan_contexts.append(ctx)
-            yield
-        finally:
-            for ctx in reversed(lifespan_contexts):
-                await ctx.__aexit__(None, None, None)
+            mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
+            routes: list[Mount | Route] = [
+                Route("/health", endpoint=self._handle_health_check, methods=["GET"]),
+            ]
 
-    app = Starlette(
-        routes=routes,
-        middleware=middleware,
-        lifespan=_combined_lifespan,
-    )
+            self.logger.info("Mounting %d MCP application(s)", len(mcp_list))
 
-    import uvicorn
-    config = uvicorn.Config(app, host=HOST or "0.0.0.0", port=PORT or 9123, log_level=LOG_LEVEL.lower())
-    server = uvicorn.Server(config)
-    await server.serve()
+            for name, mcp in mcp_list:
+                try:
+                    if name is None:
+                        # Root mount: serve at /mcp
+                        mount_path = "/mcp"
+                        mcp_app = mcp.http_app(path="/")
+                        self.logger.info("Mounting root MCP app at %s", mount_path)
+                    else:
+                        # Namespaced mount: mount at /{name}
+                        mount_path = f"/{name}/mcp"
+                        mcp_app = mcp.http_app(path="/")
+                        self.logger.info("Mounting namespaced MCP app (name=%s) at %s", name, mount_path)
 
+                    routes.append(Mount(mount_path, app=mcp_app))
+                    mcp_apps.append((name, mcp_app))
 
-# Helper Functions
-# ================
+                except Exception as e:
+                    self.logger.error("Failed to mount MCP app (name=%s): %s", name, str(e), exc_info=True)
+                    raise
 
+            app = Starlette(
+                routes=routes,
+                middleware=middleware,
+                lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=mcp_apps),
+            )
 
-def _mount_proxies(proxies: list[tuple[str | None, FastMCPProxy]]) -> list[tuple[str | None, FastMCP]]:
-    """
-    Mount all proxy instances to the MCP server.
+            self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
+                             HOST or "0.0.0.0", PORT or 9123, LOG_LEVEL.lower())
 
-    This function registers each proxy with the main MCP server using the
-    mcp.mount() method. Each proxy is mounted with its associated namespace,
-    which prefixes all tool names to prevent naming conflicts.
+            import uvicorn
+            config = uvicorn.Config(app, host=HOST or "0.0.0.0", port=PORT or 9123, log_level=LOG_LEVEL.lower())
+            server = uvicorn.Server(config)
 
-    Namespacing Example:
-        - Without namespace: tool "get_stock_price" remains "get_stock_price"
-        - With namespace "stock": tool becomes "stock.get_stock_price"
+            self.logger.info("Starting uvicorn server")
+            await server.serve()
 
-    Error Handling:
-        - If mounting fails for any proxy, the exception is logged
-        - Processing continues for remaining proxies
-        - This ensures partial success if some proxies fail to mount
+        except ImportError as e:
+            self.logger.error("Failed to import uvicorn: %s", str(e))
+            raise ImportError(
+                "uvicorn is required to run the MCP proxy server. Install it with: pip install uvicorn") from e
+        except Exception as e:
+            self.logger.error("Server startup failed: %s", str(e), exc_info=True)
+            raise
 
-    Args:
-        mcp: The main FastMCP server instance to mount proxies to
-        proxies: List of (namespace, proxy_instance) tuples to mount
+    # Utility Methods
+    # ===============
 
-    Example:
-        proxies = create_static_proxies("data")
-        _mount_proxies(mcp_server, proxies)
-    """
-    root_server = FastMCP(SERVER_NAME, version=SERVER_VERSION, auth=_auth_provider)
-    mcp_servers: list[tuple[str | None, FastMCP]] = [(None, root_server)]
+    def _retrieve_configuration(self) -> dict:
+        """
+        Retrieve the current server configuration as a dictionary.
 
-    for namespace, proxy in proxies:
-        if namespace is None:
-            root_server.mount(proxy)
-            continue
-        mcp = FastMCP(f"{SERVER_NAME}_{namespace}", version=SERVER_VERSION, auth=_auth_provider)
-        mcp.mount(proxy)
-        mcp_servers.append((namespace, mcp))
-    return mcp_servers
+        Returns all relevant server configuration values for inspection,
+        debugging, and logging purposes.
 
+        Returns:
+            Dictionary containing server configuration details:
+            - server_name: Name of the server
+            - server_version: Version string
+            - host: Server hostname/IP address
+            - port: Server port number
+            - log_level: Logging level
+            - config_dir: Configuration directory path
+            - auth_enabled: Whether authentication is enabled
+        """
+        return {
+            "server_name": SERVER_NAME,
+            "server_version": SERVER_VERSION,
+            "host": HOST or "0.0.0.0",
+            "port": PORT or 9123,
+            "log_level": LOG_LEVEL,
+            "config_dir": CONFIG_DIR,
+            "auth_enabled": self.auth_provider is not None,
+        }
 
-# Application Entry Points
-# ========================
+    def _log_startup_configuration(self) -> None:
+        """
+        Log server configuration details at startup.
 
+        Outputs complete server configuration information including name, version,
+        host, port, logging level, configuration directory, and authentication status.
+        This provides visibility into the server setup during initialization.
 
-async def _main_async() -> None:
-    """
-    Asynchronous entry point for the MCP proxy server.
+        Called during server startup to provide visibility into the server configuration
+        and aid in troubleshooting and monitoring.
+        """
+        config = self._retrieve_configuration()
+        self.logger.info("MCP Proxy Server Configuration:")
+        self.logger.info("  Server Name: %s", config["server_name"])
+        self.logger.info("  Server Version: %s", config["server_version"])
+        self.logger.info("  Host: %s", config["host"])
+        self.logger.info("  Port: %s", config["port"])
+        self.logger.info("  Log Level: %s", config["log_level"])
+        self.logger.info("  Config Directory: %s", config["config_dir"])
+        self.logger.info("  Authentication: %s", "Enabled" if config["auth_enabled"] else "Disabled")
 
-    This function orchestrates the server startup process:
-    1. Loads proxy configurations from the config directory
-    2. Builds per-proxy FastMCP instances for Starlette mounts
-    3. Starts the Starlette/uvicorn server with configured middleware
+    # Application Entry Points
+    # ========================
 
-    Startup Flow:
-        Environment Config → Create Proxies → Build MCP List → Start Server
+    async def run_async(self) -> None:
+        """
+        Asynchronous entry point for the MCP proxy server.
 
-    Configuration Sources:
-        - CONFIG_DIR: FASTMCP_CONFIG_DIR environment variable (default: "data")
-    """
-    logger.info("Starting MCP Proxy Server")
-    print("=" * 50)
+        This method orchestrates the server startup process:
+        1. Logs server configuration information
+        2. Loads and builds proxy servers via StaticProxyLoader
+        3. Starts the Starlette/uvicorn server with configured middleware
 
-    # Step 2: Create proxies from configuration files
-    # Loads all *.mcp.json files from CONFIG_DIR and creates proxy instances
-    # Returns list of (namespace, proxy_instance) tuples
-    proxies = create_static_proxies(CONFIG_DIR)
+        Startup Flow:
+            Environment Config → Log Config → Load & Build Proxies → Start Server
 
-    # Step 3: Mount all proxies to the MCP server
-    # Each proxy is mounted with its namespace to avoid tool name conflicts
-    mcp_list = _mount_proxies(proxies)
+        Configuration Sources:
+            - CONFIG_DIR: FASTMCP_CONFIG_DIR environment variable (default: "data")
 
-    print("MCP Proxy Server is ready!")
-    print("=" * 50)
+        Raises:
+            Exception: Various server startup errors
+        """
+        try:
+            self.logger.info("Starting MCP Proxy Server")
+            self._log_startup_configuration()
+            print("=" * 50)
 
-    # Step 4: Run the MCP server
-    # Starts the async server with the configured transport and middleware
-    # This call blocks until the server is shut down
-    await _run_server_async(mcp_list, build_middleware())
+            # Step 1: Load and build proxy servers using StaticProxyLoader
+            self.logger.info("Loading proxy configurations from %s", CONFIG_DIR)
+            loader = StaticProxyLoader(CONFIG_DIR)
 
+            # Create root FastMCP server and build all proxy servers
+            root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION, auth=self.auth_provider)
+            mcp_list = loader.build_mcp_servers(root_mcp, auth_provider=self.auth_provider)
 
-def main() -> None:
-    """
-    Synchronous entry point for the MCP proxy server.
+            if not mcp_list or len(mcp_list) == 1:
+                self.logger.warning("No proxies loaded from configuration directory")
+            else:
+                self.logger.info("Loaded and built %d proxy server(s)", len(mcp_list) - 1)
 
-    This is the main function called when the module is executed directly.
-    It wraps the async _main_async() function using asyncio.run().
+            print("MCP Proxy Server is ready!")
+            print("=" * 50)
 
-    Usage:
-        python -m src.main
-        # or
-        python src/main.py
-    """
-    import asyncio
-    asyncio.run(_main_async())
+            # Step 2: Start the MCP server
+            # Starts the async server with the configured transport and middleware
+            # This call blocks until the server is shut down
+            await self._start_server(mcp_list, build_middleware())
+
+        except KeyboardInterrupt:
+            self.logger.info("Server interrupted by user")
+        except Exception as e:
+            self.logger.error("Server startup failed: %s", str(e), exc_info=True)
+            raise
+
+    def run(self) -> None:
+        """
+        Synchronous entry point for the MCP proxy server.
+
+        This method wraps the async run_async() method using asyncio.run().
+
+        Usage:
+            server = MCPProxyServer()
+            server.run()
+        """
+        import asyncio
+        asyncio.run(self.run_async())
