@@ -25,12 +25,10 @@ Supported Transports:
 """
 
 from typing import TYPE_CHECKING
-
-from fastmcp import FastMCP
 from starlette.middleware import Middleware
 
-from src.proxies.openapi_proxies import OpenApiMcpProxyLoader
-from src.proxies.static_proxies import StaticProxyLoader
+from src.proxies import ProxyConfigProvider
+from src.proxies.config_provider import McpProxyConfig
 from src.tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
@@ -79,7 +77,7 @@ class MCPProxyServer:
 
     async def _start_server(
             self,
-            mcp_list: list[tuple[str | None, FastMCP]],
+            mcp_list: list[McpProxyConfig],
             middleware: list[Middleware] | None = None,
     ) -> None:
         """
@@ -113,7 +111,7 @@ class MCPProxyServer:
             starlette_app = StarletteApp(middleware=middleware)
 
             # Add all MCP mounts
-            starlette_app.add_mcp_mounts(mcp_list)
+            starlette_app.add_mcp_services(mcp_list)
 
             # Build the Starlette application with lifespan management
             app = starlette_app.build()
@@ -143,7 +141,7 @@ class MCPProxyServer:
     # Utility Methods
     # ===============
 
-    def _retrieve_configuration(self) -> dict:
+    def _retrieve_configuration(self) -> dict[str, str | bool | int]:
         """
         Retrieve the current server configuration as a dictionary.
 
@@ -217,33 +215,9 @@ class MCPProxyServer:
             self._log_startup_configuration()
             print("=" * 50)
 
-            # Step 1: Load and build proxy servers using StaticProxyLoader
-            self.logger.info("Loading proxy configurations from %s", CONFIG_DIR)
-            static_loader = StaticProxyLoader(CONFIG_DIR)
-
-            # Create root FastMCP server and build all proxy servers
-            root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION, auth=self.auth_provider)
-            mcp_list = static_loader.build_mcp_servers(root_mcp, auth_provider=self.auth_provider)
-
-            if not mcp_list or len(mcp_list) == 1:
-                self.logger.warning("No static proxies loaded from configuration directory")
-            else:
-                self.logger.info("Loaded and built %d static proxy server(s)", len(mcp_list) - 1)
-
-            # Step 2: Load and build OpenAPI servers using OpenApiMcpProxyLoader
-            self.logger.info("Loading OpenAPI configurations from %s", CONFIG_DIR)
-            openapi_loader = OpenApiMcpProxyLoader(CONFIG_DIR)
-            openapi_servers = openapi_loader.load_all_servers(auth_provider=self.auth_provider)
-
-            if not openapi_servers:
-                self.logger.info("No OpenAPI servers loaded from configuration directory")
-            else:
-                self.logger.info("Loaded and built %d OpenAPI server(s)", len(openapi_servers))
-                # Merge OpenAPI servers into the main server list
-                mcp_list.extend(openapi_servers)
-
-            total_servers = len(mcp_list) - 1 if mcp_list else 0  # Subtract 1 for root server
-            self.logger.info("Total MCP servers loaded: %d", total_servers)
+            provider = ProxyConfigProvider(config_dir=CONFIG_DIR)
+            services = provider.get_config_services()
+            self.logger.info("Total MCP servers loaded: %d", len(services))
 
             print("MCP Proxy Server is ready!")
             print("=" * 50)
@@ -251,7 +225,7 @@ class MCPProxyServer:
             # Step 2: Start the MCP server
             # Starts the async server with the configured transport and middleware
             # This call blocks until the server is shut down
-            await self._start_server(mcp_list, build_middleware())
+            await self._start_server(services, build_middleware())
 
         except KeyboardInterrupt:
             self.logger.info("Server interrupted by user")

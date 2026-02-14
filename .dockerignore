@@ -29,6 +29,7 @@ docker-compose.yml
 .dockerignore
 
 # Testing
+tests/
 .pytest_cache/
 .coverage
 htmlcov/

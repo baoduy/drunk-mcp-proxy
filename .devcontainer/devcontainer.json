@@ -1,7 +1,14 @@
 {
   "name": "drunk-mcp-proxy",
-  "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "features": {},
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/code",
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
   "postCreateCommand": "pip install -r requirements.txt",
   "customizations": {
     "vscode": {
@@ -12,13 +19,13 @@
       },
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance"
+        "ms-python.vscode-pylance",
+        "GitHub.copilot-chat"
       ]
     },
-    "jetbrains" : {
-      "settings": {
-      },
-      "backend": "PyCharm",
+    "jetbrains": {
+      "settings": {},
+      "backend": "PyCharm"
     }
-  },
+  }
 }

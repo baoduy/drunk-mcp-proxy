@@ -2,11 +2,7 @@
 MCP Proxy Server
 A proxy server for Model Context Protocol (MCP) that dynamically routes requests to configured backend servers.
 """
-
-import asyncio
-
 from src.app.server import MCPProxyServer
-
 
 def main() -> None:
     """
@@ -21,8 +17,7 @@ def main() -> None:
         python src/main.py
     """
     server = MCPProxyServer()
-    asyncio.run(server.run_async())
-
+    server.run()
 
 if __name__ == "__main__":
     main()

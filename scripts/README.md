@@ -4,7 +4,42 @@ This directory contains helpful shell scripts for developing, testing, and debug
 
 ## 📋 Available Scripts
 
-### 1. **setup-env.sh** - Initial Setup
+### 1. **run-tests.sh** - Run All Tests
+Runs the full test suite using pytest.
+
+```bash
+./scripts/run-tests.sh
+```
+
+**What it does:**
+- ✓ Checks for virtual environment
+- ✓ Installs pytest if missing
+- ✓ Runs all tests in the `tests/` directory
+- ✓ Reports pass/fail status
+
+**Options:**
+```bash
+# Run with verbose output
+./scripts/run-tests.sh -v
+
+# Run specific test file
+./scripts/run-tests.sh tests/test_spec_config.py
+
+# Run tests matching a pattern
+./scripts/run-tests.sh -k "validation"
+
+# Show short traceback
+./scripts/run-tests.sh --tb=short
+
+# Stop on first failure
+./scripts/run-tests.sh -x
+```
+
+**When to use:** Before committing changes or to verify all tests pass.
+
+---
+
+### 2. **setup-env.sh** - Initial Setup
 Sets up the Python virtual environment and installs all dependencies.
 
 ```bash
@@ -23,7 +58,7 @@ bash scripts/setup-env.sh
 
 ---
 
-### 2. **dev.sh** - Development Server
+### 3. **dev.sh** - Development Server
 Runs the development server with optional auto-reload support.
 
 ```bash
@@ -47,7 +82,7 @@ pip install watchdog
 
 ---
 
-### 3. **debug.sh** - Debug Mode
+### 4. **debug.sh** - Debug Mode
 Comprehensive debugging with validation, syntax checks, and multiple debug options.
 
 ```bash
@@ -80,24 +115,6 @@ python3 -i src/main.py
 ```
 
 **When to use:** When debugging issues or analyzing performance.
-
----
-
-### 4. **test.sh** - Run Tests
-Executes comprehensive test suite.
-
-```bash
-bash scripts/test.sh
-```
-
-**Tests include:**
-- ✓ Python syntax validation
-- ✓ JSON schema validation
-- ✓ Configuration file validation
-- ✓ Import checks
-- ✓ Dependency verification
-
-**When to use:** Before committing or deploying changes.
 
 ---
 
@@ -151,7 +168,7 @@ pip install pylint vulture
 
 ---
 
-### 7. **clean.sh** - Cleanup
+### 7. **check-syntax.sh** - Python Syntax Check
 Removes virtual environment, cache, Docker images, and temporary files.
 
 ```bash

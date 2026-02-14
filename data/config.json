@@ -1,0 +1,39 @@
+[
+    {
+        "name": "deepsea",
+        "namespace": null,
+        "specFile": "openapi/deepsea.openapi.json",
+        "specType": "openapi",
+        "baseUrl": "http://host.docker.internal:5000"
+    },
+    {
+        "name": "mcp",
+        "namespace": null,
+        "path": "/",
+        "specFile": "mcp/mcp.json",
+        "specType": "mcp",
+        "baseUrl": null
+    },
+    {
+        "name": "stock",
+        "namespace": null,
+        "path": "/stock",
+        "specFile": "mcp/stock.mcp.json",
+        "specType": "mcp",
+        "baseUrl": null,
+        "tags": [
+            "internal"
+        ]
+    },
+    {
+        "name": "wiki",
+        "namespace": null,
+        "path": "/wiki",
+        "specFile": "mcp/wiki.mcp.json",
+        "specType": "mcp",
+        "baseUrl": null,
+        "tags": [
+            "internal"
+        ]
+    }
+]

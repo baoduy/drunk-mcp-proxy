@@ -1,0 +1,190 @@
+"""
+SpecConfig data models for proxy configuration.
+
+This module provides Pydantic models for loading and validating proxy
+configuration files that define MCP and OpenAPI specifications.
+"""
+
+import json
+import os
+from enum import Enum
+from typing import Any, Optional
+
+import jsonschema
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+
+
+class SpecType(str, Enum):
+    """Enumeration of supported specification types."""
+    MCP = "mcp"
+    OPENAPI = "openapi"
+
+
+class SpecConfig(BaseModel):
+    """
+    Configuration model for a single proxy specification.
+    
+    Attributes:
+        name: Name identifier for the proxy
+        namespace: Optional namespace for the proxy (None for root)
+        spec_file: Path to the specification file (relative to config dir)
+        spec_type: Type of specification ("openapi" or "mcp")
+        base_url: Base URL for the API (None for MCP specs)
+        tags: List of tags for categorization
+        spec_data: Loaded JSON data from the spec_file
+    """
+    
+    name: str
+    namespace: Optional[str] = Field(default=None, description="Namespace for the proxy (None for root)")
+    path: str = Field(default="/", description="Base path for the proxy (default is '/')")
+    spec_file: str = Field(alias="specFile", description="Path to the specification file (relative to config dir)")
+    spec_type: SpecType = Field(alias="specType", description="Type of specification ('openapi' or 'mcp')")
+    base_url: Optional[str] = Field(default=None, alias="baseUrl", description="Base URL for the API (None for MCP specs)")
+    tags: list[str] = Field(default_factory=list, description="List of tags for categorization")
+    spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True, description="Loaded JSON data from the spec_file (not included in serialization)")
+    
+    model_config = ConfigDict(
+        populate_by_name=True
+    )
+    
+    @field_validator("name", "spec_file")
+    @classmethod
+    def validate_required_fields(cls, v: str) -> str:
+        """Validate that required fields are not empty."""
+        if not v or not v.strip():
+            raise ValueError("Field is required and cannot be empty")
+        return v
+    
+    @model_validator(mode="after")
+    def validate_openapi_base_url(self) -> "SpecConfig":
+        """Validate that baseUrl is required when specType is 'openapi'."""
+        if self.spec_type == SpecType.OPENAPI and not self.base_url:
+            raise ValueError("baseUrl is required when specType is 'openapi'")
+        return self
+    
+    def _validate_after_load(self) -> None:
+        """
+        Perform validation after spec file is loaded.
+        This ensures spec_data is loaded and validates its contents.
+        For MCP specs, validates against the MCP JSON schema.
+        """
+        if self.spec_data is None:
+            raise ValueError(f"Spec file '{self.spec_file}' was loaded but contains no data")
+        
+        if not self.spec_data:
+            raise ValueError(f"Spec file '{self.spec_file}' contains empty data")
+        
+        # Validate MCP spec files against the JSON schema
+        if self.spec_type == SpecType.MCP:
+            self._validate_mcp_schema()
+    
+    def _validate_mcp_schema(self) -> None:
+        """
+        Validate MCP spec_data against the MCP JSON schema.
+        
+        Raises:
+            ValueError: If the spec_data doesn't conform to the MCP schema
+            FileNotFoundError: If the schema file is not found
+        """
+        # Get the project root directory (assuming schemas folder is at root)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        schema_path = os.path.join(project_root, "schemas", "mcp.schema.json")
+        
+        if not os.path.exists(schema_path):
+            raise FileNotFoundError(f"MCP schema file not found at: {schema_path}")
+        
+        # Load the MCP schema
+        with open(schema_path, "r") as f:
+            schema = json.load(f)
+        
+        # Validate spec_data against schema
+        try:
+            jsonschema.validate(instance=self.spec_data, schema=schema)
+        except jsonschema.ValidationError as e:
+            raise ValueError(
+                f"MCP spec file '{self.spec_file}' does not conform to MCP schema: {e.message}"
+            ) from e
+        except jsonschema.SchemaError as e:
+            raise ValueError(f"Invalid MCP schema file: {e.message}") from e
+    
+    def load_spec_file(self, config_dir: str) -> None:
+        """
+        Load the specification file as JSON and store it in spec_data.
+        Also validates the loaded data and performs post-load validation.
+        
+        Args:
+            config_dir: Directory containing the configuration files
+            
+        Raises:
+            FileNotFoundError: If the spec file doesn't exist
+            json.JSONDecodeError: If the spec file contains invalid JSON
+            ValueError: If validation fails after loading
+        """
+        spec_path = os.path.join(config_dir, self.spec_file)
+        
+        if not os.path.exists(spec_path):
+            raise FileNotFoundError(f"Spec file not found: {spec_path}")
+            
+        with open(spec_path, "r") as f:
+            data = json.load(f)
+            
+        # Validate that loaded data is a dictionary (JSON object)
+        if not isinstance(data, dict):
+            raise ValueError(f"Spec file must contain a JSON object, got {type(data).__name__}")
+            
+        self.spec_data = data
+        
+        # Perform validation after loading the spec file
+        self._validate_after_load()
+    
+    @staticmethod
+    def load_from_file(config_file: str) -> list["SpecConfig"]:
+        """
+        Load all SpecConfig entries from a configuration file.
+        
+        This static method reads a JSON configuration file and creates SpecConfig
+        instances for each entry. Spec files are always loaded and validated.
+        
+        Args:
+            config_file: Path to the configuration JSON file
+            
+        Returns:
+            List of SpecConfig instances with loaded spec_data
+            
+        Raises:
+            FileNotFoundError: If the config file or spec files don't exist
+            json.JSONDecodeError: If any JSON file is invalid
+            ValueError: If validation fails for any config entry
+            
+        Example:
+            configs = SpecConfig.load_from_file("data/config.json")
+            for config in configs:
+                print(f"{config.name}: {config.spec_type}")
+                print(f"Spec data keys: {list(config.spec_data.keys())}")
+        """
+        if not os.path.exists(config_file):
+            raise FileNotFoundError(f"Configuration file not found: {config_file}")
+        
+        # Load the configuration file
+        with open(config_file, "r") as f:
+            config_data = json.load(f)
+        
+        if not isinstance(config_data, list):
+            raise ValueError("Configuration file must contain a JSON array")
+        
+        # Get the directory containing the config file (for resolving spec_file paths)
+        config_dir = os.path.dirname(os.path.abspath(config_file))
+        
+        # Parse each entry into a SpecConfig instance
+        spec_configs: list[SpecConfig] = []
+        for entry in config_data:  # type: ignore[misc]
+            if not isinstance(entry, dict):
+                continue
+            config = SpecConfig.model_validate(entry)
+            
+            # Always load the spec file and validate
+            config.load_spec_file(config_dir)
+            spec_configs.append(config)
+        
+        return spec_configs

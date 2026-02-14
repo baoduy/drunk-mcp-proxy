@@ -6,15 +6,12 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 """
 
 from functools import partial
-from typing import Callable
-
-from fastmcp import FastMCP
+from src.proxies.config_provider import McpProxyConfig
 from fastmcp.server.http import StarletteWithLifespan
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
 
 from src.tools.env import SERVER_NAME, HOST, PORT
 from src.tools.logging_config import setup_logging
@@ -34,15 +31,16 @@ class StarletteApp:
     - Lifespan management (via build_with_lifespan method)
 
     Design Pattern:
-        1. Create instance: app = StarletteApp(middleware=...)
-        2. Add mounts: app.add_mcp_mounts(mcp_list)
-        3. Build with lifespan: starlette = app.build()
+        1. Create instance: app_factory = StarletteApp(middleware=...)
+        2. Add mounts: app_factory.add_mcp_mounts(mcp_list)
+        3. Get app: starlette_app = app_factory.build()
 
-    The lifespan is managed by StarletteApp and can be overridden during build
-    if a custom lifespan function is required.
+    The Starlette app is created at initialization and routes/mounts are added
+    dynamically using the app's mount() and add_route() methods. The lifespan
+    is managed by StarletteApp and can be overridden during build if needed.
 
     Attributes:
-        routes: List of Starlette routes including health check and mounts
+        app: The Starlette application instance
         middleware: Optional list of Starlette middleware
         mcp_apps: List of mounted MCP applications for lifespan management
         service_name: Service name loaded from SERVER_NAME env var
@@ -53,7 +51,6 @@ class StarletteApp:
 
     def __init__(
             self,
-            routes: list[Mount | Route] | None = None,
             middleware: list[Middleware] | None = None
     ):
         """
@@ -69,19 +66,13 @@ class StarletteApp:
             routes: Initial list of routes (health check will be added automatically)
             middleware: Optional list of Starlette middleware
         """
-        self.routes = routes or []
         self.middleware = middleware
         self.lifespan_manager = AppLifespanManager()
-
         # Get configuration from environment variables
         self.service_name = SERVER_NAME
         self.host = HOST or "0.0.0.0"
         self.port = PORT or 9123
-
         self.mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
-
-        # Add health check endpoint with default handler
-        self._ensure_health_check_route()
 
     def _health_check_handler(self, _: Request) -> JSONResponse:
         """
@@ -95,54 +86,36 @@ class StarletteApp:
         """
         return JSONResponse({"status": "healthy", "service": self.service_name})
 
-    def _ensure_health_check_route(self) -> None:
-        """Ensure health check route is present in routes list."""
-        # Check if health check route already exists
-        has_health = any(
-            isinstance(route, Route) and route.path == "/health"
-            for route in self.routes
-        )
-
-        if not has_health:
-            self.routes.insert(
-                0,
-                Route("/health", endpoint=self._health_check_handler, methods=["GET"])
-            )
-
-    def add_mcp_mount(
-            self,
-            name: str | None,
-            mcp: FastMCP
+    def add_mcp_service(self, service: McpProxyConfig
     ) -> None:
         """
         Add an MCP server mount to the application.
-
         Host and port are automatically loaded from environment variables.
 
         Args:
             name: Namespace for the mount (None for root mount at /mcp)
             mcp: FastMCP server instance to mount
         """
-        if name is None:
+        if service.name == "root":
             # Root mount: serve at /mcp
             mount_path = "/mcp"
-            mcp_app = mcp.http_app(path="/")
+            mcp_app = service.mcp_server.http_app(path="/")
             full_url = f"http://{self.host}:{self.port}{mount_path}"
-            logger.info("Adding root MCP mount at %s (full endpoint: %s)", mount_path, full_url)
+            logger.info(
+                "Adding root MCP mount at %s (full endpoint: %s)", mount_path, full_url)
         else:
             # Namespaced mount: mount at /{name}/mcp
-            mount_path = f"/{name}/mcp"
-            mcp_app = mcp.http_app(path="/")
+            mount_path = f"/{service.name}/mcp"
+            mcp_app = service.mcp_server.http_app(path="/")
             full_url = f"http://{self.host}:{self.port}{mount_path}"
-            logger.info("Adding namespaced MCP mount (name=%s) at %s (full endpoint: %s)",
-                        name, mount_path, full_url)
+            logger.info("Adding MCP mount (name=%s) at %s (full endpoint: %s)",
+                        service.name, mount_path, full_url)
 
-        self.routes.append(Mount(mount_path, app=mcp_app))
-        self.mcp_apps.append((name, mcp_app))
+        self.mcp_apps.append((mount_path, mcp_app))
 
-    def add_mcp_mounts(
+    def add_mcp_services(
             self,
-            mcp_list: list[tuple[str | None, FastMCP]]
+            services: list[McpProxyConfig]
     ) -> None:
         """
         Add multiple MCP server mounts to the application.
@@ -150,39 +123,42 @@ class StarletteApp:
         Host and port are automatically loaded from environment variables.
 
         Args:
-            mcp_list: List of (name, FastMCP) tuples to mount
+            services: List of McpProxyConfig instances to mount
 
         Raises:
             Exception: If any mount fails to be added
         """
-        logger.info("Adding %d MCP mount(s)", len(mcp_list))
+        logger.info("Adding %d MCP mount(s)", len(services))
 
-        for name, mcp in mcp_list:
+        for service in services:
             try:
-                self.add_mcp_mount(name, mcp)
+                self.add_mcp_service(service)
             except Exception as e:
-                logger.error("Failed to add MCP mount (name=%s): %s", name, str(e), exc_info=True)
+                logger.error("Failed to add MCP mount (name=%s): %s",
+                             service.name, str(e), exc_info=True)
                 raise
 
     def build(self) -> Starlette:
-        """Build the Starlette app using the default lifespan manager."""
-        return self._build_starlette_app(self.lifespan_manager.lifespans)
-
-    def build_with_lifespan(self, lifespan_func: Callable | None = None) -> Starlette:
         """
-        Build the Starlette app with a custom lifespan function.
-
-        Args:
-            lifespan_func: Optional lifespan function to override the default manager
+        Return the Starlette app with a custom lifespan function.
+        Note: If a custom lifespan is provided, the app will be recreated with the new lifespan.
         """
-        return self._build_starlette_app(lifespan_func or self.lifespan_manager.lifespans)
+        logger.info(
+            "Returning Starlette application with %d MCP mount(s)", len(self.mcp_apps))
+       
+        # Create new app with custom lifespan
+        app = Starlette(
+                middleware=self.middleware,
+                lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps)
+            )
+        
+        for mount_path, mcp_app in self.mcp_apps:
+            assert mount_path is not None  # Always set to string in add_mcp_service
+            app.mount(mount_path, mcp_app)
 
-    def _build_starlette_app(self, lifespan_func: Callable) -> Starlette:
-        """Internal helper that assembles the Starlette app with optional lifespan."""
-        logger.info("Building Starlette application with %d route(s)", len(self.routes))
+        # Add health check endpoint
+        app.add_route("/health", self._health_check_handler, methods=["GET"])
 
-        return Starlette(
-            routes=self.routes,
-            middleware=self.middleware,
-            lifespan=partial(lifespan_func, mcp_apps=self.mcp_apps)
-        )
+        
+           
+        return app
