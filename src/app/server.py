@@ -24,16 +24,10 @@ Supported Transports:
 - streamable-http: HTTP with streaming support
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
-from fastmcp.server.http import StarletteWithLifespan
-from starlette.applications import Starlette
 from starlette.middleware import Middleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
 
 from src.proxies.openapi_proxies import OpenApiMcpProxyLoader
 from src.proxies.static_proxies import StaticProxyLoader
@@ -47,8 +41,8 @@ from src.tools.env import (
 )
 from src.tools.logging_config import setup_logging
 from .auth import build_auth_provider
-from .lifespan import AppLifespanManager
 from .middleware import build_middleware
+from .starlette_app import StarletteApp
 
 if TYPE_CHECKING:
     pass
@@ -73,38 +67,12 @@ class MCPProxyServer:
     Attributes:
         logger: Logger instance for server logs
         auth_provider: Authentication provider instance (AuthProvider | None)
-        lifespan_manager: Manager for application lifespan handling
     """
 
     def __init__(self):
         """Initialize the MCP Proxy Server."""
         self.logger = logger
         self.auth_provider = _auth_provider
-        self.lifespan_manager = AppLifespanManager()
-
-    # Health Check Endpoint
-    # =====================
-
-    @staticmethod
-    async def _handle_health_check(_: Request) -> JSONResponse:
-        """
-        Health check endpoint handler for monitoring and load balancers.
-
-        This endpoint can be used by:
-        - Kubernetes liveness/readiness probes
-        - Load balancers to check server health
-        - Monitoring systems to verify server is running
-
-        Args:
-            _: The incoming HTTP request (unused)
-
-        Returns:
-            JSON response with status and service name
-
-        Example Response:
-            {"status": "healthy", "service": "drunk-mcp-server"}
-        """
-        return JSONResponse({"status": "healthy", "service": "drunk-mcp-server"})
 
     # Server Management Methods
     # =========================
@@ -140,44 +108,25 @@ class MCPProxyServer:
             )
         """
         try:
-            mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
-            routes: list[Mount | Route] = [
-                Route("/health", endpoint=self._handle_health_check, methods=["GET"]),
-            ]
+            # Create StarletteApp with middleware
+            # Host, port, and service name are loaded from environment variables
+            starlette_app = StarletteApp(middleware=middleware)
 
-            self.logger.info("Mounting %d MCP application(s)", len(mcp_list))
+            # Add all MCP mounts
+            starlette_app.add_mcp_mounts(mcp_list)
 
-            for name, mcp in mcp_list:
-                try:
-                    if name is None:
-                        # Root mount: serve at /mcp
-                        mount_path = "/mcp"
-                        mcp_app = mcp.http_app(path="/")
-                        self.logger.info("Mounting root MCP app at %s", mount_path)
-                    else:
-                        # Namespaced mount: mount at /{name}
-                        mount_path = f"/{name}/mcp"
-                        mcp_app = mcp.http_app(path="/")
-                        self.logger.info("Mounting namespaced MCP app (name=%s) at %s", name, mount_path)
+            # Build the Starlette application with lifespan management
+            app = starlette_app.build()
 
-                    routes.append(Mount(mount_path, app=mcp_app))
-                    mcp_apps.append((name, mcp_app))
-
-                except Exception as e:
-                    self.logger.error("Failed to mount MCP app (name=%s): %s", name, str(e), exc_info=True)
-                    raise
-
-            app = Starlette(
-                routes=routes,
-                middleware=middleware,
-                lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=mcp_apps),
-            )
+            # Get host and port for uvicorn
+            server_host = HOST or "0.0.0.0"
+            server_port = PORT or 9123
 
             self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
-                             HOST or "0.0.0.0", PORT or 9123, LOG_LEVEL.lower())
+                             server_host, server_port, LOG_LEVEL.lower())
 
             import uvicorn
-            config = uvicorn.Config(app, host=HOST or "0.0.0.0", port=PORT or 9123, log_level=LOG_LEVEL.lower())
+            config = uvicorn.Config(app, host=server_host, port=server_port, log_level=LOG_LEVEL.lower())
             server = uvicorn.Server(config)
 
             self.logger.info("Starting uvicorn server")
