@@ -27,10 +27,12 @@ from __future__ import annotations
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
-from src.tools.env import (
+from tools.env import (
     CORS_ALLOW_ORIGINS,
     CORS_ALLOW_METHODS,
     CORS_ALLOW_HEADERS,
+    CORS_ALLOW_CREDENTIALS,
+    CORS_MAX_AGE,
     CORS_EXPOSE_HEADERS,
 )
 
@@ -113,6 +115,8 @@ def build_cors_middleware() -> list[Middleware]:
             allow_origins=origins,  # Which origins can access
             allow_methods=methods,  # Which HTTP methods are allowed
             allow_headers=headers,  # Which request headers are allowed
+            allow_credentials=bool(CORS_ALLOW_CREDENTIALS),
+            max_age=CORS_MAX_AGE or None,
             expose_headers=expose_headers,  # Which response headers to expose
         )
     ]

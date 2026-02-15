@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from fastmcp.utilities.openapi import HTTPRoute
     from httpx import Auth
 
-from src.tools import SpecConfig, AzureOauth
-from src.tools.env import SERVER_NAME
-from src.tools.logging_config import setup_logging
-from src.tools.spec_config import AzureAuthConfig
+from tools import SpecConfig, AzureOauth
+from tools.env import SERVER_NAME
+from tools.logging_config import setup_logging
+from tools.spec_config import AzureAuthConfig
 
 
 class OpenApiMcpProvider:

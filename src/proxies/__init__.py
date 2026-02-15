@@ -38,4 +38,4 @@ def __getattr__(name: str):
         from .openapi_mcp_provider import OpenApiMcpProvider
 
         return OpenApiMcpProvider
-    raise AttributeError(f"module 'src.proxies' has no attribute {name!r}")
+    raise AttributeError(f"module 'proxies' has no attribute {name!r}")

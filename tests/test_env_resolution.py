@@ -21,7 +21,7 @@ os.environ['AZURE_TENANT_ID'] = 'test-tenant-id-abc123'
 
 def test_env_resolver():
     """Test the basic environment variable resolver."""
-    from src.tools.env_resolver import resolve_env_var
+    from tools.env_resolver import resolve_env_var
 
     print("=" * 60)
     print("Test 1: Basic Environment Variable Resolver")
@@ -54,7 +54,7 @@ def test_env_resolver():
 
 def test_spec_config():
     """Test SpecConfig with environment variable resolution."""
-    from src.tools.spec_config import SpecConfig
+    from tools.spec_config import SpecConfig
 
     print("=" * 60)
     print("Test 2: SpecConfig with Environment Variables")
@@ -125,7 +125,7 @@ def test_spec_config():
 
 def test_missing_env_var():
     """Test error handling for missing environment variables."""
-    from src.tools.env_resolver import resolve_env_var
+    from tools.env_resolver import resolve_env_var
 
     print("=" * 60)
     print("Test 3: Error Handling for Missing Environment Variables")

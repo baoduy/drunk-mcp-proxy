@@ -11,7 +11,7 @@ import tempfile
 import pytest
 from pydantic import ValidationError
 
-from src.tools.spec_config import SpecConfig
+from tools.spec_config import SpecConfig
 
 
 class TestSpecConfigValidation:

@@ -11,9 +11,9 @@ from typing import Optional
 from fastmcp import FastMCP
 from fastmcp.server import create_proxy
 
-from src.tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
-from src.tools.logging_config import setup_logging
-from src.tools.spec_config import SpecConfig
+from tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
+from tools.logging_config import setup_logging
+from tools.spec_config import SpecConfig
 from .mcp_proxy_config import McpProxyConfig
 from ..tools.spec_config import SpecType
 

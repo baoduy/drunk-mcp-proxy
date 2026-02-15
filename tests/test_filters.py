@@ -9,7 +9,7 @@ os.environ.setdefault('AZURE_CLIENT_ID', 'test-client-id')
 os.environ.setdefault('AZURE_CLIENT_SECRET', 'test-secret')
 os.environ.setdefault('AZURE_TENANT_ID', 'test-tenant')
 
-from src.tools.spec_config import SpecConfig
+from tools.spec_config import SpecConfig
 
 # Test 1: Create a config with filters
 print("Test 1: Creating config with filters...")

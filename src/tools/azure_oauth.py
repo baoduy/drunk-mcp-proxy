@@ -13,6 +13,7 @@ It handles:
 
 from __future__ import annotations
 
+import asyncio
 import time
 import typing
 
@@ -25,17 +26,19 @@ class AzureOauth(httpx.Auth):
     """
     Azure AD (Entra ID) OAuth2 client credentials authentication provider.
 
+    Supports both sync and async flows with automatic token caching and refresh.
+
     This is a proper httpx.Auth subclass that implements the OAuth2 client
     credentials flow (RFC 6749) for Azure AD. It provides:
 
-    - Automatic token fetching with in-memory caching
+    - Automatic token fetching with dual-layer caching (in-memory + storage)
     - Token expiry detection and automatic refresh
     - Optional pluggable storage for token persistence
+    - Full sync and async support via asyncio event loops
     - Graceful fallback when storage is unavailable
-    - Full async support
 
     Usage:
-        # Basic usage
+        # Async usage (recommended)
         oauth = AzureOauth(
             client_id="your-client-id",
             client_secret="your-client-secret",
@@ -46,13 +49,17 @@ class AzureOauth(httpx.Auth):
         async with httpx.AsyncClient(auth=oauth) as client:
             response = await client.get("https://graph.microsoft.com/v1.0/users")
 
+        # Sync usage (uses asyncio event loop)
+        with httpx.Client(auth=oauth) as client:
+            response = client.get("https://graph.microsoft.com/v1.0/users")
+
         # With token storage
         oauth = AzureOauth(
             client_id="...",
             client_secret="...",
             token_url="...",
             scope="...",
-            storage=encrypted_token_storage,
+            token_storage=encrypted_token_storage,
         )
     """
 
@@ -90,7 +97,7 @@ class AzureOauth(httpx.Auth):
                 client_secret="...",
                 token_url="...",
                 scope="...",
-                storage=token_storage_adapter,
+                token_storage=token_storage_adapter,
             )
         """
         self.client_id = client_id
@@ -98,6 +105,7 @@ class AzureOauth(httpx.Auth):
         self.token_url = token_url
         self.scope = scope
         self.storage = token_storage or MemoryStore()
+        self._cached_token: dict | None = None
 
     # =========================
     # TOKEN MANAGEMENT
@@ -144,31 +152,65 @@ class AzureOauth(httpx.Auth):
             return True
         return token.get("expires_at", 0) < time.time()
 
-    async def _get_token(self) -> dict:
+    async def _get_token_async(self) -> dict:
         """
-        Get a valid OAuth2 token from storage or fetch new one.
+        Get a valid OAuth2 token from storage or fetch new one (async).
 
         Token refresh logic:
-        1. Load from storage using client_id as key
-        2. If valid (not expired), return
-        3. If expired or not in storage, fetch new token from Azure AD
-        4. Save to storage
-        5. Return token
+        1. Check in-memory cache first
+        2. Load from storage using client_id as key
+        3. If valid (not expired), return
+        4. If expired or not in storage, fetch new token from Azure AD
+        5. Save to storage
+        6. Return token
 
         Returns:
             Token dictionary with access_token key
         """
-        # Load from storage first using client_id as key
+        # Check in-memory cache first
+        if self._cached_token and not self._is_token_expired_dict(self._cached_token):
+            return self._cached_token
+
+        # Load from storage using client_id as key
         stored_token = await self.storage.get(self.client_id)
         if stored_token and not self._is_token_expired_dict(stored_token):
+            self._cached_token = stored_token
             return stored_token
 
         # Fetch new token from Azure AD
         token = await self._fetch_token()
         # Save to storage using client_id as key
         await self.storage.put(self.client_id, token)
+        self._cached_token = token
 
         return token
+
+    def _get_token_sync(self) -> dict:
+        """
+        Get a valid OAuth2 token (sync wrapper).
+
+        Uses asyncio to run async token fetch in sync context.
+
+        Returns:
+            Token dictionary with access_token key
+
+        Raises:
+            RuntimeError: If called from within an async context
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # We're already in an async context, create new event loop in thread
+            raise RuntimeError(
+                "Cannot use sync auth_flow in async context. "
+                "Use async_auth_flow with httpx.AsyncClient instead."
+            )
+
+        # Run async token fetch in new event loop
+        return asyncio.run(self._get_token_async())
 
     # =========================
     # HTTPX AUTH FLOW
@@ -181,7 +223,7 @@ class AzureOauth(httpx.Auth):
         Execute the authentication flow (synchronous).
 
         This is called by httpx.Client for synchronous requests.
-        Since we only support async operations, this is not fully implemented.
+        It fetches or retrieves a cached token and injects it into the request.
 
         Args:
             request: The HTTP request to authenticate
@@ -189,12 +231,9 @@ class AzureOauth(httpx.Auth):
         Yields:
             The modified request with Authorization header set
         """
-        # For sync clients, we can't support async token fetching
-        # This would require running an event loop or pre-fetched tokens
-        raise NotImplementedError(
-            "AzureOauth requires async support. "
-            "Use httpx.AsyncClient or provide pre-fetched tokens."
-        )
+        token = self._get_token_sync()
+        request.headers["Authorization"] = f"Bearer {token['access_token']}"
+        yield request
 
     async def async_auth_flow(
             self, request: httpx.Request
@@ -211,6 +250,6 @@ class AzureOauth(httpx.Auth):
         Yields:
             The modified request with Authorization header set
         """
-        token = await self._get_token()
+        token = await self._get_token_async()
         request.headers["Authorization"] = f"Bearer {token['access_token']}"
         yield request

@@ -6,14 +6,13 @@ configuration files that define MCP and OpenAPI specifications.
 """
 
 import json
+import jsonschema
 import os
 from enum import Enum
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Any, Optional
 
-import jsonschema
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-
-from src.tools.env_resolver import resolve_env_var
+from tools.env_resolver import resolve_env_var
 
 
 class SpecType(str, Enum):

@@ -28,9 +28,9 @@ from typing import TYPE_CHECKING
 
 from starlette.middleware import Middleware
 
-from src.proxies import ProxyConfigProvider
-from src.proxies.mcp_proxy_config import McpProxyConfig
-from src.tools.env import (
+from proxies import ProxyConfigProvider
+from proxies.mcp_proxy_config import McpProxyConfig
+from tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
     HOST,
@@ -38,7 +38,7 @@ from src.tools.env import (
     SERVER_NAME,
     SERVER_VERSION,
 )
-from src.tools.logging_config import setup_logging
+from tools.logging_config import setup_logging
 from .auth import build_auth_provider
 from .middleware import build_middleware
 from .starlette_app import StarletteApp
