@@ -208,14 +208,16 @@ class TestEnvKwargsForProvider:
 
     def test_no_signature_available(self):
         """Test handling when signature inspection fails."""
-        # Create a class where __init__ can't be inspected
-        mock_cls = type('NoSigProvider', (), {})
+        # Create a built-in type that can't be inspected
+        mock_cls = type('NoSigProvider', (object,), {})
+        # Override __init__ to make it non-inspectable
+        mock_cls.__init__ = lambda: None  # Built-in types can't have signature inspected
         
         os.environ['FASTMCP_SERVER_AUTH_NOSIGPROVIDER_KEY'] = 'value'
         
         try:
             result = _env_kwargs_for_provider(mock_cls)
-            # Should still get provider-specific vars
+            # Should still get provider-specific vars even without signature
             assert 'key' in result
             assert result['key'] == 'value'
         finally:
