@@ -12,8 +12,9 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
     from fastmcp.server.providers.openapi import MCPType
     from fastmcp.utilities.openapi import HTTPRoute
+    from httpx import Auth
 
-from src.tools import SpecConfig, OauthAsyncClient
+from src.tools import SpecConfig, AzureOauth
 from src.tools.env import SERVER_NAME
 from src.tools.logging_config import setup_logging
 from src.tools.spec_config import AzureAuthConfig
@@ -41,14 +42,13 @@ class OpenApiMcpProvider:
 
     def create_client(self) -> httpx.AsyncClient:
         """Return an appropriate HTTP client for the configured service."""
-        azure_config = self.config.auth.azure if self.config.auth else None
-        if azure_config is not None:
-            return self._create_oauth_client(azure_config)
+        auth: Auth | None = None
+        if self.config.auth and self.config.auth.azure:
+            auth = self._create_auth(self.config.auth.azure)
 
         if not self.config.base_url:
             raise ValueError("base_url is required for OpenAPI clients without Azure auth")
-
-        return httpx.AsyncClient(base_url=self.config.base_url)
+        return httpx.AsyncClient(base_url=self.config.base_url, auth=auth)
 
     def create_proxy(self) -> "FastMCP":
         from fastmcp import FastMCP
@@ -74,24 +74,18 @@ class OpenApiMcpProvider:
             raise RuntimeError("FastMCP failed to initialize")
         return self.mcp
 
-    def _create_oauth_client(self, azure_config: AzureAuthConfig) -> OauthAsyncClient:
+    def _create_auth(self, azure_config: AzureAuthConfig) -> "Auth":
         scope_value = self._scope_value(azure_config)
         assert self.config.base_url
 
-        oauth_client = OauthAsyncClient(
-            base_url=self.config.base_url,
+        auth = AzureOauth(
             client_id=azure_config.client_id,
             client_secret=azure_config.client_secret,
             token_url=azure_config.token_url,
             scope=scope_value,
         )
-        # if LOG_LEVEL == "DEBUG":
-        #     async def _log_auth_header(request: httpx.Request) -> None:
-        #         self.logger.debug("OAuth Authorization header: %s", request.headers.get("Authorization"))
-        #
-        #     oauth_client.event_hooks.setdefault("request", []).append(_log_auth_header)
-        # oauth_client.token_endpoint = azure_config.token_url  # type: ignore[attr-defined]
-        return oauth_client
+
+        return auth
 
     @staticmethod
     def _scope_value(config: AzureAuthConfig) -> Optional[str]:

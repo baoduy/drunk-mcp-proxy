@@ -11,3 +11,4 @@ starlette>=0.34.0
 httpx>=0.6.7
 pytest>=7.0.0
 pytest-asyncio>=0.20.0
+py-key-value-aio[disk,keyring,memory]>=0.4.0
