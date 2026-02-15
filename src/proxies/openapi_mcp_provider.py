@@ -10,9 +10,11 @@ import httpx
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
-    from fastmcp.server.providers.openapi import MCPType
-    from fastmcp.utilities.openapi import HTTPRoute
+    from fastmcp.server.providers.openapi import MCPType, HTTPRoute
     from httpx import Auth
+else:
+    # Import for runtime use
+    from fastmcp.server.providers.openapi import MCPType
 
 from src.tools import SpecConfig, AzureOauth
 from src.tools.env import SERVER_NAME
