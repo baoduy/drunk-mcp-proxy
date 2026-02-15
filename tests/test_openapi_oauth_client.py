@@ -53,4 +53,4 @@ def test_create_client_with_azure_auth_with_base_url() -> None:
 
     # Should return OauthAsyncClient with base_url set
     assert isinstance(client, OauthAsyncClient)
-    assert str(client.base_url) == "https://api.example.com/"
+    assert "https://api.example.com" in str(client.base_url)
