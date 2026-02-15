@@ -6,12 +6,11 @@ MCP applications within the proxy server.
 """
 
 from contextlib import asynccontextmanager
+from fastmcp.server.http import StarletteWithLifespan
 from typing import AsyncContextManager
 
-from fastmcp.server.http import StarletteWithLifespan
-
-from tools.env import SERVER_NAME
-from tools.logging_config import setup_logging
+from ..tools.env import SERVER_NAME
+from ..tools.logging_config import setup_logging
 
 # Initialize logger
 logger = setup_logging(SERVER_NAME)

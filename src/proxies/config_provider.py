@@ -6,15 +6,14 @@ configurations using SpecConfig from the CONFIG_DIR/config.json file.
 """
 
 import os
-from typing import Optional
-
 from fastmcp import FastMCP
 from fastmcp.server import create_proxy
+from typing import Optional
 
-from tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
-from tools.logging_config import setup_logging
-from tools.spec_config import SpecConfig
 from .mcp_proxy_config import McpProxyConfig
+from ..tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
+from ..tools.logging_config import setup_logging
+from ..tools.spec_config import SpecConfig
 from ..tools.spec_config import SpecType
 
 
@@ -76,7 +75,7 @@ class ProxyConfigProvider:
         """
         self.logger.info(f"Loading proxy configurations from: {self.config_file_path}")
 
-        if (len(self.configs) > 0):
+        if len(self.configs) > 0:
             self.logger.info(f"Proxy configurations already loaded, returning cached configs")
             return self.configs
 

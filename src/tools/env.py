@@ -71,6 +71,15 @@ CORS_ALLOW_METHODS = os.environ.get("FASTMCP_CORS_ALLOW_METHODS", "").strip()
 CORS_ALLOW_HEADERS = os.environ.get("FASTMCP_CORS_ALLOW_HEADERS", "").strip()
 CORS_EXPOSE_HEADERS = os.environ.get("FASTMCP_CORS_EXPOSE_HEADERS", "").strip()
 
+_raw_cors_allow_credentials = os.environ.get("FASTMCP_CORS_ALLOW_CREDENTIALS", "").strip().lower()
+CORS_ALLOW_CREDENTIALS = _raw_cors_allow_credentials in {"1", "true", "yes", "on"}
+
+_raw_cors_max_age = os.environ.get("FASTMCP_CORS_MAX_AGE", "").strip()
+try:
+    CORS_MAX_AGE = int(_raw_cors_max_age) if _raw_cors_max_age else None
+except ValueError:
+    CORS_MAX_AGE = None
+
 # Server Binding
 # ==============
 # Host and port configuration for the server

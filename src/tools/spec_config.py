@@ -12,7 +12,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Any, Optional
 
-from tools.env_resolver import resolve_env_var
+from .env_resolver import resolve_env_var
 
 
 class SpecType(str, Enum):

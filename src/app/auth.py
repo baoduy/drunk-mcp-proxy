@@ -34,8 +34,8 @@ import inspect
 import os
 from typing import Union, TYPE_CHECKING
 
-from tools.env import SERVER_NAME
-from tools.logging_config import setup_logging
+from ..tools.env import SERVER_NAME
+from ..tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -312,21 +312,13 @@ def build_auth_provider() -> "AuthProvider | None":
     class_path = _resolve_auth_class_path(raw)
 
     # Step 2: Import the provider class
-    try:
-        provider_cls = _import_auth_class(class_path)
-    except Exception as exc:
-        logger.error("Failed to import auth provider '%s': %s", class_path, exc)
-        raise
+    provider_cls = _import_auth_class(class_path)
 
     # Step 3: Extract configuration from environment variables
     kwargs = _env_kwargs_for_provider(provider_cls)
 
     # Step 4: Instantiate the provider
-    try:
-        provider = provider_cls(**kwargs)
-    except Exception as exc:
-        logger.error("Failed to initialize auth provider '%s': %s", class_path, exc)
-        raise
+    provider = provider_cls(**kwargs)
 
     logger.info("Authentication enabled via %s", class_path)
     return provider

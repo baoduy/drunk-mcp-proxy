@@ -5,18 +5,17 @@ This module provides a reusable StarletteApp class for creating Starlette applic
 with MCP server mounts, health check endpoints, middleware, and lifespan management.
 """
 
-from functools import partial
-
 from fastmcp.server.http import StarletteWithLifespan
+from functools import partial
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from proxies.mcp_proxy_config import McpProxyConfig
-from tools.env import SERVER_NAME, HOST, PORT
-from tools.logging_config import setup_logging
 from .lifespan import AppLifespanManager
+from ..tools.env import SERVER_NAME, HOST, PORT
+from ..tools.logging_config import setup_logging
 
 logger = setup_logging("StarletteApp")
 

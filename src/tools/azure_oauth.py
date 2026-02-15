@@ -14,10 +14,9 @@ It handles:
 from __future__ import annotations
 
 import asyncio
+import httpx
 import time
 import typing
-
-import httpx
 from key_value.aio.protocols import AsyncKeyValue
 from key_value.aio.stores.memory import MemoryStore
 
@@ -111,7 +110,7 @@ class AzureOauth(httpx.Auth):
     # TOKEN MANAGEMENT
     # =========================
 
-    async def _fetch_token(self) -> dict:
+    async def _async_fetch_token(self) -> dict:
         """
         Fetch a new OAuth2 token from the Azure AD token endpoint.
 
@@ -152,7 +151,11 @@ class AzureOauth(httpx.Auth):
             return True
         return token.get("expires_at", 0) < time.time()
 
-    async def _get_token_async(self) -> dict:
+    async def _fetch_token(self) -> dict:
+        """Backward-compatible alias for fetching a new token (async)."""
+        return await self._async_fetch_token()
+
+    async def _async_get_token(self) -> dict:
         """
         Get a valid OAuth2 token from storage or fetch new one (async).
 
@@ -185,7 +188,7 @@ class AzureOauth(httpx.Auth):
 
         return token
 
-    def _get_token_sync(self) -> dict:
+    def _get_token(self) -> dict:
         """
         Get a valid OAuth2 token (sync wrapper).
 
@@ -210,7 +213,7 @@ class AzureOauth(httpx.Auth):
             )
 
         # Run async token fetch in new event loop
-        return asyncio.run(self._get_token_async())
+        return asyncio.run(self._async_get_token())
 
     # =========================
     # HTTPX AUTH FLOW
@@ -231,7 +234,7 @@ class AzureOauth(httpx.Auth):
         Yields:
             The modified request with Authorization header set
         """
-        token = self._get_token_sync()
+        token = self._get_token()
         request.headers["Authorization"] = f"Bearer {token['access_token']}"
         yield request
 
@@ -250,6 +253,6 @@ class AzureOauth(httpx.Auth):
         Yields:
             The modified request with Authorization header set
         """
-        token = await self._get_token_async()
+        token = await self._async_get_token()
         request.headers["Authorization"] = f"Bearer {token['access_token']}"
         yield request

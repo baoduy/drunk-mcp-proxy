@@ -27,7 +27,7 @@ from __future__ import annotations
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
-from tools.env import (
+from ...tools.env import (
     CORS_ALLOW_ORIGINS,
     CORS_ALLOW_METHODS,
     CORS_ALLOW_HEADERS,

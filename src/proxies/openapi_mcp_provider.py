@@ -4,9 +4,8 @@ This module provides a class for creating FastMCP instances from McpProxyConfig.
 """
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-
 import httpx
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -16,10 +15,10 @@ else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
-from tools import SpecConfig, AzureOauth
-from tools.env import SERVER_NAME
-from tools.logging_config import setup_logging
-from tools.spec_config import AzureAuthConfig
+from ..tools import SpecConfig, AzureOauth
+from ..tools.env import SERVER_NAME
+from ..tools.logging_config import setup_logging
+from ..tools.spec_config import AzureAuthConfig
 
 
 class OpenApiMcpProvider:

@@ -3,7 +3,14 @@ MCP Proxy Server
 A proxy server for Model Context Protocol (MCP) that dynamically routes requests to configured backend servers.
 """
 
-from app.server import MCPProxyServer
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from .app.server import MCPProxyServer
 
 
 def main() -> None:
