@@ -46,6 +46,10 @@ data/mcp.json
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+coverage.xml
+*.cover
+.hypothesis/
 
 # Docker
 *.log

@@ -388,6 +388,36 @@ Connect to this proxy server as you would any MCP server. The proxy will route r
    └─────────┘    └─────────┘    └─────────┘
 ```
 
+## Testing
+
+This project includes comprehensive unit tests with **93% code coverage**.
+
+### Running Tests
+
+```bash
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=src --cov-report=term-missing --cov-report=html
+
+# View HTML coverage report
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+```
+
+### Test Structure
+
+- `tests/test_auth.py` - Authentication module tests (99% coverage)
+- `tests/test_validation.py` - Configuration validation tests (87% coverage)
+- `tests/test_main.py` - Main module unit tests (93% coverage)
+- `tests/test_main_integration.py` - Integration tests for tool functions
+
+For detailed testing documentation, see [TESTING.md](TESTING.md).
+
 ## License
 
 MIT License - See LICENSE file for details
