@@ -14,9 +14,10 @@ It handles:
 from __future__ import annotations
 
 import asyncio
-import httpx
 import time
 import typing
+
+import httpx
 from key_value.aio.protocols import AsyncKeyValue
 from key_value.aio.stores.memory import MemoryStore
 

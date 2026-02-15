@@ -98,8 +98,6 @@ class SpecConfig(BaseModel):
     Configuration model for a single proxy specification.
     
     Attributes:
-        name: Name identifier for the proxy
-        namespace: Optional namespace for the proxy (None for root)
         path: Base path for the proxy (default is '/')
         spec_file: Path to the specification file (relative to config dir)
         spec_type: Type of specification ("openapi" or "mcp")
@@ -109,10 +107,6 @@ class SpecConfig(BaseModel):
         auth: Optional authentication configuration
         spec_data: Loaded JSON data from the spec_file
     """
-
-    name: str
-    namespace: Optional[str] = Field(default=None, alias="namespace",
-                                     description="Namespace for the proxy (None for root)")
     path: str = Field(default="/", alias="path", description="Base path for the proxy (default is '/')")
     spec_file: str = Field(alias="specFile", description="Path to the specification file (relative to config dir)")
     spec_type: SpecType = Field(alias="specType", description="Type of specification ('openapi' or 'mcp')")

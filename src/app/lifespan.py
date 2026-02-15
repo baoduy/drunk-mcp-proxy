@@ -1,13 +1,11 @@
 """
 Application Lifespan Management Module
-
-This module handles the startup and shutdown lifecycle management of all mounted
-MCP applications within the proxy server.
 """
 
 from contextlib import asynccontextmanager
-from fastmcp.server.http import StarletteWithLifespan
 from typing import AsyncContextManager
+
+from fastmcp.server.http import StarletteWithLifespan
 
 from ..tools.env import SERVER_NAME
 from ..tools.logging_config import setup_logging
@@ -18,14 +16,10 @@ logger = setup_logging(SERVER_NAME)
 
 class AppLifespanManager:
     """
-    Manager for handling application lifecycle (startup and shutdown) of MCP apps.
-
-    This class encapsulates the logic for managing the lifespan of all mounted MCP
-    applications, ensuring proper initialization and cleanup with comprehensive
-    error handling.
+    Manager for application lifecycle (startup and shutdown) of MCP apps.
 
     Attributes:
-        logger: Logger instance for debug and error messages
+        logger: Logger instance for debug and error messages.
     """
 
     def __init__(self) -> None:
@@ -35,18 +29,14 @@ class AppLifespanManager:
     @asynccontextmanager
     async def lifespans(self, _: object, mcp_apps: list[tuple[str | None, StarletteWithLifespan]]):
         """
-        Manage application lifespans to match Starlette's expected signature.
-
-        This is the public entry point for lifespan management, wrapping the internal
-        _create_app_lifespans method. It accepts the app parameter that Starlette provides
-        and delegates to the core lifespan logic.
+        Manage app lifespans to match Starlette's expected signature.
 
         Args:
-            _: The app parameter from Starlette (unused)
-            mcp_apps: List of (name, mcp_app) tuples to manage lifespans for
+            _: The app parameter from Starlette (unused).
+            mcp_apps: List of (name, mcp_app) tuples to manage lifespans for.
 
         Yields:
-            None - delegates to _create_app_lifespans
+            None - delegates to _create_app_lifespans.
         """
         async with self._create_app_lifespans(mcp_apps):
             yield
@@ -56,17 +46,15 @@ class AppLifespanManager:
         """
         Manage startup and shutdown of all mounted MCP applications.
 
-        This async context manager orchestrates the initialization and cleanup of all MCP apps,
-        ensuring proper ordering and error handling throughout the application lifecycle.
-
         Args:
-            mcp_apps: List of (name, mcp_app) tuples to manage lifespans for
+            mcp_apps: List of (name, mcp_app) tuples to manage lifespans for.
 
         Yields:
-            None - Control returns to calling code, server runs until shutdown
+            None - control returns to calling code; server runs until
+            shutdown.
 
         Raises:
-            RuntimeError: If any MCP app fails to start during initialization
+            RuntimeError: If any MCP app fails to start on init.
         """
         lifespan_contexts: list[AsyncContextManager[None]] = []
         startup_errors: list[tuple[str | None, Exception]] = []

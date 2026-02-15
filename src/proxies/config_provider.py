@@ -6,9 +6,10 @@ configurations using SpecConfig from the CONFIG_DIR/config.json file.
 """
 
 import os
+from typing import Optional
+
 from fastmcp import FastMCP
 from fastmcp.server import create_proxy
-from typing import Optional
 
 from .mcp_proxy_config import McpProxyConfig
 from ..tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
@@ -76,7 +77,7 @@ class ProxyConfigProvider:
         self.logger.info(f"Loading proxy configurations from: {self.config_file_path}")
 
         if len(self.configs) > 0:
-            self.logger.info(f"Proxy configurations already loaded, returning cached configs")
+            self.logger.info("Proxy configurations already loaded, returning cached configs")
             return self.configs
 
         try:
@@ -130,22 +131,22 @@ class ProxyConfigProvider:
 
         root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
 
-        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(name="root", mcp_server=root_mcp)]
+        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(path="/", mcp_server=root_mcp)]
 
         for config in mcp_configs:
             if config.spec_data is None:
-                self.logger.warning(f"Skipping MCP config '{config.name}' because spec_data is None")
+                self.logger.warning(f"Skipping MCP config '{config.path}' because spec_data is None")
                 continue
 
-            proxy = create_proxy(config.spec_data, name=config.name)
+            proxy = create_proxy(config.spec_data, name=config.path)
             if config.path == "/":
-                root_mcp.mount(proxy, namespace=config.namespace)
-                self.logger.info(f"Set up MCP proxy for config: {config.name} at root (path='/')")
+                root_mcp.mount(proxy)
+                self.logger.info(f"Set up MCP proxy for config: {config.path} at root (path='/')")
             else:
-                mcp = FastMCP(f"{SERVER_NAME}-{config.name}", version=SERVER_VERSION)
-                mcp.mount(proxy, namespace=config.namespace)
-                mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
-                self.logger.info(f"Set up MCP proxy for config: {config.name}, path='{config.path}')")
+                mcp = FastMCP(f"{SERVER_NAME}-{config.path}", version=SERVER_VERSION)
+                mcp.mount(proxy)
+                mcp_proxy_configs.append(McpProxyConfig(path=config.path, mcp_server=mcp))
+                self.logger.info(f"Set up MCP proxy for config: {config.path}, path='{config.path}')")
 
         return mcp_proxy_configs
 
@@ -170,12 +171,12 @@ class ProxyConfigProvider:
         mcp_proxy_configs: list[McpProxyConfig] = []
         for config in openapi_configs:
             if config.spec_data is None:
-                self.logger.warning(f"Skipping OpenAPI config '{config.name}' because spec_data is None")
+                self.logger.warning(f"Skipping OpenAPI config '{config.path}' because spec_data is None")
                 continue
 
             mcp = OpenApiMcpProvider(config).create_proxy()
-            mcp_proxy_configs.append(McpProxyConfig(name=config.name, mcp_server=mcp))
-            self.logger.info(f"Set up OpenAPI proxy for config: {config.name}, path='{config.path}')")
+            mcp_proxy_configs.append(McpProxyConfig(path=config.path, mcp_server=mcp))
+            self.logger.info(f"Set up OpenAPI proxy for config: {config.path}, path='{config.path}')")
         return mcp_proxy_configs
 
     def get_config_services(self) -> list[McpProxyConfig]:

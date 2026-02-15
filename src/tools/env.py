@@ -76,9 +76,9 @@ CORS_ALLOW_CREDENTIALS = _raw_cors_allow_credentials in {"1", "true", "yes", "on
 
 _raw_cors_max_age = os.environ.get("FASTMCP_CORS_MAX_AGE", "").strip()
 try:
-    CORS_MAX_AGE = int(_raw_cors_max_age) if _raw_cors_max_age else None
+    CORS_MAX_AGE = int(_raw_cors_max_age) if _raw_cors_max_age else 3600
 except ValueError:
-    CORS_MAX_AGE = None
+    CORS_MAX_AGE = 3600
 
 # Server Binding
 # ==============

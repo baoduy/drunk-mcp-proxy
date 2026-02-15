@@ -116,7 +116,7 @@ def build_cors_middleware() -> list[Middleware]:
             allow_methods=methods,  # Which HTTP methods are allowed
             allow_headers=headers,  # Which request headers are allowed
             allow_credentials=bool(CORS_ALLOW_CREDENTIALS),
-            max_age=CORS_MAX_AGE or None,
+            max_age=CORS_MAX_AGE,
             expose_headers=expose_headers,  # Which response headers to expose
         )
     ]

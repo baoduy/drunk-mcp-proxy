@@ -16,9 +16,9 @@ class McpProxyConfig(BaseModel):
     including its name and the associated FastMCP server instance.
 
     Attributes:
-        name: Name identifier for the proxy
+        path: The path identifier for the proxy
         mcp_server: The FastMCP server instance
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    name: str
+    path: str
     mcp_server: FastMCP

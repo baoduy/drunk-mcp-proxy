@@ -7,10 +7,11 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 
 import httpx
+from fastmcp.utilities.openapi import HTTPRoute
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
-    from fastmcp.server.providers.openapi import MCPType, HTTPRoute
+    from fastmcp.server.providers.openapi import MCPType
     from httpx import Auth
 else:
     # Import for runtime use
@@ -46,7 +47,7 @@ class OpenApiMcpProvider:
         """Return an appropriate HTTP client for the configured service."""
         if not self.config.base_url:
             raise ValueError("base_url is required for OpenAPI clients without Azure auth")
-        
+
         auth: Auth | None = None
         headers: dict[str, str] = {}
         if self.config.auth and self.config.auth.azure:
@@ -63,15 +64,16 @@ class OpenApiMcpProvider:
         if self.mcp is not None:
             return self.mcp
 
-        self.logger.info("Creating proxy for config: %s", self.config.name)
+        self.logger.info("Creating proxy for config: %s", self.config.path)
         azure_cfg = self.config.auth.azure if self.config.auth else None
         if not self.config.base_url and azure_cfg is None:
             raise ValueError("base_url is required for OpenAPI proxies without Azure auth")
 
         client = self.create_client()
 
+        assert self.config.spec_data
         self.mcp = FastMCP.from_openapi(
-            name=f"{SERVER_NAME}-{self.config.name}",
+            name=f"{SERVER_NAME}-{self.config.path}",
             openapi_spec=self.config.spec_data,
             client=client,
             route_map_fn=self.custom_route_mapper,

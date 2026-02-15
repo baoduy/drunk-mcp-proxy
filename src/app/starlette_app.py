@@ -5,8 +5,9 @@ This module provides a reusable StarletteApp class for creating Starlette applic
 with MCP server mounts, health check endpoints, middleware, and lifespan management.
 """
 
-from fastmcp.server.http import StarletteWithLifespan
 from functools import partial
+
+from fastmcp.server.http import StarletteWithLifespan
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
@@ -96,20 +97,17 @@ class StarletteApp:
             name: Namespace for the mount (None for root mount at /mcp)
             mcp: FastMCP server instance to mount
         """
-        if service.name == "root":
+        if service.path == "/":
             # Root mount: serve at /mcp
             mount_path = "/mcp"
             mcp_app = service.mcp_server.http_app(path="/")
-            full_url = f"http://{self.host}:{self.port}{mount_path}"
             logger.info(
-                "Adding root MCP mount at %s (full endpoint: %s)", mount_path, full_url)
+                "Adding root MCP mount at %s", mount_path)
         else:
             # Namespaced mount: mount at /{name}/mcp
-            mount_path = f"/{service.name}/mcp"
+            mount_path = f"{service.path}/mcp"
             mcp_app = service.mcp_server.http_app(path="/")
-            full_url = f"http://{self.host}:{self.port}{mount_path}"
-            logger.info("Adding MCP mount (name=%s) at %s (full endpoint: %s)",
-                        service.name, mount_path, full_url)
+            logger.info("Adding MCP mount (name=%s) at %s", service.path, mount_path)
 
         self.mcp_apps.append((mount_path, mcp_app))
 
@@ -134,8 +132,8 @@ class StarletteApp:
             try:
                 self.add_mcp_service(service)
             except Exception as e:
-                logger.error("Failed to add MCP mount (name=%s): %s",
-                             service.name, str(e), exc_info=True)
+                logger.error("Failed to add MCP mount (path=%s): %s",
+                             service.path, str(e), exc_info=True)
                 raise
 
     def build(self) -> Starlette:

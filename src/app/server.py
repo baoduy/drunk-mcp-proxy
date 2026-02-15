@@ -24,10 +24,10 @@ Supported Transports:
 - streamable-http: HTTP with streaming support
 """
 
-from starlette.middleware import Middleware
 from typing import TYPE_CHECKING
 
-from .auth import build_auth_provider
+from starlette.middleware import Middleware
+
 from .middleware import build_middleware
 from .starlette_app import StarletteApp
 from ..proxies import ProxyConfigProvider
@@ -49,10 +49,6 @@ if TYPE_CHECKING:
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable
 logger = setup_logging(SERVER_NAME)
 
-# Build authentication provider from environment variables
-# Authentication is optional - will be None if FASTMCP_SERVER_AUTH is not set
-_auth_provider = build_auth_provider()
-
 
 class MCPProxyServer:
     """
@@ -64,13 +60,11 @@ class MCPProxyServer:
 
     Attributes:
         logger: Logger instance for server logs
-        auth_provider: Authentication provider instance (AuthProvider | None)
     """
 
     def __init__(self):
         """Initialize the MCP Proxy Server."""
         self.logger = logger
-        self.auth_provider = _auth_provider
 
     # Server Management Methods
     # =========================
@@ -164,8 +158,7 @@ class MCPProxyServer:
             "host": HOST or "0.0.0.0",
             "port": PORT or 9123,
             "log_level": LOG_LEVEL,
-            "config_dir": CONFIG_DIR,
-            "auth_enabled": self.auth_provider is not None,
+            "config_dir": CONFIG_DIR
         }
 
     def _log_startup_configuration(self) -> None:
