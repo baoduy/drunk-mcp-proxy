@@ -12,8 +12,8 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from proxies.mcp_proxy_config import McpProxyConfig
 from .lifespan import AppLifespanManager
+from ..proxies.mcp_proxy_config import McpProxyConfig
 from ..tools.env import SERVER_NAME, HOST, PORT
 from ..tools.logging_config import setup_logging
 
