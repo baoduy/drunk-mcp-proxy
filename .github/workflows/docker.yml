@@ -5,6 +5,9 @@ on:
     branches:
     - 'main'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     uses: baoduy/ShareWorkflows/.github/workflows/docker-publish.yaml@main
