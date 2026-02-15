@@ -29,6 +29,9 @@ Environment Variables:
         FASTMCP_HOST: Host to bind to (default: "0.0.0.0")
         FASTMCP_PORT: Port to listen on (default: 9123)
 
+    OAuth:
+        FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY: Fernet encryption key for OAuth token storage (required if using OAuth)
+
 Example .env file:
     FASTMCP_CONFIG_DIR=./data
     FASTMCP_LOG_LEVEL=DEBUG
@@ -56,7 +59,7 @@ LOG_LEVEL = os.environ.get("FASTMCP_LOG_LEVEL", "INFO").upper()
 # Server Identity
 # ===============
 # These values identify the server in logs and health checks
-SERVER_NAME = os.environ.get("FASTMCP_SERVER_NAME", "drunk-mcp-proxy-server").strip()
+SERVER_NAME = os.environ.get("FASTMCP_SERVER_NAME", "mcp-proxy-server").strip()
 SERVER_VERSION = os.environ.get("FASTMCP_SERVER_VERSION", "1.0.0").strip()
 
 # CORS Configuration
@@ -81,3 +84,9 @@ try:
 except ValueError:
     # Invalid port value, use default
     PORT = 9123
+
+# OAuth Configuration
+# ===================
+# Encryption key for storing OAuth tokens securely
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+OAUTH_STORAGE_ENCRYPTION_KEY = os.environ.get("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY", "").strip()

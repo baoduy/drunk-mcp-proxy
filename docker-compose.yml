@@ -18,8 +18,9 @@ services:
       - FASTMCP_CONFIG_DIR=/app/data
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
-      - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-drunk-mcp-proxy-server}
+      - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
       - FASTMCP_SERVER_VERSION=${FASTMCP_SERVER_VERSION:-1.0.0}
+      - FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY=${FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY}
       - PYTHONPATH=/app/src
       # Enable pip caching
       - PIP_CACHE_DIR=/tmp/pip-cache
@@ -27,7 +28,7 @@ services:
     networks:
       - mcp-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9123/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9123/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

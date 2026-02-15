@@ -13,11 +13,83 @@ from typing import Any, Optional
 import jsonschema
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
+from src.tools.env_resolver import resolve_env_var
+
 
 class SpecType(str, Enum):
     """Enumeration of supported specification types."""
     MCP = "mcp"
     OPENAPI = "openapi"
+
+
+class Filters(BaseModel):
+    """
+    Optional filters for proxy specifications.
+
+    Attributes:
+        methods: List of HTTP methods to filter (e.g., ["GET", "POST"])
+        tags: List of tags to filter by
+    """
+    methods: Optional[list[str]] = Field(default=None, alias="methods", description="List of HTTP methods to filter")
+    tags: Optional[list[str]] = Field(default=None, alias="tags", description="List of tags to filter by")
+
+    model_config = ConfigDict(
+        populate_by_name=True
+    )
+
+
+class AzureAuthConfig(BaseModel):
+    """
+    OAuth configuration for API authentication.
+
+    Attributes:
+        token_url: Azure EntraID token URL for obtaining access tokens
+        client_id: Azure EntraID client ID
+        client_secret: Azure EntraID client secret
+        tenant_id: Azure EntraID Tenant ID
+        issuer: Azure EntraID Issuer ID (optional)
+        scopes: List of OAuth scopes to request (supports both 'scope' and 'scopes' in JSON)
+    """
+    token_url: str = Field(alias="tokenUrl", description="Token URL of Azure EntraID")
+    client_id: str = Field(alias="clientId", description="Azure EntraID client ID")
+    client_secret: str = Field(alias="clientSecret", description="Azure EntraID client secret")
+    tenant_id: str = Field(alias="tenantId", description="Azure EntraID Tenant ID")
+    issuer: Optional[str] = Field(default=None, alias="issuer", description="Azure EntraID Issuer ID")
+    scopes: list[str] = Field(default_factory=list, validation_alias="scope", description="Azure EntraID scopes")
+
+    model_config = ConfigDict(
+        populate_by_name=True
+    )
+
+    @model_validator(mode="after")
+    def resolve_environment_variables(self) -> "AzureAuthConfig":
+        """Resolve environment variable references in OAuth configuration."""
+        self.token_url = resolve_env_var(self.token_url)
+        self.client_id = resolve_env_var(self.client_id)
+        self.client_secret = resolve_env_var(self.client_secret)
+        self.tenant_id = resolve_env_var(self.tenant_id)
+
+        if self.issuer:
+            self.issuer = resolve_env_var(self.issuer)
+
+        # Resolve environment variables in scopes list
+        self.scopes = [resolve_env_var(scope) for scope in self.scopes]
+
+        return self
+
+
+class Auth(BaseModel):
+    """
+    Authentication configuration for proxy specifications.
+
+    Attributes:
+        azure: Optional OAuth configuration
+    """
+    azure: Optional[AzureAuthConfig] = Field(default=None, description="OAuth configuration")
+
+    model_config = ConfigDict(
+        populate_by_name=True
+    )
 
 
 class SpecConfig(BaseModel):
@@ -27,26 +99,35 @@ class SpecConfig(BaseModel):
     Attributes:
         name: Name identifier for the proxy
         namespace: Optional namespace for the proxy (None for root)
+        path: Base path for the proxy (default is '/')
         spec_file: Path to the specification file (relative to config dir)
         spec_type: Type of specification ("openapi" or "mcp")
         base_url: Base URL for the API (None for MCP specs)
         tags: List of tags for categorization
+        filters: Optional filters for HTTP methods and tags
+        auth: Optional authentication configuration
         spec_data: Loaded JSON data from the spec_file
     """
-    
+
     name: str
-    namespace: Optional[str] = Field(default=None, description="Namespace for the proxy (None for root)")
-    path: str = Field(default="/", description="Base path for the proxy (default is '/')")
+    namespace: Optional[str] = Field(default=None, alias="namespace",
+                                     description="Namespace for the proxy (None for root)")
+    path: str = Field(default="/", alias="path", description="Base path for the proxy (default is '/')")
     spec_file: str = Field(alias="specFile", description="Path to the specification file (relative to config dir)")
     spec_type: SpecType = Field(alias="specType", description="Type of specification ('openapi' or 'mcp')")
-    base_url: Optional[str] = Field(default=None, alias="baseUrl", description="Base URL for the API (None for MCP specs)")
-    tags: list[str] = Field(default_factory=list, description="List of tags for categorization")
-    spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True, description="Loaded JSON data from the spec_file (not included in serialization)")
-    
+    base_url: Optional[str] = Field(default=None, alias="baseUrl",
+                                    description="Base URL for the API (None for MCP specs)")
+    tags: Optional[set[str]] = Field(default=None, alias="tags", description="List of tags for categorization")
+    filters: Optional[Filters] = Field(default=None, alias="filters",
+                                       description="Optional filters for methods and tags")
+    auth: Optional[Auth] = Field(default=None, alias="auth", description="Optional authentication configuration")
+    spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True,
+                                                description="Loaded JSON data from the spec_file (not included in serialization)")
+
     model_config = ConfigDict(
         populate_by_name=True
     )
-    
+
     @field_validator("name", "spec_file")
     @classmethod
     def validate_required_fields(cls, v: str) -> str:
@@ -54,14 +135,18 @@ class SpecConfig(BaseModel):
         if not v or not v.strip():
             raise ValueError("Field is required and cannot be empty")
         return v
-    
+
     @model_validator(mode="after")
     def validate_openapi_base_url(self) -> "SpecConfig":
         """Validate that baseUrl is required when specType is 'openapi'."""
-        if self.spec_type == SpecType.OPENAPI and not self.base_url:
+        if (
+                self.spec_type == SpecType.OPENAPI
+                and not self.base_url
+                and not (self.auth and self.auth.azure)
+        ):
             raise ValueError("baseUrl is required when specType is 'openapi'")
         return self
-    
+
     def _validate_after_load(self) -> None:
         """
         Perform validation after spec file is loaded.
@@ -70,14 +155,14 @@ class SpecConfig(BaseModel):
         """
         if self.spec_data is None:
             raise ValueError(f"Spec file '{self.spec_file}' was loaded but contains no data")
-        
+
         if not self.spec_data:
             raise ValueError(f"Spec file '{self.spec_file}' contains empty data")
-        
+
         # Validate MCP spec files against the JSON schema
         if self.spec_type == SpecType.MCP:
             self._validate_mcp_schema()
-    
+
     def _validate_mcp_schema(self) -> None:
         """
         Validate MCP spec_data against the MCP JSON schema.
@@ -90,14 +175,14 @@ class SpecConfig(BaseModel):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
         schema_path = os.path.join(project_root, "schemas", "mcp.schema.json")
-        
+
         if not os.path.exists(schema_path):
             raise FileNotFoundError(f"MCP schema file not found at: {schema_path}")
-        
+
         # Load the MCP schema
         with open(schema_path, "r") as f:
             schema = json.load(f)
-        
+
         # Validate spec_data against schema
         try:
             jsonschema.validate(instance=self.spec_data, schema=schema)
@@ -107,7 +192,7 @@ class SpecConfig(BaseModel):
             ) from e
         except jsonschema.SchemaError as e:
             raise ValueError(f"Invalid MCP schema file: {e.message}") from e
-    
+
     def load_spec_file(self, config_dir: str) -> None:
         """
         Load the specification file as JSON and store it in spec_data.
@@ -122,22 +207,22 @@ class SpecConfig(BaseModel):
             ValueError: If validation fails after loading
         """
         spec_path = os.path.join(config_dir, self.spec_file)
-        
+
         if not os.path.exists(spec_path):
             raise FileNotFoundError(f"Spec file not found: {spec_path}")
-            
+
         with open(spec_path, "r") as f:
             data = json.load(f)
-            
+
         # Validate that loaded data is a dictionary (JSON object)
         if not isinstance(data, dict):
             raise ValueError(f"Spec file must contain a JSON object, got {type(data).__name__}")
-            
+
         self.spec_data = data
-        
+
         # Perform validation after loading the spec file
         self._validate_after_load()
-    
+
     @staticmethod
     def load_from_file(config_file: str) -> list["SpecConfig"]:
         """
@@ -165,26 +250,26 @@ class SpecConfig(BaseModel):
         """
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"Configuration file not found: {config_file}")
-        
+
         # Load the configuration file
         with open(config_file, "r") as f:
             config_data = json.load(f)
-        
+
         if not isinstance(config_data, list):
             raise ValueError("Configuration file must contain a JSON array")
-        
+
         # Get the directory containing the config file (for resolving spec_file paths)
         config_dir = os.path.dirname(os.path.abspath(config_file))
-        
+
         # Parse each entry into a SpecConfig instance
         spec_configs: list[SpecConfig] = []
         for entry in config_data:  # type: ignore[misc]
             if not isinstance(entry, dict):
                 continue
             config = SpecConfig.model_validate(entry)
-            
+
             # Always load the spec file and validate
             config.load_spec_file(config_dir)
             spec_configs.append(config)
-        
+
         return spec_configs

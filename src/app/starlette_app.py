@@ -6,13 +6,14 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 """
 
 from functools import partial
-from src.proxies.config_provider import McpProxyConfig
+
 from fastmcp.server.http import StarletteWithLifespan
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from src.proxies.mcp_proxy_config import McpProxyConfig
 from src.tools.env import SERVER_NAME, HOST, PORT
 from src.tools.logging_config import setup_logging
 from .lifespan import AppLifespanManager
@@ -87,7 +88,7 @@ class StarletteApp:
         return JSONResponse({"status": "healthy", "service": self.service_name})
 
     def add_mcp_service(self, service: McpProxyConfig
-    ) -> None:
+                        ) -> None:
         """
         Add an MCP server mount to the application.
         Host and port are automatically loaded from environment variables.
@@ -145,13 +146,13 @@ class StarletteApp:
         """
         logger.info(
             "Returning Starlette application with %d MCP mount(s)", len(self.mcp_apps))
-       
+
         # Create new app with custom lifespan
         app = Starlette(
-                middleware=self.middleware,
-                lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps)
-            )
-        
+            middleware=self.middleware,
+            lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps)
+        )
+
         for mount_path, mcp_app in self.mcp_apps:
             assert mount_path is not None  # Always set to string in add_mcp_service
             app.mount(mount_path, mcp_app)
@@ -159,6 +160,4 @@ class StarletteApp:
         # Add health check endpoint
         app.add_route("/health", self._health_check_handler, methods=["GET"])
 
-        
-           
         return app

@@ -25,10 +25,11 @@ Supported Transports:
 """
 
 from typing import TYPE_CHECKING
+
 from starlette.middleware import Middleware
 
 from src.proxies import ProxyConfigProvider
-from src.proxies.config_provider import McpProxyConfig
+from src.proxies.mcp_proxy_config import McpProxyConfig
 from src.tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
