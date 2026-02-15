@@ -4,8 +4,9 @@ This module provides a class for creating FastMCP instances from McpProxyConfig.
 """
 from __future__ import annotations
 
-import httpx
 from typing import Optional, TYPE_CHECKING
+
+import httpx
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -15,7 +16,7 @@ else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
-from ..tools import SpecConfig, AzureOauth
+from ..tools import SpecConfig, AzureOauth, Cache
 from ..tools.env import SERVER_NAME
 from ..tools.logging_config import setup_logging
 from ..tools.spec_config import AzureAuthConfig
@@ -43,13 +44,18 @@ class OpenApiMcpProvider:
 
     def create_client(self) -> httpx.AsyncClient:
         """Return an appropriate HTTP client for the configured service."""
-        auth: Auth | None = None
-        if self.config.auth and self.config.auth.azure:
-            auth = self._create_auth(self.config.auth.azure)
-
         if not self.config.base_url:
             raise ValueError("base_url is required for OpenAPI clients without Azure auth")
-        return httpx.AsyncClient(base_url=self.config.base_url, auth=auth)
+        
+        auth: Auth | None = None
+        headers: dict[str, str] = {}
+        if self.config.auth and self.config.auth.azure:
+            auth = self._create_auth(self.config.auth.azure)
+        else:
+            if self.config.auth is not None and self.config.auth.auth_token is not None:
+                headers["Authorization"] = self.config.auth.auth_token
+
+        return httpx.AsyncClient(base_url=self.config.base_url, auth=auth, headers=headers)
 
     def create_proxy(self) -> "FastMCP":
         from fastmcp import FastMCP
@@ -84,6 +90,7 @@ class OpenApiMcpProvider:
             client_secret=azure_config.client_secret,
             token_url=azure_config.token_url,
             scope=scope_value,
+            token_storage=Cache.get_oauth_store()
         )
 
         return auth

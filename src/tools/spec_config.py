@@ -6,11 +6,12 @@ configuration files that define MCP and OpenAPI specifications.
 """
 
 import json
-import jsonschema
 import os
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Any, Optional
+
+import jsonschema
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 from .env_resolver import resolve_env_var
 
@@ -85,7 +86,8 @@ class Auth(BaseModel):
         azure: Optional OAuth configuration
     """
     azure: Optional[AzureAuthConfig] = Field(default=None, description="OAuth configuration")
-
+    auth_token: Optional[str] = Field(default=None, alias="authToken",
+                                      description="Static auth token for API authentication (if applicable)")
     model_config = ConfigDict(
         populate_by_name=True
     )

@@ -99,3 +99,14 @@ except ValueError:
 # Encryption key for storing OAuth tokens securely
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 OAUTH_STORAGE_ENCRYPTION_KEY = os.environ.get("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY", "").strip()
+
+# OAuth Storage Type Configuration
+# ==================================
+# Type of storage backend for OAuth tokens (e.g., "redis", "memory", "database")
+OAUTH_STORAGE_TYPE = os.environ.get("MCP_OAUTH_STORAGE_TYPE", "memory").strip()
+
+# Redis Configuration
+# ====================
+# Connection string for Redis backend
+# Format: redis://[user:password@]host:port/database
+REDIS_CONNECTION_STRING = os.environ.get("MCP_REDIS_CONNECTION_STRING", "").strip()
