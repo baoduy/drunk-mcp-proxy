@@ -1,6 +1,6 @@
 [
   {
-    "path": "/deapsea",
+    "path": "/deepsea",
     "specFile": "openapi/deepsea.openapi.json",
     "specType": "openapi",
     "baseUrl": "http://host.docker.internal:5000",

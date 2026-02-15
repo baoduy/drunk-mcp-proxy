@@ -102,12 +102,12 @@ class StarletteApp:
             mount_path = "/mcp"
             mcp_app = service.mcp_server.http_app(path="/")
             logger.info(
-                "Adding root MCP mount at %s", mount_path)
+                "Adding root MCP mount at (path=%s)", mount_path)
         else:
             # Namespaced mount: mount at /{name}/mcp
             mount_path = f"{service.path}/mcp"
             mcp_app = service.mcp_server.http_app(path="/")
-            logger.info("Adding MCP mount (name=%s) at %s", service.path, mount_path)
+            logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
 
         self.mcp_apps.append((mount_path, mcp_app))
 

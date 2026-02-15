@@ -135,7 +135,8 @@ class MCPProxyServer:
     # Utility Methods
     # ===============
 
-    def _retrieve_configuration(self) -> dict[str, str | bool | int]:
+    @staticmethod
+    def _retrieve_configuration() -> dict[str, str | bool | int]:
         """
         Retrieve the current server configuration as a dictionary.
 
@@ -150,7 +151,6 @@ class MCPProxyServer:
             - port: Server port number
             - log_level: Logging level
             - config_dir: Configuration directory path
-            - auth_enabled: Whether authentication is enabled
         """
         return {
             "server_name": SERVER_NAME,
@@ -180,7 +180,6 @@ class MCPProxyServer:
         self.logger.info("  Port: %s", config["port"])
         self.logger.info("  Log Level: %s", config["log_level"])
         self.logger.info("  Config Directory: %s", config["config_dir"])
-        self.logger.info("  Authentication: %s", "Enabled" if config["auth_enabled"] else "Disabled")
 
     # Application Entry Points
     # ========================

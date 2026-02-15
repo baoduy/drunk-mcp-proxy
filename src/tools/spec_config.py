@@ -123,7 +123,7 @@ class SpecConfig(BaseModel):
         populate_by_name=True
     )
 
-    @field_validator("name", "spec_file")
+    @field_validator("spec_file")
     @classmethod
     def validate_required_fields(cls, v: str) -> str:
         """Validate that required fields are not empty."""
