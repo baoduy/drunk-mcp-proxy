@@ -66,20 +66,20 @@ ENV FASTMCP_CONFIG_DIR=/mcp_proxy/data \
     FASTMCP_PORT=9123 \
     PYTHONPATH=/mcp_proxy \
     PYTHONUNBUFFERED=1 \
-    HOME=/home/mcp_proxyuser \
-    NPM_CONFIG_PREFIX=/home/mcp_proxyuser/.npm-global \
-    NPM_CONFIG_CACHE=/home/mcp_proxyuser/.npm \
-    UV_CACHE_DIR=/home/mcp_proxyuser/.cache/uv \
-    UV_TOOL_DIR=/home/mcp_proxyuser/.local/uv/tools \
+    HOME=/home/appuser \
+    NPM_CONFIG_PREFIX=/home/appuser/.npm-global \
+    NPM_CONFIG_CACHE=/home/appuser/.npm \
+    UV_CACHE_DIR=/home/appuser/.cache/uv \
+    UV_TOOL_DIR=/home/appuser/.local/uv/tools \
     PIP_CACHE_DIR=/tmp/pip-cache \
-    PATH="/opt/venv/bin:/home/mcp_proxyuser/.npm-global/bin:/home/mcp_proxyuser/.local/bin:${PATH}"
+    PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}"
 
 # Setup user directories
-RUN mkdir -p /home/mcp_proxyuser/.npm-global \
-             /home/mcp_proxyuser/.npm \
-             /home/mcp_proxyuser/.cache/uv \
-             /home/mcp_proxyuser/.local/uv/tools && \
-    chown -R appuser:appuser /home/mcp_proxyuser
+RUN mkdir -p /home/appuser/.npm-global \
+             /home/appuser/.npm \
+             /home/appuser/.cache/uv \
+             /home/appuser/.local/uv/tools && \
+    chown -R appuser:appuser /home/appuser
 
 EXPOSE $FASTMCP_PORT
 
