@@ -58,7 +58,7 @@ Tests for the `src/auth.py` module covering:
 - **CRUD Operations**: Create, revoke API keys
 - **Authentication State**: Enable/disable authentication
 
-**Coverage**: 99% (82/82 statements, 1 missed)
+**Coverage**: 99% (82 statements, 1 missed)
 
 **Key Test Classes**:
 - `TestLoadAuthConfig`: Config loading with various scenarios
@@ -81,7 +81,7 @@ Tests for the `src/validation.py` module covering:
 - **Format Checking**: URI format validation
 - **Error Reporting**: Detailed validation error messages
 
-**Coverage**: 87% (60/60 statements, 8 missed)
+**Coverage**: 87% (60 statements, 8 missed)
 
 **Key Test Classes**:
 - `TestLoadSchema`: Schema file loading
@@ -122,7 +122,7 @@ Integration tests for `src/main.py` tool functions:
 **Key Test Class**:
 - `TestToolFunctions`: Comprehensive tool function tests using mocked FastMCP
 
-**Coverage**: Combined main.py coverage is 93% (173/173 statements, 12 missed)
+**Coverage**: Combined main.py coverage is 93% (173 statements, 12 missed)
 
 ## Running Tests
 
@@ -172,7 +172,7 @@ xdg-open htmlcov/index.html  # Linux
 | `src/auth.py` | 82 | 1 | 99% |
 | `src/main.py` | 173 | 12 | 93% |
 | `src/validation.py` | 60 | 8 | 87% |
-| **TOTAL** | **315** | **21** | **93%** |
+| **TOTAL** | **315** | **21** | **93.33%** |
 
 ### Uncovered Lines
 
