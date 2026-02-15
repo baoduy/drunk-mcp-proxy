@@ -1,0 +1,18 @@
+name: docker-build
+
+on:
+  push:
+    branches:
+    - 'main'
+
+jobs:
+  build:
+    uses: baoduy/ShareWorkflows/.github/workflows/docker-publish.yaml@main
+    with:
+      dockerFile: 'Dockerfile'
+      context: '.'
+      imageName: 'baoduy2412/mcp-proxy'
+      platforms: linux/arm64,linux/amd64
+    secrets:
+      DOCKER_USERNAME: baoduy2412
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
