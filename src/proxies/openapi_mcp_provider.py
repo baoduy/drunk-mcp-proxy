@@ -4,8 +4,8 @@ This module provides a class for creating FastMCP instances from McpProxyConfig.
 """
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-
+from typing import TYPE_CHECKING
+from fastmcp import FastMCP
 import httpx
 from fastmcp.utilities.openapi import HTTPRoute
 
@@ -18,11 +18,9 @@ else:
     from fastmcp.server.providers.openapi import MCPType
 
 from src.proxies.static_mcp_provider import StaticMcpProvider
-from tools import SpecConfig, AzureOauth
-from src.app.cache_provider import CacheProvider
+from tools import SpecConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
-from tools.spec_config import AzureAuthConfig
 
 
 class OpenApiMcpProvider(StaticMcpProvider):
@@ -60,9 +58,7 @@ class OpenApiMcpProvider(StaticMcpProvider):
 
         return httpx.AsyncClient(base_url=self.config.base_url, auth=auth, headers=headers)
 
-    def create_proxy(self) -> "FastMCP":
-        from fastmcp import FastMCP
-
+    def _create_proxy(self) -> "FastMCP":
         if self.mcp is not None:
             return self.mcp
 
@@ -81,27 +77,8 @@ class OpenApiMcpProvider(StaticMcpProvider):
             route_map_fn=self.custom_route_mapper,
             tags=self.config.tags
         )
+        
         if self.mcp is None:
             raise RuntimeError("FastMCP failed to initialize")
         self.mcp.auth = super()._create_auth_provider()
         return self.mcp
-
-    def _create_client_auth(self, azure_config: AzureAuthConfig) -> "Auth":
-        scope_value = self._scope_value(azure_config)
-        assert self.config.base_url
-
-        auth = AzureOauth(
-            client_id=azure_config.client_id,
-            client_secret=azure_config.client_secret,
-            token_url=azure_config.token_url,
-            scope=scope_value,
-            token_storage=CacheProvider.get_oauth_store()
-        )
-
-        return auth
-
-    @staticmethod
-    def _scope_value(config: AzureAuthConfig) -> Optional[str]:
-        if not config.scopes:
-            return None
-        return " ".join(config.scopes)

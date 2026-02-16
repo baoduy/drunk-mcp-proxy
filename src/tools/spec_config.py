@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Optional
 
 import jsonschema
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .env import SCHEMA_DIR
 from .env_resolver import resolve_env_var
@@ -31,12 +31,8 @@ class Filters(BaseModel):
         methods: List of HTTP methods to filter (e.g., ["GET", "POST"])
         tags: List of tags to filter by
     """
-    methods: Optional[list[str]] = Field(default=None, alias="methods", description="List of HTTP methods to filter")
-    tags: Optional[list[str]] = Field(default=None, alias="tags", description="List of tags to filter by")
-
-    model_config = ConfigDict(
-        populate_by_name=True
-    )
+    methods: Optional[list[str]] = Field(default=None, description="List of HTTP methods to filter")
+    tags: Optional[list[str]] = Field(default=None, description="List of tags to filter by")
 
 
 class AzureAuthConfig(BaseModel):
@@ -49,18 +45,14 @@ class AzureAuthConfig(BaseModel):
         client_secret: Azure EntraID client secret
         tenant_id: Azure EntraID Tenant ID
         issuer: Azure EntraID Issuer ID (optional)
-        scopes: List of OAuth scopes to request (supports both 'scope' and 'scopes' in JSON)
+        scopes: List of OAuth scopes to request
     """
-    token_url: str = Field(alias="tokenUrl", description="Token URL of Azure EntraID")
-    client_id: str = Field(alias="clientId", description="Azure EntraID client ID")
-    client_secret: str = Field(alias="clientSecret", description="Azure EntraID client secret")
-    tenant_id: str = Field(alias="tenantId", description="Azure EntraID Tenant ID")
-    issuer: Optional[str] = Field(default=None, alias="issuer", description="Azure EntraID Issuer ID")
-    scopes: list[str] = Field(default_factory=list, validation_alias="scope", description="Azure EntraID scopes")
-
-    model_config = ConfigDict(
-        populate_by_name=True
-    )
+    token_url: str = Field(description="Token URL of Azure EntraID")
+    client_id: str = Field(description="Azure EntraID client ID")
+    client_secret: str = Field(description="Azure EntraID client secret")
+    tenant_id: str = Field(description="Azure EntraID Tenant ID")
+    issuer: Optional[str] = Field(default=None, description="Azure EntraID Issuer ID")
+    scopes: list[str] = Field(default_factory=list, description="Azure EntraID scopes")
 
     @model_validator(mode="after")
     def resolve_environment_variables(self) -> "AzureAuthConfig":
@@ -87,11 +79,7 @@ class AuthField(BaseModel):
         azure: Optional OAuth configuration
     """
     azure: Optional[AzureAuthConfig] = Field(default=None, description="OAuth configuration")
-    auth_token: Optional[str] = Field(default=None, alias="authToken",
-                                      description="Static auth token for API authentication (if applicable)")
-    model_config = ConfigDict(
-        populate_by_name=True
-    )
+    auth_token: Optional[str] = Field(default=None, description="Static auth token for API authentication (if applicable)")
 
 
 class SpecConfig(BaseModel):
@@ -108,21 +96,15 @@ class SpecConfig(BaseModel):
         auth: Optional authentication configuration
         spec_data: Loaded JSON data from the spec_file
     """
-    path: str = Field(alias="path", description="Base path for the proxy")
-    spec_file: str = Field(alias="specFile", description="Path to the specification file (relative to config dir)")
-    spec_type: SpecType = Field(alias="specType", description="Type of specification ('openapi' or 'mcp')")
-    base_url: Optional[str] = Field(default=None, alias="baseUrl",
-                                    description="Base URL for the API (None for MCP specs)")
-    tags: Optional[set[str]] = Field(default=None, alias="tags", description="List of tags for categorization")
-    filters: Optional[Filters] = Field(default=None, alias="filters",
-                                       description="Optional filters for methods and tags")
-    auth: Optional[AuthField] = Field(default=None, alias="auth", description="Optional authentication configuration")
+    path: str = Field(description="Base path for the proxy")
+    spec_file: str = Field(description="Path to the specification file (relative to config dir)")
+    spec_type: SpecType = Field(description="Type of specification ('openapi' or 'mcp')")
+    base_url: Optional[str] = Field(default=None, description="Base URL for the API (None for MCP specs)")
+    tags: Optional[set[str]] = Field(default=None, description="List of tags for categorization")
+    filters: Optional[Filters] = Field(default=None, description="Optional filters for methods and tags")
+    auth: Optional[AuthField] = Field(default=None, description="Optional authentication configuration")
     spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True,
                                                 description="Loaded JSON data from the spec_file (not included in serialization)")
-
-    model_config = ConfigDict(
-        populate_by_name=True
-    )
 
     @field_validator("spec_file", "path")
     @classmethod
@@ -134,13 +116,13 @@ class SpecConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_openapi_base_url(self) -> "SpecConfig":
-        """Validate that baseUrl is required when specType is 'openapi'."""
+        """Validate that base_url is required when spec_type is 'openapi'."""
         if (
                 self.spec_type == SpecType.OPENAPI
                 and not self.base_url
                 and not (self.auth and self.auth.azure)
         ):
-            raise ValueError("baseUrl is required when specType is 'openapi'")
+            raise ValueError("base_url is required when spec_type is 'openapi'")
         return self
 
     def _validate_after_load(self) -> None:

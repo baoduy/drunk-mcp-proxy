@@ -203,8 +203,8 @@ class TestOpenApiMcpProviderScopeValue:
 class TestOpenApiMcpProviderCreateClientAuth:
     """Test suite for _create_client_auth method."""
 
-    @patch('src.proxies.openapi_mcp_provider.AzureOauth')
-    @patch('src.proxies.openapi_mcp_provider.CacheProvider.get_oauth_store')
+    @patch('src.proxies.static_mcp_provider.AzureOauth')
+    @patch('src.proxies.static_mcp_provider.CacheProvider.get_oauth_store')
     def test_create_client_auth(self, mock_get_oauth_store, mock_azure_oauth_cls):
         """Test creating Azure OAuth authentication."""
         mock_azure_config = Mock(spec=AzureAuthConfig)
@@ -240,7 +240,7 @@ class TestOpenApiMcpProviderCreateProxy:
     """Test suite for create_proxy method."""
 
     @patch.object(OpenApiMcpProvider, '_create_auth_provider')
-    @patch('fastmcp.FastMCP')
+    @patch('src.proxies.openapi_mcp_provider.FastMCP')
     @patch.object(OpenApiMcpProvider, 'create_client')
     def test_create_proxy_success(self, mock_create_client, mock_fastmcp_cls, mock_create_auth):
         """Test successful proxy creation."""
@@ -248,7 +248,7 @@ class TestOpenApiMcpProviderCreateProxy:
         mock_config.path = "/test-api"
         mock_config.base_url = "https://api.example.com"
         mock_config.auth = None
-        mock_config.spec_data = {"openapi": "3.0"}
+        mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
         mock_config.tags = ["v1"]
 
         mock_client = Mock()
@@ -260,14 +260,14 @@ class TestOpenApiMcpProviderCreateProxy:
         mock_create_auth.return_value = None
 
         provider = OpenApiMcpProvider(mock_config)
-        result = provider.create_proxy()
+        result = provider._create_proxy()
 
         assert result == mock_mcp
         assert provider.mcp == mock_mcp
         mock_fastmcp_cls.from_openapi.assert_called_once()
 
     @patch.object(OpenApiMcpProvider, '_create_auth_provider')
-    @patch('fastmcp.FastMCP')
+    @patch('src.proxies.openapi_mcp_provider.FastMCP')
     @patch.object(OpenApiMcpProvider, 'create_client')
     def test_create_proxy_returns_cached(self, mock_create_client, mock_fastmcp_cls, mock_create_auth):
         """Test that create_proxy returns cached MCP instance."""
@@ -275,7 +275,7 @@ class TestOpenApiMcpProviderCreateProxy:
         mock_config.path = "/test-api"
         mock_config.base_url = "https://api.example.com"
         mock_config.auth = None
-        mock_config.spec_data = {"openapi": "3.0"}
+        mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
         mock_config.tags = ["v1"]
 
         mock_client = Mock()
@@ -289,8 +289,8 @@ class TestOpenApiMcpProviderCreateProxy:
         provider = OpenApiMcpProvider(mock_config)
 
         # Call twice
-        result1 = provider.create_proxy()
-        result2 = provider.create_proxy()
+        result1 = provider._create_proxy()
+        result2 = provider._create_proxy()
 
         # Should only create once
         assert mock_fastmcp_cls.from_openapi.call_count == 1
@@ -306,22 +306,24 @@ class TestOpenApiMcpProviderCreateProxy:
         provider = OpenApiMcpProvider(mock_config)
 
         with pytest.raises(ValueError) as exc_info:
-            provider.create_proxy()
+            provider._create_proxy()
         assert "base_url is required" in str(exc_info.value)
 
-    @patch('fastmcp.FastMCP')
+    @patch.object(OpenApiMcpProvider, '_create_auth_provider')
+    @patch('src.proxies.openapi_mcp_provider.FastMCP')
     @patch.object(OpenApiMcpProvider, 'create_client')
-    def test_create_proxy_initialization_failure(self, mock_create_client, mock_fastmcp_cls):
+    def test_create_proxy_initialization_failure(self, mock_create_client, mock_fastmcp_cls, mock_create_auth):
         """Test create_proxy raises error when FastMCP initialization fails."""
         mock_config = Mock(spec=SpecConfig)
         mock_config.path = "/test-api"
         mock_config.base_url = "https://api.example.com"
         mock_config.auth = None
-        mock_config.spec_data = {"openapi": "3.0"}
+        mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
         mock_config.tags = []
 
         mock_client = Mock()
         mock_create_client.return_value = mock_client
+        mock_create_auth.return_value = None
 
         # Return None to simulate initialization failure
         mock_fastmcp_cls.from_openapi.return_value = None
@@ -329,5 +331,5 @@ class TestOpenApiMcpProviderCreateProxy:
         provider = OpenApiMcpProvider(mock_config)
 
         with pytest.raises(RuntimeError) as exc_info:
-            provider.create_proxy()
+            provider._create_proxy()
         assert "FastMCP failed to initialize" in str(exc_info.value)

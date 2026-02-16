@@ -16,12 +16,13 @@
     "role_arn": null
   },
   "azure": {
+    "base_url": "http://localhost:8080",
     "client_id": "$AZURE_CLIENT_ID",
     "client_secret": "$AZURE_CLIENT_SECRET",
     "tenant_id": "$AZURE_TENANT_ID",
-    "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-    "tokenUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-    "scope": [
+    "issuer_url": "https://sts.windows.net/$AZURE_TENANT_ID/",
+    "identifier_uri": "api://$AZURE_CLIENT_ID/.default",
+    "required_scopes": [
       "api://$AZURE_CLIENT_ID/.default"
     ]
   },

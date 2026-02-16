@@ -7,17 +7,17 @@ Your OAuth configuration can reference environment variables like this:
 ```json
 {
   "name": "deepsea",
-  "specFile": "openapi/deepsea.openapi.json",
-  "specType": "openapi",
-  "baseUrl": "http://host.docker.internal:5000",
+  "spec_file": "openapi/deepsea.openapi.json",
+  "spec_type": "openapi",
+  "base_url": "http://host.docker.internal:5000",
   "auth": {
     "azure": {
-      "baseUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "clientId": "$AZURE_CLIENT_ID",
-      "clientSecret": "$AZURE_CLIENT_SECRET",
-      "tenantId": "$AZURE_TENANT_ID",
+      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
+      "client_id": "$AZURE_CLIENT_ID",
+      "client_secret": "$AZURE_CLIENT_SECRET",
+      "tenant_id": "$AZURE_TENANT_ID",
       "issuer": "https://login.microsoftonline.com/$AZURE_TENANT_ID/v2.0",
-      "scope": [
+      "scopes": [
         "api://$AZURE_CLIENT_ID/.default"
       ]
     }

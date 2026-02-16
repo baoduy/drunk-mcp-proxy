@@ -15,9 +15,9 @@ from tools.spec_config import SpecConfig
 print("Test 1: Creating config with filters...")
 config_dict = {
     "path": "/test-api",
-    "specFile": "test.json",
-    "specType": "openapi",
-    "baseUrl": "https://api.example.com",
+    "spec_file": "test.json",
+    "spec_type": "openapi",
+    "base_url": "https://api.example.com",
     "filters": {
         "methods": ["GET", "POST"],
         "tags": ["public", "v1"]
@@ -36,8 +36,8 @@ assert config.filters.tags == ["public", "v1"]
 print("\nTest 2: Creating config without filters...")
 config_dict2 = {
     "path": "/test-api-2",
-    "specFile": "test2.json",
-    "specType": "mcp"
+    "spec_file": "test2.json",
+    "spec_type": "mcp"
 }
 
 config2 = SpecConfig.model_validate(config_dict2)
@@ -49,9 +49,9 @@ assert config2.filters is None
 print("\nTest 3: Creating config with only methods filter...")
 config_dict3 = {
     "path": "/test-api-3",
-    "specFile": "test3.json",
-    "specType": "openapi",
-    "baseUrl": "https://api.example.com",
+    "spec_file": "test3.json",
+    "spec_type": "openapi",
+    "base_url": "https://api.example.com",
     "filters": {
         "methods": ["DELETE"]
     }
@@ -69,9 +69,9 @@ assert config3.filters.tags is None
 print("\nTest 4: Creating config with only tags filter...")
 config_dict4 = {
     "path": "/test-api-4",
-    "specFile": "test4.json",
-    "specType": "openapi",
-    "baseUrl": "https://api.example.com",
+    "spec_file": "test4.json",
+    "spec_type": "openapi",
+    "base_url": "https://api.example.com",
     "filters": {
         "tags": ["internal"]
     }

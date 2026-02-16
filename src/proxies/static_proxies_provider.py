@@ -174,7 +174,7 @@ class StaticProxiesProvider:
                 self.logger.warning(f"Skipping OpenAPI config '{config.path}' because spec_data is None")
                 continue
 
-            mcp = OpenApiMcpProvider(config).create_proxy()
+            mcp = OpenApiMcpProvider(config)._create_proxy()
             mcp_proxy_configs.append(McpProxyConfig(path=config.path, mcp_server=mcp))
             self.logger.info(f"Set up OpenAPI proxy for config: {config.path}, path='{config.path}')")
         return mcp_proxy_configs

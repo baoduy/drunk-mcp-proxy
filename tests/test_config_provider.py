@@ -41,8 +41,8 @@ class TestProxyConfigProviderLoadConfigs:
         config_data = [
             {
                 "path": "/test-api",
-                "specFile": "test.json",
-                "specType": "mcp"
+                "spec_file": "test.json",
+                "spec_type": "mcp"
             }
         ]
         config_file.write_text(json.dumps(config_data))
@@ -63,8 +63,8 @@ class TestProxyConfigProviderLoadConfigs:
         config_data = [
             {
                 "path": "/test-api",
-                "specFile": "test.json",
-                "specType": "mcp"
+                "spec_file": "test.json",
+                "spec_type": "mcp"
             }
         ]
         config_file.write_text(json.dumps(config_data))

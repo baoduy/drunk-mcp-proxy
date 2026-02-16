@@ -21,9 +21,9 @@ class TestSpecConfigValidation:
         """Test creating a valid OpenAPI config."""
         config = SpecConfig.model_validate({
             "path": "/test-api",
-            "specFile": "api.openapi.json",
-            "specType": "openapi",
-            "baseUrl": "http://localhost:5000"
+            "spec_file": "api.openapi.json",
+            "spec_type": "openapi",
+            "base_url": "http://localhost:5000"
         })
 
         assert config.path == "/test-api"
@@ -36,8 +36,8 @@ class TestSpecConfigValidation:
         """Test creating a valid MCP config."""
         config = SpecConfig.model_validate({
             "path": "/test-mcp",
-            "specFile": "mcp.json",
-            "specType": "mcp"
+            "spec_file": "mcp.json",
+            "spec_type": "mcp"
         })
 
         assert config.path == "/test-mcp"
@@ -49,8 +49,8 @@ class TestSpecConfigValidation:
         """Test config with all optional fields."""
         config = SpecConfig.model_validate({
             "path": "/api",
-            "specFile": "test.json",
-            "specType": "mcp",
+            "spec_file": "test.json",
+            "spec_type": "mcp",
             "tags": ["internal", "debug"]
         })
 
@@ -61,91 +61,91 @@ class TestSpecConfigValidation:
         """Test validation fails when path is missing."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
-                "specFile": "test.json",
-                "specType": "mcp"
+                "spec_file": "test.json",
+                "spec_type": "mcp"
             })
 
         errors = exc_info.value.errors()
         assert any(e["loc"] == ("path",) for e in errors)
 
     def test_missing_required_spec_file(self):
-        """Test validation fails when specFile is missing."""
+        """Test validation fails when spec_file is missing."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "/test",
-                "specType": "mcp"
+                "spec_type": "mcp"
             })
 
         errors = exc_info.value.errors()
-        # Check for either the field name or alias
-        assert any(e["loc"] == ("spec_file",) or e["loc"] == ("specFile",) for e in errors)
+        # Check for spec_file field name
+        assert any(e["loc"] == ("spec_file",) for e in errors)
 
     def test_missing_required_spec_type(self):
-        """Test validation fails when specType is missing."""
+        """Test validation fails when spec_type is missing."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "test.json"
+                "spec_file": "test.json"
             })
 
         errors = exc_info.value.errors()
-        # Check for either the field name or alias
-        assert any(e["loc"] == ("spec_type",) or e["loc"] == ("specType",) for e in errors)
+        # Check for spec_type field name
+        assert any(e["loc"] == ("spec_type",) for e in errors)
 
     def test_empty_path_field(self):
         """Test validation fails when path is empty."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "",
-                "specFile": "test.json",
-                "specType": "mcp"
+                "spec_file": "test.json",
+                "spec_type": "mcp"
             })
 
         errors = exc_info.value.errors()
         assert any("empty" in str(e["msg"]).lower() for e in errors)
 
     def test_empty_spec_file_field(self):
-        """Test validation fails when specFile is empty."""
+        """Test validation fails when spec_file is empty."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "   ",
-                "specType": "mcp"
+                "spec_file": "   ",
+                "spec_type": "mcp"
             })
 
         errors = exc_info.value.errors()
         assert any("empty" in str(e["msg"]).lower() for e in errors)
 
     def test_invalid_spec_type(self):
-        """Test validation fails for invalid specType."""
+        """Test validation fails for invalid spec_type."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "test.json",
-                "specType": "invalid"
+                "spec_file": "test.json",
+                "spec_type": "invalid"
             })
 
         errors = exc_info.value.errors()
         assert any("openapi" in str(e["msg"]).lower() or "mcp" in str(e["msg"]).lower() for e in errors)
 
     def test_openapi_requires_base_url(self):
-        """Test that OpenAPI spec requires baseUrl."""
+        """Test that OpenAPI spec requires base_url."""
         with pytest.raises(ValidationError) as exc_info:
             SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "test.json",
-                "specType": "openapi"
+                "spec_file": "test.json",
+                "spec_type": "openapi"
             })
 
         errors = exc_info.value.errors()
-        assert any("baseurl" in str(e["msg"]).lower() for e in errors)
+        assert any("base_url" in str(e["msg"]).lower() for e in errors)
 
     def test_mcp_does_not_require_base_url(self):
-        """Test that MCP spec does not require baseUrl."""
+        """Test that MCP spec does not require base_url."""
         config = SpecConfig.model_validate({
             "path": "/test",
-            "specFile": "test.json",
-            "specType": "mcp"
+            "spec_file": "test.json",
+            "spec_type": "mcp"
         })
 
         assert config.base_url is None
@@ -166,9 +166,9 @@ class TestSpecConfigLoadSpecFile:
             # Create config and load spec
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "test.openapi.json",
-                "specType": "openapi",
-                "baseUrl": "http://localhost"
+                "spec_file": "test.openapi.json",
+                "spec_type": "openapi",
+                "base_url": "http://localhost"
             })
 
             config._load_spec_file(tmpdir)
@@ -182,8 +182,8 @@ class TestSpecConfigLoadSpecFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "nonexistent.json",
-                "specType": "mcp"
+                "spec_file": "nonexistent.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(FileNotFoundError) as exc_info:
@@ -201,8 +201,8 @@ class TestSpecConfigLoadSpecFile:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "invalid.json",
-                "specType": "mcp"
+                "spec_file": "invalid.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(json.JSONDecodeError):
@@ -218,8 +218,8 @@ class TestSpecConfigLoadSpecFile:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "array.json",
-                "specType": "mcp"
+                "spec_file": "array.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(ValueError) as exc_info:
@@ -237,8 +237,8 @@ class TestSpecConfigLoadSpecFile:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "empty.json",
-                "specType": "mcp"
+                "spec_file": "empty.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(ValueError) as exc_info:
@@ -269,8 +269,8 @@ class TestSpecConfigMCPSchemaValidation:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "mcp.json",
-                "specType": "mcp"
+                "spec_file": "mcp.json",
+                "spec_type": "mcp"
             })
 
             # Should not raise any exception
@@ -290,8 +290,8 @@ class TestSpecConfigMCPSchemaValidation:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "invalid.json",
-                "specType": "mcp"
+                "spec_file": "invalid.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(ValueError) as exc_info:
@@ -317,8 +317,8 @@ class TestSpecConfigMCPSchemaValidation:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "invalid.json",
-                "specType": "mcp"
+                "spec_file": "invalid.json",
+                "spec_type": "mcp"
             })
 
             with pytest.raises(ValueError) as exc_info:
@@ -344,8 +344,8 @@ class TestSpecConfigMCPSchemaValidation:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "mcp.json",
-                "specType": "mcp"
+                "spec_file": "mcp.json",
+                "spec_type": "mcp"
             })
 
             # Should not raise any exception
@@ -367,9 +367,9 @@ class TestSpecConfigMCPSchemaValidation:
 
             config = SpecConfig.model_validate({
                 "path": "/test",
-                "specFile": "openapi.json",
-                "specType": "openapi",
-                "baseUrl": "http://localhost"
+                "spec_file": "openapi.json",
+                "spec_type": "openapi",
+                "base_url": "http://localhost"
             })
 
             # Should not raise MCP schema validation error
@@ -404,14 +404,14 @@ class TestSpecConfigLoadFromFile:
             config_data = [
                 {
                     "path": "/api",
-                    "specFile": "api.openapi.json",
-                    "specType": "openapi",
-                    "baseUrl": "http://localhost:5000"
+                    "spec_file": "api.openapi.json",
+                    "spec_type": "openapi",
+                    "base_url": "http://localhost:5000"
                 },
                 {
                     "path": "/mcp",
-                    "specFile": "mcp.json",
-                    "specType": "mcp"
+                    "spec_file": "mcp.json",
+                    "spec_type": "mcp"
                 }
             ]
             config_file = os.path.join(tmpdir, "config.json")
@@ -454,13 +454,13 @@ class TestSpecConfigLoadFromFile:
             with open(os.path.join(tmpdir, "test.json"), "w") as f:
                 json.dump(spec, f)
 
-            # Create config with invalid entry (missing baseUrl for openapi)
+            # Create config with invalid entry (missing base_url for openapi)
             config_data = [
                 {
                     "path": "/invalid",
-                    "specFile": "test.json",
-                    "specType": "openapi"
-                    # Missing baseUrl - should fail
+                    "spec_file": "test.json",
+                    "spec_type": "openapi"
+                    # Missing base_url - should fail
                 }
             ]
             config_file = os.path.join(tmpdir, "config.json")
@@ -493,8 +493,8 @@ class TestSpecConfigLoadFromFile:
                 123,
                 {
                     "path": "/valid",
-                    "specFile": "test.json",
-                    "specType": "mcp"
+                    "spec_file": "test.json",
+                    "spec_type": "mcp"
                 }
             ]
             config_file = os.path.join(tmpdir, "config.json")
@@ -507,16 +507,16 @@ class TestSpecConfigLoadFromFile:
             assert configs[0].path == "/valid"
 
 
-class TestSpecConfigFieldAliases:
-    """Test Pydantic field aliases work correctly."""
+class TestSpecConfigFieldNames:
+    """Test Pydantic field names work correctly."""
 
-    def test_camel_case_aliases(self):
-        """Test that camelCase aliases work."""
+    def test_snake_case_field_names(self):
+        """Test that snake_case field names are used."""
         config = SpecConfig.model_validate({
             "path": "/test",
-            "specFile": "test.json",
-            "specType": "mcp",
-            "baseUrl": "http://localhost"
+            "spec_file": "test.json",
+            "spec_type": "mcp",
+            "base_url": "http://localhost"
         })
 
         assert config.spec_file == "test.json"
@@ -524,17 +524,30 @@ class TestSpecConfigFieldAliases:
         assert config.base_url == "http://localhost"
         assert config.path == "/test"
 
-    def test_snake_case_also_works(self):
-        """Test that snake_case field names also work."""
+    def test_all_snake_case_fields(self):
+        """Test that all fields use snake_case."""
         config = SpecConfig.model_validate({
             "path": "/test",
             "spec_file": "test.json",
-            "spec_type": "mcp"
+            "spec_type": "mcp",
+            "tags": ["test"],
+            "auth": {
+                "azure": {
+                    "client_id": "test-id",
+                    "client_secret": "test-secret",
+                    "tenant_id": "test-tenant",
+                    "token_url": "http://localhost/token",
+                    "scopes": ["test-scope"]
+                }
+            }
         })
 
         assert config.spec_file == "test.json"
         assert config.spec_type == "mcp"
         assert config.path == "/test"
+        assert config.auth is not None
+        assert config.auth.azure is not None
+        assert config.auth.azure.client_id == "test-id"
 
 
 if __name__ == "__main__":
