@@ -334,3 +334,55 @@ def test_cache_class_cannot_be_instantiated_with_state(mock_env_memory):
     cache_instance = Cache()
     store2 = Cache.get_oauth_store()
     assert store is store2
+
+
+def test_get_oauth_store_generates_key_when_missing(monkeypatch):
+    """Generate a key when OAUTH_STORAGE_ENCRYPTION_KEY is empty."""
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("tools.cache.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("tools.cache.CONFIG_DIR", "/tmp/test-config")
+
+    generated_key = Fernet.generate_key()
+    with patch("tools.cache.Fernet.generate_key", return_value=generated_key) as mock_generate:
+        with patch("key_value.aio.stores.memory.MemoryStore"):
+            Cache.get_oauth_store()
+
+    mock_generate.assert_called_once()
+
+
+def test_get_oauth_store_encodes_string_key(monkeypatch):
+    """Encode string keys to bytes before initializing Fernet."""
+    key_str = Fernet.generate_key().decode()
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_ENCRYPTION_KEY", key_str)
+    monkeypatch.setattr("tools.cache.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("tools.cache.CONFIG_DIR", "/tmp/test-config")
+
+    with patch("tools.cache.Fernet") as mock_fernet:
+        mock_fernet.return_value = MagicMock()
+        with patch("key_value.aio.stores.memory.MemoryStore"):
+            Cache.get_oauth_store()
+
+    mock_fernet.assert_called_once_with(key_str.encode())
+
+
+def test_get_oauth_store_redis_import_error_fallback(encryption_key, monkeypatch):
+    """Fallback to memory if Redis store import fails."""
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr("tools.cache.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
+    monkeypatch.setattr("tools.cache.REDIS_CONNECTION_STRING", "redis://localhost:6379/0")
+    monkeypatch.setattr("tools.cache.CONFIG_DIR", "/tmp/test-config")
+
+    original_import = __import__
+
+    def import_side_effect(name, *args, **kwargs):
+        if name == "key_value.aio.stores.redis":
+            raise ImportError("Redis store not available")
+        return original_import(name, *args, **kwargs)
+
+    with patch("builtins.__import__", side_effect=import_side_effect):
+        with patch("key_value.aio.stores.memory.MemoryStore") as mock_memory_store:
+            Cache.get_oauth_store()
+
+    mock_memory_store.assert_called_once()
