@@ -130,20 +130,6 @@ def test_get_oauth_store_sqlite_backend(mock_env_sqlite):
         assert isinstance(store, FernetEncryptionWrapper)
 
 
-@pytest.mark.skip(reason="Redis support not installed in test environment")
-def test_get_oauth_store_redis_backend(mock_env_redis):
-    """Test that Redis backend is used when configured."""
-    # Patch RedisStore at its actual import location
-    with patch("key_value.aio.stores.redis.RedisStore") as mock_redis_store:
-        mock_store_instance = MagicMock(spec=AsyncKeyValue)
-        mock_redis_store.return_value = mock_store_instance
-
-        store = CacheProvider.get_oauth_store()
-
-        mock_redis_store.assert_called_once_with(default_collection="redis://localhost:6379/0")
-        assert isinstance(store, FernetEncryptionWrapper)
-
-
 def test_get_oauth_store_defaults_to_memory(encryption_key, monkeypatch):
     """Test that memory storage is used as default when no valid config."""
     monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "unknown")
