@@ -15,14 +15,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .proxy_config_provider import ProxyConfigProvider
+    from .static_proxies_provider import StaticProxiesProvider
     from .auth_config_provider import AuthConfigProvider
     from .mcp_proxy_config import McpProxyConfig
     from .openapi_mcp_provider import OpenApiMcpProvider
 
 __all__ = [
     "McpProxyConfig",
-    "ProxyConfigProvider",
+    "StaticProxiesProvider",
     "AuthConfigProvider",
     "OpenApiMcpProvider",
 ]
@@ -31,18 +31,18 @@ __all__ = [
 def __getattr__(name: str):
     if name == "McpProxyConfig":
         from .mcp_proxy_config import McpProxyConfig
-
         return McpProxyConfig
-    if name == "ProxyConfigProvider":
-        from .proxy_config_provider import ProxyConfigProvider
-
-        return ProxyConfigProvider
+    
+    if name == "StaticProxiesProvider":
+        from .static_proxies_provider import StaticProxiesProvider
+        return StaticProxiesProvider
+    
     if name == "AuthConfigProvider":
         from .auth_config_provider import AuthConfigProvider
-
         return AuthConfigProvider
+    
     if name == "OpenApiMcpProvider":
         from .openapi_mcp_provider import OpenApiMcpProvider
-
         return OpenApiMcpProvider
+    
     raise AttributeError(f"module 'proxies' has no attribute {name!r}")

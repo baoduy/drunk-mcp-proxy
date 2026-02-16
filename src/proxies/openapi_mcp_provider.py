@@ -17,14 +17,15 @@ else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
+from src.proxies.static_mcp_provider import StaticMcpProvider
 from tools import SpecConfig, AzureOauth
-from app.cache import Cache
+from src.app.cache_provider import CacheProvider
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
 from tools.spec_config import AzureAuthConfig
 
 
-class OpenApiMcpProvider:
+class OpenApiMcpProvider(StaticMcpProvider):
     """Provider class for creating FastMCP instances from McpProxyConfig."""
 
     def __init__(self, config: SpecConfig) -> None:
@@ -52,7 +53,7 @@ class OpenApiMcpProvider:
         auth: Auth | None = None
         headers: dict[str, str] = {}
         if self.config.auth and self.config.auth.azure:
-            auth = self._create_auth(self.config.auth.azure)
+            auth = self._create_client_auth(self.config.auth.azure)
         else:
             if self.config.auth is not None and self.config.auth.auth_token is not None:
                 headers["Authorization"] = self.config.auth.auth_token
@@ -78,13 +79,14 @@ class OpenApiMcpProvider:
             openapi_spec=self.config.spec_data,
             client=client,
             route_map_fn=self.custom_route_mapper,
-            tags=self.config.tags,
+            tags=self.config.tags
         )
         if self.mcp is None:
             raise RuntimeError("FastMCP failed to initialize")
+        self.mcp.auth = super()._create_auth_provider()
         return self.mcp
 
-    def _create_auth(self, azure_config: AzureAuthConfig) -> "Auth":
+    def _create_client_auth(self, azure_config: AzureAuthConfig) -> "Auth":
         scope_value = self._scope_value(azure_config)
         assert self.config.base_url
 
@@ -93,7 +95,7 @@ class OpenApiMcpProvider:
             client_secret=azure_config.client_secret,
             token_url=azure_config.token_url,
             scope=scope_value,
-            token_storage=Cache.get_oauth_store()
+            token_storage=CacheProvider.get_oauth_store()
         )
 
         return auth

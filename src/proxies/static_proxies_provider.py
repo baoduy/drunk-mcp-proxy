@@ -18,7 +18,7 @@ from tools.spec_config import SpecConfig
 from tools.spec_config import SpecType
 
 
-class ProxyConfigProvider:
+class StaticProxiesProvider:
     """
     Provider class for loading and managing proxy configurations.
     

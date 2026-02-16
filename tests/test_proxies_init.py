@@ -17,10 +17,10 @@ class TestProxiesPackageImports:
         assert McpProxyConfig.__name__ == "McpProxyConfig"
 
     def test_import_proxy_config_provider(self):
-        """Test lazy import of ProxyConfigProvider."""
-        from src.proxies import ProxyConfigProvider
-        assert ProxyConfigProvider is not None
-        assert ProxyConfigProvider.__name__ == "ProxyConfigProvider"
+        """Test lazy import of StaticProxiesProvider."""
+        from src.proxies import StaticProxiesProvider
+        assert StaticProxiesProvider is not None
+        assert StaticProxiesProvider.__name__ == "StaticProxiesProvider"
 
     def test_import_openapi_mcp_provider(self):
         """Test lazy import of OpenApiMcpProvider."""
@@ -39,5 +39,5 @@ class TestProxiesPackageImports:
         """Test __all__ contains expected exports."""
         import src.proxies as proxies
         assert "McpProxyConfig" in proxies.__all__
-        assert "ProxyConfigProvider" in proxies.__all__
+        assert "StaticProxiesProvider" in proxies.__all__
         assert "OpenApiMcpProvider" in proxies.__all__

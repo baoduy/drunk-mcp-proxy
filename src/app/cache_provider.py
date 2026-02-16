@@ -6,7 +6,7 @@ from src.tools.logging_config import setup_logging
 from tools.env import REDIS_CONNECTION_STRING, OAUTH_STORAGE_TYPE, CONFIG_DIR, OAUTH_STORAGE_ENCRYPTION_KEY
 
 logging = setup_logging(__name__)
-class Cache:
+class CacheProvider:
     """Static cache class for managing OAuth token storage."""
 
     token_storage: AsyncKeyValue | None = None
@@ -14,8 +14,8 @@ class Cache:
     @staticmethod
     def get_oauth_store() -> AsyncKeyValue:
         """Get or create the OAuth token storage instance."""
-        if Cache.token_storage is not None:
-            return Cache.token_storage
+        if CacheProvider.token_storage is not None:
+            return CacheProvider.token_storage
 
         # log warning if encryption key is not set for non-memory storage types
         if len(OAUTH_STORAGE_ENCRYPTION_KEY) == 0 and OAUTH_STORAGE_TYPE != "memory":
@@ -44,6 +44,6 @@ class Cache:
 
         # key_value is guaranteed to be non-None at this point
         assert key_value is not None
-        Cache.token_storage = FernetEncryptionWrapper(key_value=key_value, fernet=fernet) if fernet else key_value
-        assert Cache.token_storage is not None
-        return Cache.token_storage
+        CacheProvider.token_storage = FernetEncryptionWrapper(key_value=key_value, fernet=fernet) if fernet else key_value
+        assert CacheProvider.token_storage is not None
+        return CacheProvider.token_storage

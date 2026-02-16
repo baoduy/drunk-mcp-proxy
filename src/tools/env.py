@@ -47,9 +47,9 @@ import os
 # Configuration Files
 # ===================
 # Directory containing MCP server configuration files (*.mcp.json)
-CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "/app/data")
+CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "data")
 # Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
-SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "/app/schemas")
+SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "schemas")
 
 # Logging Configuration
 # =====================

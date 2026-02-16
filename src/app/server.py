@@ -30,7 +30,7 @@ from starlette.middleware import Middleware
 
 from .middleware import build_middleware
 from .starlette_app import StarletteApp
-from proxies import ProxyConfigProvider
+from proxies import StaticProxiesProvider
 from proxies.mcp_proxy_config import McpProxyConfig
 from tools.env import (
     CONFIG_DIR,
@@ -207,7 +207,7 @@ class MCPProxyServer:
             self._log_startup_configuration()
             print("=" * 50)
 
-            provider = ProxyConfigProvider(config_dir=CONFIG_DIR)
+            provider = StaticProxiesProvider(config_dir=CONFIG_DIR)
             services = provider.get_config_services()
             self.logger.info("Total MCP servers loaded: %d", len(services))
 

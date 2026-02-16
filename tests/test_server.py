@@ -154,7 +154,7 @@ async def test_async_run_happy_path(monkeypatch):
 
     async_start = AsyncMock()
 
-    monkeypatch.setattr(server, "ProxyConfigProvider", DummyProvider)
+    monkeypatch.setattr(server, "StaticProxiesProvider", DummyProvider)
     monkeypatch.setattr(server, "build_middleware", lambda: ["mw"])
     monkeypatch.setattr(server.MCPProxyServer, "_async_start_server", async_start)
 
@@ -177,7 +177,7 @@ async def test_async_run_keyboard_interrupt(monkeypatch):
 
     async_start = AsyncMock(side_effect=KeyboardInterrupt())
 
-    monkeypatch.setattr(server, "ProxyConfigProvider", DummyProvider)
+    monkeypatch.setattr(server, "StaticProxiesProvider", DummyProvider)
     monkeypatch.setattr(server, "build_middleware", lambda: [])
     monkeypatch.setattr(server.MCPProxyServer, "_async_start_server", async_start)
 

@@ -18,8 +18,9 @@ class TestAppPackageImports:
         """Test __all__ contains expected exports."""
         import src.app as app
         assert "MCPProxyServer" in app.__all__
-        assert "Cache" in app.__all__
-        assert len(app.__all__) == 2
+        assert "CacheProvider" in app.__all__
+        assert "GlobalAuthProvider" in app.__all__
+        assert len(app.__all__) == 3
 
 
 class TestToolsPackageImports:
@@ -39,9 +40,9 @@ class TestToolsPackageImports:
 
     def test_import_cache(self):
         """Test importing Cache from app package."""
-        from src.app.cache import Cache
-        assert Cache is not None
-        assert Cache.__name__ == "Cache"
+        from src.app.cache_provider import CacheProvider
+        assert CacheProvider is not None
+        assert CacheProvider.__name__ == "CacheProvider"
 
     def test_tools_all_exports(self):
         """Test __all__ contains expected exports."""

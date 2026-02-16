@@ -1,5 +1,7 @@
 """App package for MCP proxy."""
 
 from .server import MCPProxyServer
-from .cache import Cache
-__all__ = ["MCPProxyServer", "Cache"]
+from .cache_provider import CacheProvider
+from .auth_provider import GlobalAuthProvider
+
+__all__ = ["MCPProxyServer", "CacheProvider","GlobalAuthProvider"]
