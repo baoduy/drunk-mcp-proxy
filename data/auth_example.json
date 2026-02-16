@@ -1,100 +1,181 @@
 {
   "defaultProvider": "azure",
   "auth0": {
-    "domain": "$AUTH0_DOMAIN",
+    "config_url": "$AUTH0_CONFIG_URL",
     "client_id": "$AUTH0_CLIENT_ID",
     "client_secret": "$AUTH0_CLIENT_SECRET",
-    "audience": null,
-    "scopes": [],
-    "grant_type": "client_credentials"
+    "audience": "$AUTH0_AUDIENCE",
+    "base_url": "$BASE_URL",
+    "issuer_url": null,
+    "required_scopes": ["openid"],
+    "redirect_path": null,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
   },
   "aws": {
-    "access_key_id": "$AWS_ACCESS_KEY_ID",
-    "secret_access_key": "$AWS_SECRET_ACCESS_KEY",
-    "region": "$AWS_REGION",
-    "session_token": null,
-    "role_arn": null
+    "user_pool_id": "$AWS_USER_POOL_ID",
+    "client_id": "$AWS_CLIENT_ID",
+    "client_secret": "$AWS_CLIENT_SECRET",
+    "base_url": "$BASE_URL",
+    "aws_region": "eu-central-1",
+    "issuer_url": null,
+    "redirect_path": "/auth/callback",
+    "required_scopes": ["openid"],
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
   },
   "azure": {
     "client_id": "$AZURE_CLIENT_ID",
     "client_secret": "$AZURE_CLIENT_SECRET",
     "tenant_id": "$AZURE_TENANT_ID",
-    "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-    "tokenUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-    "scope": [
-      "api://$AZURE_CLIENT_ID/.default"
-    ]
+    "required_scopes": ["read", "write"],
+    "base_url": "$BASE_URL",
+    "identifier_uri": null,
+    "issuer_url": null,
+    "redirect_path": null,
+    "additional_authorize_scopes": ["User.Read", "Mail.Read"],
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true,
+    "base_authority": "login.microsoftonline.com"
+  },
+  "debug": {
+    "validate": null,
+    "client_id": "debug-client",
+    "scopes": [],
+    "required_scopes": null
   },
   "descope": {
+    "base_url": "$BASE_URL",
+    "config_url": "$DESCOPE_CONFIG_URL",
     "project_id": "$DESCOPE_PROJECT_ID",
-    "public_key": "$DESCOPE_PUBLIC_KEY",
-    "scopes": []
+    "descope_base_url": "$DESCOPE_BASE_URL",
+    "required_scopes": null,
+    "token_verifier": null
   },
   "discord": {
     "client_id": "$DISCORD_CLIENT_ID",
     "client_secret": "$DISCORD_CLIENT_SECRET",
-    "bot_token": "$DISCORD_BOT_TOKEN",
-    "scopes": [],
-    "redirect_uri": null
+    "base_url": "$BASE_URL",
+    "issuer_url": null,
+    "redirect_path": null,
+    "required_scopes": ["identify"],
+    "timeout_seconds": 10,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
   },
   "github": {
     "client_id": "$GITHUB_CLIENT_ID",
     "client_secret": "$GITHUB_CLIENT_SECRET",
-    "scopes": [
-      "user:email"
-    ],
-    "redirect_uri": null
+    "base_url": "$BASE_URL",
+    "issuer_url": null,
+    "redirect_path": null,
+    "required_scopes": ["user"],
+    "timeout_seconds": 10,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
   },
   "google": {
     "client_id": "$GOOGLE_CLIENT_ID",
     "client_secret": "$GOOGLE_CLIENT_SECRET",
-    "project_id": "$GOOGLE_PROJECT_ID",
-    "scopes": [
-      "openid",
-      "email",
-      "profile"
-    ],
-    "redirect_uri": null
+    "base_url": "$BASE_URL",
+    "issuer_url": null,
+    "redirect_path": null,
+    "required_scopes": ["openid"],
+    "timeout_seconds": 10,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true,
+    "extra_authorize_params": {
+      "access_type": "offline",
+      "prompt": "consent"
+    }
   },
   "inMemory": {
-    "users": {
-      "user1": "password1",
-      "user2": "password2"
-    }
+    "base_url": "http://fastmcp.example.com",
+    "service_documentation_url": null,
+    "client_registration_options": null,
+    "revocation_options": null,
+    "required_scopes": null
   },
   "introspection": {
     "introspection_url": "$TOKEN_INTROSPECTION_URL",
-    "client_id": "$TOKEN_INTROSPECTION_CLIENT_ID",
-    "client_secret": "$TOKEN_INTROSPECTION_CLIENT_SECRET"
+    "client_id": "$INTROSPECTION_CLIENT_ID",
+    "client_secret": "$INTROSPECTION_CLIENT_SECRET",
+    "client_auth_method": "client_secret_basic",
+    "timeout_seconds": 10,
+    "required_scopes": null,
+    "base_url": null
   },
   "jwt": {
-    "secret_key": "$JWT_SECRET_KEY",
-    "algorithm": "HS256",
-    "issuer": null,
-    "audience": null
+    "public_key": null,
+    "jwks_uri": "$JWT_JWKS_URI",
+    "issuer": "$JWT_ISSUER",
+    "audience": "$JWT_AUDIENCE",
+    "algorithm": "RS256",
+    "required_scopes": null,
+    "base_url": null,
+    "ssrf_safe": false
   },
   "oci": {
-    "user_ocid": "$OCI_USER_OCID",
-    "tenancy_ocid": "$OCI_TENANCY_OCID",
-    "api_key": "$OCI_API_KEY",
-    "fingerprint": "$OCI_FINGERPRINT",
-    "region": "us-phoenix-1"
+    "config_url": "$OCI_CONFIG_URL",
+    "client_id": "$OCI_CLIENT_ID",
+    "client_secret": "$OCI_CLIENT_SECRET",
+    "base_url": "$BASE_URL",
+    "audience": null,
+    "issuer_url": null,
+    "required_scopes": ["openid"],
+    "redirect_path": null,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
   },
   "scalekit": {
-    "client_id": "$SCALEKIT_CLIENT_ID",
-    "client_secret": "$SCALEKIT_CLIENT_SECRET",
     "environment_url": "$SCALEKIT_ENVIRONMENT_URL",
-    "scopes": []
+    "resource_id": "$SCALEKIT_RESOURCE_ID",
+    "base_url": "$BASE_URL",
+    "mcp_url": null,
+    "client_id": null,
+    "required_scopes": null,
+    "token_verifier": null
   },
   "supabase": {
     "project_url": "$SUPABASE_PROJECT_URL",
-    "api_key": "$SUPABASE_API_KEY",
-    "scopes": []
+    "base_url": "$BASE_URL",
+    "auth_route": "/auth/v1",
+    "algorithm": "ES256",
+    "required_scopes": null,
+    "token_verifier": null
   },
   "workos": {
-    "api_key": "$WORKOS_API_KEY",
     "client_id": "$WORKOS_CLIENT_ID",
-    "organization_id": null,
-    "scopes": []
+    "client_secret": "$WORKOS_CLIENT_SECRET",
+    "authkit_domain": "$WORKOS_AUTHKIT_DOMAIN",
+    "base_url": "$BASE_URL",
+    "issuer_url": null,
+    "redirect_path": null,
+    "required_scopes": [],
+    "timeout_seconds": 10,
+    "allowed_client_redirect_uris": null,
+    "client_storage": null,
+    "jwt_signing_key": null,
+    "require_authorization_consent": true
+  },
+  "authkit": {
+    "authkit_domain": "$WORKOS_AUTHKIT_DOMAIN",
+    "base_url": "$BASE_URL",
+    "required_scopes": null,
+    "token_verifier": null
   }
 }
