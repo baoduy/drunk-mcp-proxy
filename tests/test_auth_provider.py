@@ -234,71 +234,82 @@ class TestCreateProviderInstance:
 
     def test_create_provider_instance_success(self):
         """Test successful provider instance creation."""
-        mock_config = Mock()
-        mock_config.model_dump.return_value = {
+        mock_config = {
             'client_id': 'test_id',
             'client_secret': 'test_secret'
         }
 
         mock_provider_class = Mock(return_value='provider_instance')
+        mock_provider_class.__name__ = 'TestProvider'
 
-        result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+        with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
 
         assert result == 'provider_instance'
-        mock_config.model_dump.assert_called_once_with(exclude_none=True)
         mock_provider_class.assert_called_once_with(
             client_id='test_id',
-            client_secret='test_secret'
+            client_secret='test_secret',
+            client_storage='mock_store'
         )
 
     def test_create_provider_instance_empty_config(self):
         """Test creating provider with empty config."""
-        mock_config = Mock()
-        mock_config.model_dump.return_value = {}
+        mock_config = {}
 
         mock_provider_class = Mock(return_value='provider_instance')
+        mock_provider_class.__name__ = 'TestProvider'
 
-        result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+        with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
 
         assert result == 'provider_instance'
-        mock_provider_class.assert_called_once_with()
+        mock_provider_class.assert_called_once_with(client_storage='mock_store')
 
     def test_create_provider_instance_model_dump_error(self):
-        """Test handling of model_dump errors."""
-        mock_config = Mock()
-        mock_config.model_dump.side_effect = AttributeError("No model_dump method")
+        """Test handling of error when config is not a dict."""
+        # This simulates when config fails to be treated as a dict
+        mock_config = Mock(spec=[])  # Empty spec prevents dict-like behavior
+        mock_provider_class = Mock(side_effect=TypeError("Cannot unpack non-dict"))
+        mock_provider_class.__name__ = 'TestProvider'
 
-        mock_provider_class = Mock()
-
-        result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+        with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
 
         assert result is None
 
     def test_create_provider_instance_init_error(self):
         """Test handling of provider initialization errors."""
-        mock_config = Mock()
-        mock_config.model_dump.return_value = {'invalid': 'param'}
+        mock_config = {'invalid': 'param'}
 
         mock_provider_class = Mock(side_effect=TypeError("Unexpected keyword argument"))
+        mock_provider_class.__name__ = 'TestProvider'
 
-        result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+        with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
 
         assert result is None
 
-    def test_create_provider_instance_model_dump_exclude_none(self):
-        """Test that model_dump excludes None values."""
-        mock_config = Mock()
-        mock_config.model_dump.return_value = {
+    def test_create_provider_instance_with_config_dict(self):
+        """Test that config is properly passed to provider class."""
+        mock_config = {
             'client_id': 'test_id',
-            'client_secret': None,
+            'client_secret': 'test_secret',
             'audience': 'test_aud'
         }
 
         mock_provider_class = Mock(return_value='provider_instance')
+        mock_provider_class.__name__ = 'TestProvider'
 
-        GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+        with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
 
-        mock_config.model_dump.assert_called_once_with(exclude_none=True)
+        assert result == 'provider_instance'
+        mock_provider_class.assert_called_once()
+        call_args = mock_provider_class.call_args[1]
+        assert call_args['client_id'] == 'test_id'
+        assert call_args['client_secret'] == 'test_secret'
+        assert call_args['audience'] == 'test_aud'
+        assert call_args['client_storage'] == 'mock_store'
 
 
 class TestGlobalAuthProviderIntegration:

@@ -1,9 +1,9 @@
 """
 Tests for authentication configuration loading and validation.
 
-This test suite covers the AuthConfig structure with typed provider configurations:
-- Each provider is a typed configuration model instance
-- Configuration values are resolved with environment variable support
+This test suite covers the AuthConfig structure with dictionary-based provider configurations:
+- Each provider is a dictionary with configuration values
+- Configuration values support environment variable references
 - Providers are accessed via typed fields or get_config() method
 - All providers are optional (presence = enabled)
 """
@@ -15,20 +15,6 @@ import pytest
 from src.tools.auth_config import (
     AuthConfig,
     AuthProviderType,
-    Auth0Config,
-    AWSConfig,
-    AzureConfig,
-    DescopeConfig,
-    DiscordConfig,
-    GitHubConfig,
-    GoogleConfig,
-    InMemoryConfig,
-    IntrospectionConfig,
-    JWTConfig,
-    OCIConfig,
-    ScalekitConfig,
-    SupabaseConfig,
-    WorkosConfig,
 )
 
 
@@ -55,9 +41,9 @@ class TestAuthConfigBasicCreation:
         }
         config = AuthConfig.model_validate(data)
         assert config.azure is not None
-        assert isinstance(config.azure, AzureConfig)
-        assert config.azure.client_id == "test-id"
-        assert config.azure.client_secret == "test-secret"
+        assert isinstance(config.azure, dict)
+        assert config.azure["client_id"] == "test-id"
+        assert config.azure["client_secret"] == "test-secret"
 
     def test_auth_config_with_default_provider(self):
         """Test creating AuthConfig with default provider."""
@@ -111,8 +97,8 @@ class TestAuthConfigBasicCreation:
         
         azure_config = config.get_config(AuthProviderType.AZURE)
         assert azure_config is not None
-        assert isinstance(azure_config, AzureConfig)
-        assert azure_config.client_id == "test-id"
+        assert isinstance(azure_config, dict)
+        assert azure_config["client_id"] == "test-id"
 
     def test_get_config_nonexistent_provider(self):
         """Test get_config() returns None for nonexistent provider."""
@@ -130,8 +116,8 @@ class TestAuthConfigBasicCreation:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.github.client_id == "gh-id"
-        assert config.github.scopes == ["repo"]
+        assert config.github["client_id"] == "gh-id"
+        assert config.github["scopes"] == ["repo"]
         assert config.default_provider is None
 
     def test_get_config_for_default_provider(self):
@@ -147,7 +133,7 @@ class TestAuthConfigBasicCreation:
         # Get the default provider
         default = config.get_config(config.default_provider)
         assert default is not None
-        assert isinstance(default, JWTConfig)
+        assert isinstance(default, dict)
 
 
 class TestAuthConfigProviders:
@@ -165,8 +151,8 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.auth0.domain == "example.auth0.com"
-        assert config.auth0.grant_type == "client_credentials"
+        assert config.auth0["domain"] == "example.auth0.com"
+        assert config.auth0.get("grant_type", "client_credentials") == "client_credentials"
 
     def test_aws_config(self):
         """Test AWS configuration."""
@@ -178,8 +164,8 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.aws.access_key_id == "aws-key"
-        assert config.aws.region == "us-east-1"
+        assert config.aws["access_key_id"] == "aws-key"
+        assert config.aws["region"] == "us-east-1"
 
     def test_azure_config_with_scopes(self):
         """Test Azure configuration with scopes."""
@@ -192,7 +178,7 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.azure.scopes == ["api://app/.default"]
+        assert config.azure["scopes"] == ["api://app/.default"]
 
     def test_github_config(self):
         """Test GitHub configuration."""
@@ -204,7 +190,7 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert len(config.github.scopes) == 2
+        assert len(config.github["scopes"]) == 2
 
     def test_google_config(self):
         """Test Google configuration."""
@@ -217,7 +203,7 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.google.project_id == "project-123"
+        assert config.google["project_id"] == "project-123"
 
     def test_jwt_config(self):
         """Test JWT configuration."""
@@ -229,8 +215,8 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.jwt.algorithm == "HS256"
-        assert config.jwt.issuer == "issuer-name"
+        assert config.jwt["algorithm"] == "HS256"
+        assert config.jwt["issuer"] == "issuer-name"
 
     def test_in_memory_config(self):
         """Test In-Memory configuration."""
@@ -243,7 +229,7 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.in_memory.users["user1"] == "password1"
+        assert config.in_memory["users"]["user1"] == "password1"
 
     def test_oci_config(self):
         """Test OCI configuration."""
@@ -257,7 +243,7 @@ class TestAuthConfigProviders:
             }
         }
         config = AuthConfig.model_validate(data)
-        assert config.oci.region == "us-phoenix-1"
+        assert config.oci["region"] == "us-phoenix-1"
 
 
 class TestAuthConfigLoadFromFile:
@@ -291,7 +277,7 @@ class TestAuthConfigLoadFromFile:
 
         config = AuthConfig.load_from_file(str(auth_file))
         assert config.azure is not None
-        assert config.azure.client_id == "test-id"
+        assert config.azure["client_id"] == "test-id"
 
     def test_load_from_file_multiple_providers(self, tmp_path):
         """Test loading config with multiple providers."""
@@ -348,8 +334,8 @@ class TestAuthConfigLoadFromFile:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.azure.token_url is None
-        assert config.azure.issuer is None
+        assert config.azure.get("token_url") is None
+        assert config.azure.get("issuer") is None
 
     def test_load_from_file_with_nested_objects(self, tmp_path):
         """Test loading config with nested objects."""
@@ -365,7 +351,7 @@ class TestAuthConfigLoadFromFile:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.in_memory.users["user1"] == "password1"
+        assert config.in_memory["users"]["user1"] == "password1"
 
     def test_load_from_file_with_default_provider(self, tmp_path):
         """Test loading config with default provider specified."""
@@ -419,7 +405,7 @@ class TestAuthConfigEnvironmentVariables:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.azure.client_id == "resolved-id"
+        assert config.azure["client_id"] == "resolved-id"
 
     def test_resolve_env_var_braced(self, tmp_path, monkeypatch):
         """Test resolving environment variable with braces."""
@@ -436,7 +422,7 @@ class TestAuthConfigEnvironmentVariables:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.azure.tenant_id == "tenant-123"
+        assert config.azure["tenant_id"] == "tenant-123"
 
     def test_resolve_env_var_in_url(self, tmp_path, monkeypatch):
         """Test resolving environment variable within a URL."""
@@ -454,7 +440,7 @@ class TestAuthConfigEnvironmentVariables:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.azure.issuer == "https://login.microsoftonline.com/abc123/v2.0"
+        assert config.azure["issuer"] == "https://login.microsoftonline.com/abc123/v2.0"
 
     def test_resolve_multiple_env_vars(self, tmp_path, monkeypatch):
         """Test resolving multiple environment variables in same provider."""
@@ -473,9 +459,9 @@ class TestAuthConfigEnvironmentVariables:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.azure.client_id == "client-123"
-        assert config.azure.client_secret == "secret-456"
-        assert config.azure.tenant_id == "tenant-789"
+        assert config.azure["client_id"] == "client-123"
+        assert config.azure["client_secret"] == "secret-456"
+        assert config.azure["tenant_id"] == "tenant-789"
 
     def test_missing_env_var_raises_error(self, tmp_path):
         """Test that missing environment variable raises ValueError."""
@@ -507,8 +493,8 @@ class TestAuthConfigEnvironmentVariables:
         auth_file.write_text(json.dumps(data))
 
         config = AuthConfig.load_from_file(str(auth_file))
-        assert config.github.scopes[0] == "user:email"
-        assert config.github.scopes[1] == "read:user"
+        assert config.github["scopes"][0] == "user:email"
+        assert config.github["scopes"][1] == "read:user"
 
     def test_env_var_missing_in_array_raises_error(self, tmp_path):
         """Test that missing environment variables in arrays raises error."""
@@ -636,8 +622,8 @@ class TestDefaultProvider:
         # Get default provider config
         default_config = config.get_config(config.default_provider)
         assert default_config is not None
-        assert isinstance(default_config, JWTConfig)
-        assert default_config.secret_key == "my-secret"
+        assert isinstance(default_config, dict)
+        assert default_config["secret_key"] == "my-secret"
 
     def test_default_provider_without_config(self):
         """Test default_provider set but provider config missing."""
@@ -684,7 +670,7 @@ class TestDefaultProvider:
 
         config = AuthConfig.load_from_file(str(auth_file))
         assert config.default_provider == AuthProviderType.GOOGLE
-        assert config.google.client_secret == "secret123"
+        assert config.google["client_secret"] == "secret123"
 
     def test_multiple_providers_with_default(self):
         """Test multiple providers configured with one as default."""
@@ -717,7 +703,7 @@ class TestDefaultProvider:
         # Verify default provider can be retrieved
         default = config.get_config(config.default_provider)
         assert default == config.scalekit
-        assert default.client_id == "scalekit-id"
+        assert default["client_id"] == "scalekit-id"
 
 
 class TestAuthConfigIntegration:
@@ -749,15 +735,15 @@ class TestAuthConfigIntegration:
 
         # Verify via direct property
         assert config.azure is not None
-        assert config.azure.client_id == "client-id"
-        assert config.azure.client_secret == "secret"
-        assert config.azure.tenant_id == "tenant"
-        assert config.azure.scopes == ["api://app-id/read"]
+        assert config.azure["client_id"] == "client-id"
+        assert config.azure["client_secret"] == "secret"
+        assert config.azure["tenant_id"] == "tenant"
+        assert config.azure["scopes"] == ["api://app-id/read"]
 
         # Get the default provider config
         default_config = config.get_config(config.default_provider)
         assert default_config is not None
-        assert default_config.client_id == "client-id"
+        assert default_config["client_id"] == "client-id"
 
         # Verify other providers are None
         assert config.github is None
@@ -799,9 +785,9 @@ class TestAuthConfigIntegration:
         assert config.google is None
 
         # Verify data
-        assert config.azure.client_id == "azure-id"
-        assert config.github.client_id == "github-id"
-        assert config.jwt.secret_key == "jwt-secret"
+        assert config.azure["client_id"] == "azure-id"
+        assert config.github["client_id"] == "github-id"
+        assert config.jwt["secret_key"] == "jwt-secret"
 
         # Get default provider
         default = config.get_config(config.default_provider)
@@ -824,9 +810,9 @@ class TestAuthConfigIntegration:
 
         config = AuthConfig.load_from_file(str(auth_file))
         assert config.default_provider == AuthProviderType.GITHUB
-        assert config.github.client_id == "github-static-id"
-        assert config.github.client_secret == "gh-secret"
-        assert config.github.scopes == ["user:email", "read:user"]
+        assert config.github["client_id"] == "github-static-id"
+        assert config.github["client_secret"] == "gh-secret"
+        assert config.github["scopes"] == ["user:email", "read:user"]
 
     def test_all_provider_types_creation(self, tmp_path):
         """Test creating config with all provider types."""

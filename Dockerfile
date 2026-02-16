@@ -1,5 +1,5 @@
 ARG TARGETPLATFORM
-FROM --platform=$TARGETPLATFORM python:3.14-slim as builder
+FROM python:3.14-slim as builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir uv
 # ============================================================
 # Final stage - minimal runtime image
 # ============================================================
-FROM --platform=$TARGETPLATFORM python:3.14-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 

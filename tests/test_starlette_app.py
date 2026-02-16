@@ -13,7 +13,7 @@ from src.proxies.mcp_proxy_config import McpProxyConfig
 class DummyMcpServer:
     """Minimal MCP server stub returning an ASGI app."""
 
-    def http_app(self, path: str = "/"):
+    def http_app(self, path: str = "/", **kwargs):
         return Starlette()
 
 
