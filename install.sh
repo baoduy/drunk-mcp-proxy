@@ -1,1 +1,1 @@
-pip install -U -r requirements.txt
+pip install -e .[dev]

@@ -94,8 +94,7 @@ class StarletteApp:
         Host and port are automatically loaded from environment variables.
 
         Args:
-            name: Namespace for the mount (None for root mount at /mcp)
-            mcp: FastMCP server instance to mount
+            service: FastMCP server instance to mount
         """
         if service.path == "/":
             # Root mount: serve at /mcp

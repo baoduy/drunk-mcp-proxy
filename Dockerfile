@@ -1,5 +1,5 @@
 ARG TARGETPLATFORM
-FROM --platform=$TARGETPLATFORM python:3.11-slim as builder
+FROM --platform=$TARGETPLATFORM python:3.14-slim as builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -12,10 +12,11 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy requirements and pre-install ALL packages
-COPY requirements.txt .
+# Copy project metadata and install runtime deps into venv
+COPY pyproject.toml ./
+COPY src/ ./src/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir .
 
 # Install uv and related tools in venv
 RUN pip install --no-cache-dir uv
@@ -23,7 +24,7 @@ RUN pip install --no-cache-dir uv
 # ============================================================
 # Final stage - minimal runtime image
 # ============================================================
-FROM --platform=$TARGETPLATFORM python:3.11-slim
+FROM --platform=$TARGETPLATFORM python:3.14-slim
 
 WORKDIR /mcp_proxy
 
@@ -50,7 +51,6 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Copy application code
-COPY --chown=appuser:appuser requirements.txt .
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser schemas/ ./schemas/
 

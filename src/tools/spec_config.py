@@ -107,7 +107,7 @@ class SpecConfig(BaseModel):
         auth: Optional authentication configuration
         spec_data: Loaded JSON data from the spec_file
     """
-    path: str = Field(default="/", alias="path", description="Base path for the proxy (default is '/')")
+    path: str = Field(alias="path", description="Base path for the proxy")
     spec_file: str = Field(alias="specFile", description="Path to the specification file (relative to config dir)")
     spec_type: SpecType = Field(alias="specType", description="Type of specification ('openapi' or 'mcp')")
     base_url: Optional[str] = Field(default=None, alias="baseUrl",
@@ -123,7 +123,7 @@ class SpecConfig(BaseModel):
         populate_by_name=True
     )
 
-    @field_validator("spec_file")
+    @field_validator("spec_file", "path")
     @classmethod
     def validate_required_fields(cls, v: str) -> str:
         """Validate that required fields are not empty."""

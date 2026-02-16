@@ -62,8 +62,7 @@ def test_spec_config():
 
     # Create test configuration with environment variable references
     config_data = {
-        "name": "deepsea",
-        "namespace": None,
+        "path": "/deepsea",
         "specFile": "openapi/deepsea.openapi.json",
         "specType": "openapi",
         "baseUrl": "http://host.docker.internal:5000",
@@ -88,7 +87,7 @@ def test_spec_config():
     # Load and validate the configuration
     spec = SpecConfig(**config_data)
 
-    print(f"Config name: {spec.name}")
+    print(f"Config path: {spec.path}")
     print(f"Spec type: {spec.spec_type}")
     print(f"Base URL: {spec.base_url}")
     print()

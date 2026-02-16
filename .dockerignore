@@ -39,5 +39,6 @@ proxies.json
 
 # Examples
 config.example.json
+data/
 docs/
 scripts/

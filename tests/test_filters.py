@@ -14,7 +14,7 @@ from tools.spec_config import SpecConfig
 # Test 1: Create a config with filters
 print("Test 1: Creating config with filters...")
 config_dict = {
-    "name": "test-api",
+    "path": "/test-api",
     "specFile": "test.json",
     "specType": "openapi",
     "baseUrl": "https://api.example.com",
@@ -25,7 +25,7 @@ config_dict = {
 }
 
 config = SpecConfig.model_validate(config_dict)
-print(f"✓ Name: {config.name}")
+print(f"✓ Path: {config.path}")
 print(f"✓ Filters.methods: {config.filters.methods}")
 print(f"✓ Filters.tags: {config.filters.tags}")
 assert config.filters is not None
@@ -35,20 +35,20 @@ assert config.filters.tags == ["public", "v1"]
 # Test 2: Create a config without filters
 print("\nTest 2: Creating config without filters...")
 config_dict2 = {
-    "name": "test-api-2",
+    "path": "/test-api-2",
     "specFile": "test2.json",
     "specType": "mcp"
 }
 
 config2 = SpecConfig.model_validate(config_dict2)
-print(f"✓ Name: {config2.name}")
+print(f"✓ Path: {config2.path}")
 print(f"✓ Filters: {config2.filters}")
 assert config2.filters is None
 
 # Test 3: Filters with only methods
 print("\nTest 3: Creating config with only methods filter...")
 config_dict3 = {
-    "name": "test-api-3",
+    "path": "/test-api-3",
     "specFile": "test3.json",
     "specType": "openapi",
     "baseUrl": "https://api.example.com",
@@ -58,7 +58,7 @@ config_dict3 = {
 }
 
 config3 = SpecConfig.model_validate(config_dict3)
-print(f"✓ Name: {config3.name}")
+print(f"✓ Path: {config3.path}")
 print(f"✓ Filters.methods: {config3.filters.methods}")
 print(f"✓ Filters.tags: {config3.filters.tags}")
 assert config3.filters is not None
@@ -68,7 +68,7 @@ assert config3.filters.tags is None
 # Test 4: Filters with only tags
 print("\nTest 4: Creating config with only tags filter...")
 config_dict4 = {
-    "name": "test-api-4",
+    "path": "/test-api-4",
     "specFile": "test4.json",
     "specType": "openapi",
     "baseUrl": "https://api.example.com",
@@ -78,7 +78,7 @@ config_dict4 = {
 }
 
 config4 = SpecConfig.model_validate(config_dict4)
-print(f"✓ Name: {config4.name}")
+print(f"✓ Path: {config4.path}")
 print(f"✓ Filters.methods: {config4.filters.methods}")
 print(f"✓ Filters.tags: {config4.filters.tags}")
 assert config4.filters is not None
@@ -88,7 +88,7 @@ assert config4.filters.tags == ["internal"]
 # Test 5: Load from actual config.json
 print("\nTest 5: Loading from config.json...")
 configs = SpecConfig.load_from_file("data/config.json")
-deepsea_config = next((c for c in configs if c.name == "deepsea"), None)
+deepsea_config = next((c for c in configs if c.path == "/deepsea"), None)
 assert deepsea_config is not None
 assert deepsea_config.filters is not None
 assert deepsea_config.filters.methods == ["GET", "POST", "PUT"]
