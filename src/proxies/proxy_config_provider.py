@@ -12,10 +12,10 @@ from fastmcp import FastMCP
 from fastmcp.server import create_proxy
 
 from .mcp_proxy_config import McpProxyConfig
-from ..tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
-from ..tools.logging_config import setup_logging
-from ..tools.spec_config import SpecConfig
-from ..tools.spec_config import SpecType
+from tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
+from tools.logging_config import setup_logging
+from tools.spec_config import SpecConfig
+from tools.spec_config import SpecType
 
 
 class ProxyConfigProvider:

@@ -18,7 +18,8 @@ class TestAppPackageImports:
         """Test __all__ contains expected exports."""
         import src.app as app
         assert "MCPProxyServer" in app.__all__
-        assert len(app.__all__) == 1
+        assert "Cache" in app.__all__
+        assert len(app.__all__) == 2
 
 
 class TestToolsPackageImports:
@@ -37,8 +38,8 @@ class TestToolsPackageImports:
         assert AzureOauth.__name__ == "AzureOauth"
 
     def test_import_cache(self):
-        """Test importing Cache from tools package."""
-        from src.tools import Cache
+        """Test importing Cache from app package."""
+        from src.app.cache import Cache
         assert Cache is not None
         assert Cache.__name__ == "Cache"
 
@@ -47,5 +48,7 @@ class TestToolsPackageImports:
         import src.tools as tools
         assert "SpecConfig" in tools.__all__
         assert "AzureOauth" in tools.__all__
-        assert "Cache" in tools.__all__
-        assert len(tools.__all__) == 3
+        assert "AuthConfig" in tools.__all__
+        assert "AuthProviderType" in tools.__all__
+        # Cache is exported from app, not tools
+        assert len(tools.__all__) == 4

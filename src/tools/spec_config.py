@@ -13,6 +13,7 @@ from typing import Any, Optional
 import jsonschema
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
+from .env import SCHEMA_DIR
 from .env_resolver import resolve_env_var
 
 
@@ -78,7 +79,7 @@ class AzureAuthConfig(BaseModel):
         return self
 
 
-class Auth(BaseModel):
+class AuthField(BaseModel):
     """
     Authentication configuration for proxy specifications.
 
@@ -115,7 +116,7 @@ class SpecConfig(BaseModel):
     tags: Optional[set[str]] = Field(default=None, alias="tags", description="List of tags for categorization")
     filters: Optional[Filters] = Field(default=None, alias="filters",
                                        description="Optional filters for methods and tags")
-    auth: Optional[Auth] = Field(default=None, alias="auth", description="Optional authentication configuration")
+    auth: Optional[AuthField] = Field(default=None, alias="auth", description="Optional authentication configuration")
     spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True,
                                                 description="Loaded JSON data from the spec_file (not included in serialization)")
 
@@ -166,10 +167,8 @@ class SpecConfig(BaseModel):
             ValueError: If the spec_data doesn't conform to the MCP schema
             FileNotFoundError: If the schema file is not found
         """
-        # Get the project root directory (assuming schemas folder is at root)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        schema_path = os.path.join(project_root, "schemas", "mcp.schema.json")
+        # Use the SCHEMA_DIR from environment configuration
+        schema_path = os.path.join(SCHEMA_DIR, "mcp.schema.json")
 
         if not os.path.exists(schema_path):
             raise FileNotFoundError(f"MCP schema file not found at: {schema_path}")
@@ -188,7 +187,7 @@ class SpecConfig(BaseModel):
         except jsonschema.SchemaError as e:
             raise ValueError(f"Invalid MCP schema file: {e.message}") from e
 
-    def load_spec_file(self, config_dir: str) -> None:
+    def _load_spec_file(self, config_dir: str) -> None:
         """
         Load the specification file as JSON and store it in spec_data.
         Also validates the loaded data and performs post-load validation.
@@ -264,7 +263,7 @@ class SpecConfig(BaseModel):
             config = SpecConfig.model_validate(entry)
 
             # Always load the spec file and validate
-            config.load_spec_file(config_dir)
+            config._load_spec_file(config_dir)
             spec_configs.append(config)
 
         return spec_configs

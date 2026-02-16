@@ -1,5 +1,5 @@
 """App package for MCP proxy."""
 
 from .server import MCPProxyServer
-
-__all__ = ["MCPProxyServer"]
+from .cache import Cache
+__all__ = ["MCPProxyServer", "Cache"]

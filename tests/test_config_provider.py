@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.proxies.config_provider import ProxyConfigProvider
+from src.proxies.proxy_config_provider import ProxyConfigProvider
 from src.tools.spec_config import SpecType
 
 
@@ -194,9 +194,9 @@ class TestProxyConfigProviderGetMcpServices:
 
         assert len(result) == 0
 
-    @patch('src.proxies.config_provider.McpProxyConfig')
-    @patch('src.proxies.config_provider.create_proxy')
-    @patch('src.proxies.config_provider.FastMCP')
+    @patch('src.proxies.proxy_config_provider.McpProxyConfig')
+    @patch('src.proxies.proxy_config_provider.create_proxy')
+    @patch('src.proxies.proxy_config_provider.FastMCP')
     @patch.object(ProxyConfigProvider, 'mcp_configs')
     def test_get_mcp_services_with_root_path(self, mock_mcp_configs, mock_fastmcp_cls, mock_create_proxy,
                                              mock_proxy_config_cls):
@@ -225,9 +225,9 @@ class TestProxyConfigProviderGetMcpServices:
         assert result[0].path == "/"
         mock_root_mcp.mount.assert_called_once_with(mock_proxy)
 
-    @patch('src.proxies.config_provider.McpProxyConfig')
-    @patch('src.proxies.config_provider.create_proxy')
-    @patch('src.proxies.config_provider.FastMCP')
+    @patch('src.proxies.proxy_config_provider.McpProxyConfig')
+    @patch('src.proxies.proxy_config_provider.create_proxy')
+    @patch('src.proxies.proxy_config_provider.FastMCP')
     @patch.object(ProxyConfigProvider, 'mcp_configs')
     def test_get_mcp_services_with_custom_path(self, mock_mcp_configs, mock_fastmcp_cls, mock_create_proxy,
                                                mock_proxy_config_cls):
@@ -260,9 +260,9 @@ class TestProxyConfigProviderGetMcpServices:
         assert result[1].path == "/custom"
         mock_custom_mcp.mount.assert_called_once_with(mock_proxy)
 
-    @patch('src.proxies.config_provider.McpProxyConfig')
-    @patch('src.proxies.config_provider.create_proxy')
-    @patch('src.proxies.config_provider.FastMCP')
+    @patch('src.proxies.proxy_config_provider.McpProxyConfig')
+    @patch('src.proxies.proxy_config_provider.create_proxy')
+    @patch('src.proxies.proxy_config_provider.FastMCP')
     @patch.object(ProxyConfigProvider, 'mcp_configs')
     def test_get_mcp_services_skips_none_spec_data(self, mock_mcp_configs, mock_fastmcp, mock_create_proxy,
                                                    mock_proxy_config_cls):
@@ -301,7 +301,7 @@ class TestProxyConfigProviderGetOpenapiServices:
 
         assert len(result) == 0
 
-    @patch('src.proxies.config_provider.McpProxyConfig')
+    @patch('src.proxies.proxy_config_provider.McpProxyConfig')
     @patch('src.proxies.openapi_mcp_provider.OpenApiMcpProvider')
     @patch.object(ProxyConfigProvider, 'openapi_configs')
     def test_get_openapi_services_success(self, mock_openapi_configs, mock_openapi_provider_cls, mock_proxy_config_cls):

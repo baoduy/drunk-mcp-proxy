@@ -30,9 +30,9 @@ from starlette.middleware import Middleware
 
 from .middleware import build_middleware
 from .starlette_app import StarletteApp
-from ..proxies import ProxyConfigProvider
-from ..proxies.mcp_proxy_config import McpProxyConfig
-from ..tools.env import (
+from proxies import ProxyConfigProvider
+from proxies.mcp_proxy_config import McpProxyConfig
+from tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,
     HOST,
@@ -40,7 +40,7 @@ from ..tools.env import (
     SERVER_NAME,
     SERVER_VERSION,
 )
-from ..tools.logging_config import setup_logging
+from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
     pass

@@ -17,10 +17,11 @@ else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
-from ..tools import SpecConfig, AzureOauth, Cache
-from ..tools.env import SERVER_NAME
-from ..tools.logging_config import setup_logging
-from ..tools.spec_config import AzureAuthConfig
+from tools import SpecConfig, AzureOauth
+from app.cache import Cache
+from tools.env import SERVER_NAME
+from tools.logging_config import setup_logging
+from tools.spec_config import AzureAuthConfig
 
 
 class OpenApiMcpProvider:

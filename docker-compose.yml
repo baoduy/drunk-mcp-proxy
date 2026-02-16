@@ -16,6 +16,7 @@ services:
       - .env
     environment:
       - FASTMCP_CONFIG_DIR=/app/data
+      - FASTMCP_SCHEMA_DIR=/app/schemas
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
       - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
@@ -28,7 +29,7 @@ services:
     networks:
       - mcp-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9123/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9123/health"]
       interval: 30s
       timeout: 10s
       retries: 3

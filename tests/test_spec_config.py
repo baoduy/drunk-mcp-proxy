@@ -171,7 +171,7 @@ class TestSpecConfigLoadSpecFile:
                 "baseUrl": "http://localhost"
             })
 
-            config.load_spec_file(tmpdir)
+            config._load_spec_file(tmpdir)
 
             assert config.spec_data is not None
             assert config.spec_data["openapi"] == "3.0.0"
@@ -187,7 +187,7 @@ class TestSpecConfigLoadSpecFile:
             })
 
             with pytest.raises(FileNotFoundError) as exc_info:
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
             assert "nonexistent.json" in str(exc_info.value)
 
@@ -206,7 +206,7 @@ class TestSpecConfigLoadSpecFile:
             })
 
             with pytest.raises(json.JSONDecodeError):
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
     def test_load_non_dict_json(self):
         """Test loading JSON array instead of object raises ValueError."""
@@ -223,7 +223,7 @@ class TestSpecConfigLoadSpecFile:
             })
 
             with pytest.raises(ValueError) as exc_info:
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
             assert "json object" in str(exc_info.value).lower()
 
@@ -242,7 +242,7 @@ class TestSpecConfigLoadSpecFile:
             })
 
             with pytest.raises(ValueError) as exc_info:
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
             assert "no data" in str(exc_info.value).lower() or "empty" in str(exc_info.value).lower()
 
@@ -274,7 +274,7 @@ class TestSpecConfigMCPSchemaValidation:
             })
 
             # Should not raise any exception
-            config.load_spec_file(tmpdir)
+            config._load_spec_file(tmpdir)
             assert config.spec_data["mcpServers"]["test-server"]["transport"] == "stdio"  # type: ignore[index]
 
     def test_load_invalid_mcp_spec_missing_mcpServers(self):
@@ -295,7 +295,7 @@ class TestSpecConfigMCPSchemaValidation:
             })
 
             with pytest.raises(ValueError) as exc_info:
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
             assert "schema" in str(exc_info.value).lower()
             assert "mcpservers" in str(exc_info.value).lower()
@@ -322,7 +322,7 @@ class TestSpecConfigMCPSchemaValidation:
             })
 
             with pytest.raises(ValueError) as exc_info:
-                config.load_spec_file(tmpdir)
+                config._load_spec_file(tmpdir)
 
             assert "schema" in str(exc_info.value).lower()
 
@@ -349,7 +349,7 @@ class TestSpecConfigMCPSchemaValidation:
             })
 
             # Should not raise any exception
-            config.load_spec_file(tmpdir)
+            config._load_spec_file(tmpdir)
             assert config.spec_data["mcpServers"]["http-server"]["transport"] == "http"  # type: ignore[index]
 
     def test_openapi_spec_not_validated_against_mcp_schema(self):
@@ -373,7 +373,7 @@ class TestSpecConfigMCPSchemaValidation:
             })
 
             # Should not raise MCP schema validation error
-            config.load_spec_file(tmpdir)
+            config._load_spec_file(tmpdir)
             assert config.spec_data["openapi"] == "3.0.0"  # type: ignore[index]
 
 

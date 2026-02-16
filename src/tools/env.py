@@ -40,15 +40,16 @@ Example .env file:
     FASTMCP_PORT=8080
     FASTMCP_CORS_ALLOW_ORIGINS=https://app.example.com
 """
+# pyright: reportConstantRedefinition=false
 
 import os
 
 # Configuration Files
 # ===================
 # Directory containing MCP server configuration files (*.mcp.json)
-CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "data")
+CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "/app/data")
 # Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
-SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "schemas")
+SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "/app/schemas")
 
 # Logging Configuration
 # =====================
@@ -92,7 +93,7 @@ try:
     PORT = int(os.environ.get("FASTMCP_PORT", "9123").strip())
 except ValueError:
     # Invalid port value, use default
-    PORT = 9123
+    PORT = 9123 
 
 # OAuth Configuration
 # ===================
@@ -109,4 +110,4 @@ OAUTH_STORAGE_TYPE = os.environ.get("MCP_OAUTH_STORAGE_TYPE", "memory").strip()
 # ====================
 # Connection string for Redis backend
 # Format: redis://[user:password@]host:port/database
-REDIS_CONNECTION_STRING = os.environ.get("MCP_REDIS_CONNECTION_STRING", "").strip()
+REDIS_CONNECTION_STRING = os.environ.get("MCP_REDIS_CONNECTION_STRING", None)

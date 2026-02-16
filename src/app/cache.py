@@ -2,9 +2,10 @@ from cryptography.fernet import Fernet
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
 
-from .env import REDIS_CONNECTION_STRING, OAUTH_STORAGE_TYPE, CONFIG_DIR, OAUTH_STORAGE_ENCRYPTION_KEY
+from src.tools.logging_config import setup_logging
+from tools.env import REDIS_CONNECTION_STRING, OAUTH_STORAGE_TYPE, CONFIG_DIR, OAUTH_STORAGE_ENCRYPTION_KEY
 
-
+logging = setup_logging(__name__)
 class Cache:
     """Static cache class for managing OAuth token storage."""
 
@@ -16,17 +17,13 @@ class Cache:
         if Cache.token_storage is not None:
             return Cache.token_storage
 
-        # Generate or validate encryption key
-        encryption_key = OAUTH_STORAGE_ENCRYPTION_KEY
-        if not encryption_key or len(encryption_key) == 0:
-            # Generate a temporary key for testing or when no key is configured
-            # In production, this should be set via environment variable
-            encryption_key = Fernet.generate_key()
-        elif isinstance(encryption_key, str):
-            # Convert string to bytes if needed
-            encryption_key = encryption_key.encode() if isinstance(encryption_key, str) else encryption_key
+        # log warning if encryption key is not set for non-memory storage types
+        if len(OAUTH_STORAGE_ENCRYPTION_KEY) == 0 and OAUTH_STORAGE_TYPE != "memory":
+            logging.warning(
+                "OAUTH_STORAGE_ENCRYPTION_KEY is not set. This is not recommended for production environments when using non-memory storage types."
+            )
 
-        fernet = Fernet(encryption_key)
+        fernet = Fernet(OAUTH_STORAGE_ENCRYPTION_KEY) if OAUTH_STORAGE_ENCRYPTION_KEY else None
         key_value: AsyncKeyValue | None = None
 
         if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None:
@@ -47,6 +44,6 @@ class Cache:
 
         # key_value is guaranteed to be non-None at this point
         assert key_value is not None
-        Cache.token_storage = FernetEncryptionWrapper(key_value=key_value, fernet=fernet)
+        Cache.token_storage = FernetEncryptionWrapper(key_value=key_value, fernet=fernet) if fernet else key_value
         assert Cache.token_storage is not None
         return Cache.token_storage

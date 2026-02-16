@@ -7,16 +7,19 @@ from typing import AsyncContextManager
 
 from fastmcp.server.http import StarletteWithLifespan
 
-from ..tools.env import SERVER_NAME
-from ..tools.logging_config import setup_logging
+from tools.env import SERVER_NAME
+from tools.logging_config import setup_logging
 
-# Initialize logger
 logger = setup_logging(SERVER_NAME)
 
 
 class AppLifespanManager:
     """
-    Manager for application lifecycle (startup and shutdown) of MCP apps.
+    Manages application lifespan for FastMCP and other server integrations.
+    
+    This class handles the startup and shutdown lifecycle of all MCP applications
+    mounted to the proxy server. It ensures proper initialization and cleanup of
+    resources in the correct order.
 
     Attributes:
         logger: Logger instance for debug and error messages.
