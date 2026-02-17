@@ -33,6 +33,10 @@ drunk-mcp-proxy is a sophisticated proxy server that acts as a central gateway f
 
 - [Quick Start](#-quick-start)
 - [Architecture](#-architecture)
+- [Feature 1: Proxy MCP Management for MCP Services](#-feature-1-proxy-mcp-management-for-mcp-services)
+- [Feature 2: Proxy MCP Management for OpenAPI Services](#-feature-2-proxy-mcp-management-for-openapi-services)
+- [Feature 3: Authentication Configuration (Pass-Through Token Focus)](#-feature-3-authentication-configuration-pass-through-token-focus)
+- [Configuration Reference](#-configuration-reference)
 - [Configuration](#-configuration)
 - [Python Modules Reference](#-python-modules-reference)
 - [Environment Variables](#-environment-variables)
@@ -112,57 +116,1195 @@ The server will start on `http://0.0.0.0:9123` by default.
 
 ## 🏗️ Architecture
 
+drunk-mcp-proxy is a sophisticated proxy server that unifies multiple MCP and OpenAPI services behind a single endpoint. The architecture is designed for scalability, flexibility, and enterprise-grade authentication.
+
+### High-Level Architecture
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        MCP Client                          │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-                      v
-┌─────────────────────────────────────────────────────────────┐
-│               drunk-mcp-proxy Server                        │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │         Starlette Application                       │    │
-│  │  ┌──────────────────────────────────────────┐     │    │
-│  │  │        CORS Middleware                    │     │    │
-│  │  └──────────────────────────────────────────┘     │    │
-│  │  ┌──────────────────────────────────────────┐     │    │
-│  │  │     Authentication Middleware             │     │    │
-│  │  └──────────────────────────────────────────┘     │    │
-│  │  ┌──────────────────────────────────────────┐     │    │
-│  │  │          Health Check (/health)           │     │    │
-│  │  └──────────────────────────────────────────┘     │    │
-│  │  ┌──────────────────────────────────────────┐     │    │
-│  │  │    MCP Proxy Routers                      │     │    │
-│  │  │    • /mcp (root)                          │     │    │
-│  │  │    • /{namespace}/mcp (namespaced)        │     │    │
-│  │  └──────────────────────────────────────────┘     │    │
-│  └────────────────────────────────────────────────────┘    │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┬──────────────┐
-        v             v             v              v
-┌──────────────┐ ┌──────────────┐ ┌──────────┐ ┌──────────┐
-│  MCP Server  │ │  MCP Server  │ │ OpenAPI  │ │ OpenAPI  │
-│   (HTTP)     │ │   (stdio)    │ │  Service │ │  Service │
-│              │ │              │ │  (HTTP)  │ │  (Azure) │
-└──────────────┘ └──────────────┘ └──────────┘ └──────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           MCP Client (e.g., Claude Desktop)             │
+│                    HTTP/SSE Request with Authorization Header           │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 v
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        drunk-mcp-proxy Server                           │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │              Starlette ASGI Application                         │    │
+│  │  ┌──────────────────────────────────────────────────────┐     │    │
+│  │  │           CORS Middleware (Optional)                  │     │    │
+│  │  │     - Allow Origins, Methods, Headers                 │     │    │
+│  │  │     - Configured via ENV variables                    │     │    │
+│  │  └──────────────────────────────────────────────────────┘     │    │
+│  │  ┌──────────────────────────────────────────────────────┐     │    │
+│  │  │            Health Check Endpoint                      │     │    │
+│  │  │              GET /health                              │     │    │
+│  │  └──────────────────────────────────────────────────────┘     │    │
+│  │  ┌──────────────────────────────────────────────────────┐     │    │
+│  │  │           Root MCP Server (/)                         │     │    │
+│  │  │         POST /mcp (Mounted Services)                  │     │    │
+│  │  │    ┌──────────────────────────────────┐              │     │    │
+│  │  │    │  FastMCP Auth Provider           │              │     │    │
+│  │  │    │  (JWT, GitHub, Google, etc.)     │              │     │    │
+│  │  │    └──────────────────────────────────┘              │     │    │
+│  │  └──────────────────────────────────────────────────────┘     │    │
+│  │  ┌──────────────────────────────────────────────────────┐     │    │
+│  │  │      Namespaced MCP Services                          │     │    │
+│  │  │      POST /stock/mcp                                  │     │    │
+│  │  │      POST /wiki/mcp                                   │     │    │
+│  │  │      POST /deepsea/mcp (OpenAPI)                      │     │    │
+│  │  └──────────────────────────────────────────────────────┘     │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────┬──────────────────┬──────────────────────────────┘
+                       │                  │
+        ┌──────────────┼──────────────────┼────────────────┐
+        v              v                  v                v
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  MCP Server  │ │  MCP Server  │ │   OpenAPI    │ │   OpenAPI    │
+│   (HTTP)     │ │   (stdio)    │ │   Service    │ │   Service    │
+│              │ │              │ │  + Azure     │ │  + Pass-     │
+│  Stock API   │ │  Wiki Docs   │ │    OAuth     │ │    Through   │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
+
+### Component Architecture
+
+```
+src/
+├── main.py                          # Application entry point
+├── app/
+│   ├── server.py                    # MCPProxyServer - Server orchestration
+│   ├── starlette_app.py             # StarletteApp - ASGI app factory
+│   ├── lifespan.py                  # Lifecycle management for MCP apps
+│   ├── auth_provider.py             # GlobalAuthProvider - Auth factory
+│   ├── cache_provider.py            # OAuth token caching
+│   └── middleware/
+│       └── cros_middleware.py       # CORS middleware configuration
+├── proxies/
+│   ├── config_provider.py           # ProxyConfigProvider - Config loader
+│   ├── static_mcp_provider.py       # StaticMcpProvider - Base provider
+│   ├── mcp_proxy_provider.py        # McpProxyProvider - MCP proxy creator
+│   └── openapi_mcp_provider.py      # OpenApiMcpProvider - OpenAPI converter
+├── auth_providers/
+│   ├── azure_oauth.py               # AzureOauth - Azure AD OAuth2 flow
+│   └── auth_pass_through.py         # AuthPassThrough - Token forwarding
+└── tools/
+    ├── spec_config.py               # Configuration models
+    ├── auth_config.py               # Auth configuration models
+    ├── env.py                       # Environment variable loading
+    └── env_resolver.py              # Environment variable substitution
+```
+
+---
+
+## 🎯 Feature 1: Proxy MCP Management for MCP Services
+
+### Overview
+
+drunk-mcp-proxy provides comprehensive management for proxying MCP (Model Context Protocol) services. It aggregates multiple MCP servers into a unified interface, with support for namespacing to prevent tool name conflicts.
+
+### Architecture Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                    MCP Service Proxy Architecture                      │
+└────────────────────────────────────────────────────────────────────────┘
+
+Configuration Loading:
+┌──────────────┐         ┌──────────────────┐         ┌───────────────┐
+│ config.json  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
+│              │         │ Provider         │         │ Instances     │
+│ - MCP specs  │         │                  │         │               │
+│ - Paths      │         │ Loads & validates│         │ Per-service   │
+└──────────────┘         └──────────────────┘         └───────────────┘
+                                  |
+                                  v
+                         ┌────────────────────┐
+                         │ Filter by spec_type│
+                         │ = "mcp"            │
+                         └────────────────────┘
+                                  |
+                                  v
+Proxy Creation:
+┌──────────────────────────────────────────────────────────────────────┐
+│ For each MCP config:                                                 │
+│  1. Load MCP spec file (mcp.json, stock.mcp.json, etc.)             │
+│  2. Create FastMCP proxy via create_proxy(spec_data, name)           │
+│  3. Handle special case for root path ("/")                          │
+│  4. Apply authentication provider if configured                      │
+│  5. Mount at appropriate HTTP path                                   │
+└──────────────────────────────────────────────────────────────────────┘
+                                  |
+                                  v
+FastMCP Server Structure:
+┌────────────────────────────────────────────────────────────────────┐
+│                     Root MCP Server (path="/")                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ FastMCP("mcp-proxy-server", version="1.0.0")                 │  │
+│  │  - Auth: GlobalAuthProvider (JWT, GitHub, etc.)              │  │
+│  │  - Mounted Proxies:                                           │  │
+│  │    ├── Wiki MCP Proxy (from wiki.mcp.json)                   │  │
+│  │    ├── Stock MCP Proxy (from stock.mcp.json)                 │  │
+│  │    └── ... (other root-mounted services)                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  HTTP Endpoint: POST /mcp                                           │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│              Namespaced MCP Server (path="/stock")                  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ FastMCP("mcp-proxy-server-/stock", version="1.0.0")          │  │
+│  │  - Auth: GlobalAuthProvider or None                          │  │
+│  │  - Proxy: create_proxy(stock.mcp.json)                       │  │
+│  │  - Tools: stock_price, stock_history, etc.                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  HTTP Endpoint: POST /stock/mcp                                     │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│               Namespaced MCP Server (path="/wiki")                  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ FastMCP("mcp-proxy-server-/wiki", version="1.0.0")           │  │
+│  │  - Auth: GlobalAuthProvider or None                          │  │
+│  │  - Proxy: create_proxy(wiki.mcp.json)                        │  │
+│  │  - Tools: search_wiki, get_article, etc.                     │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  HTTP Endpoint: POST /wiki/mcp                                      │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Request Flow
 
-1. **Client Request**: MCP client sends request to proxy endpoint
-2. **Middleware Processing**: CORS, authentication, and other middleware process request
-3. **Route Matching**: Request is routed to appropriate backend based on path
-4. **Backend Call**: Proxy forwards request to configured backend MCP/OpenAPI service
-5. **Response Aggregation**: Response is collected and returned to client
+```
+Step 1: Client Request
+┌──────────────────────────────────────────────────────────────┐
+│ MCP Client (e.g., Claude Desktop)                            │
+│                                                              │
+│ POST /stock/mcp                                              │
+│ Headers:                                                     │
+│   Authorization: Bearer <jwt-token>                          │
+│ Body:                                                        │
+│   {"jsonrpc": "2.0", "method": "tools/list", "id": 1}       │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 2: Starlette Routing & Middleware
+┌──────────────────────────────────────────────────────────────┐
+│ Starlette Application                                         │
+│  1. CORS Middleware: Validate origin, set CORS headers       │
+│  2. Route to: /stock/mcp endpoint                            │
+│  3. Invoke: FastMCP http_app for "/stock" service            │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 3: FastMCP Authentication
+┌──────────────────────────────────────────────────────────────┐
+│ FastMCP Auth Provider (if configured)                        │
+│  1. Extract Authorization header                             │
+│  2. Validate JWT token against JWKS_URI                      │
+│  3. Extract user context (claims, scopes)                    │
+│  4. Store in MCP context for downstream use                  │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 4: MCP Proxy Forwarding
+┌──────────────────────────────────────────────────────────────┐
+│ McpProxyProvider for "/stock"                                │
+│  1. create_proxy(stock.mcp.json) has MCP spec:               │
+│     {                                                         │
+│       "mcpServers": {                                         │
+│         "stock": {                                            │
+│           "url": "http://stock-service.internal:8080/mcp",   │
+│           "transport": "http"                                 │
+│         }                                                     │
+│       }                                                       │
+│     }                                                         │
+│  2. FastMCP routes request to backend via HTTP               │
+│  3. Backend MCP server processes "tools/list" request        │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 5: Backend MCP Server
+┌──────────────────────────────────────────────────────────────┐
+│ Stock MCP Server (http://stock-service.internal:8080/mcp)    │
+│  1. Receives JSON-RPC request                                │
+│  2. Returns available tools:                                 │
+│     {                                                         │
+│       "tools": [                                              │
+│         {"name": "stock_price", "description": "..."},        │
+│         {"name": "stock_history", "description": "..."}       │
+│       ]                                                       │
+│     }                                                         │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 6: Response to Client
+┌──────────────────────────────────────────────────────────────┐
+│ Response aggregated and returned to MCP client               │
+│  - Tools from all mounted services (if root path)            │
+│  - Tools from specific service (if namespaced path)          │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### Key Components
+### Configuration Example
 
-- **MCPProxyServer**: Main server orchestrator
-- **StarletteApp**: ASGI application factory
-- **ProxyConfigProvider**: Configuration loader and validator
-- **OpenApiMcpProvider**: OpenAPI to MCP converter
-- **AzureOauth**: OAuth2 authentication handler
+**config.json**:
+```json
+[
+  {
+    "path": "/",
+    "spec_file": "mcp/mcp.json",
+    "spec_type": "mcp",
+    "base_url": null
+  },
+  {
+    "path": "/stock",
+    "spec_file": "mcp/stock.mcp.json",
+    "spec_type": "mcp",
+    "base_url": null,
+    "tags": ["finance", "internal"]
+  },
+  {
+    "path": "/wiki",
+    "spec_file": "mcp/wiki.mcp.json",
+    "spec_type": "mcp",
+    "base_url": null,
+    "tags": ["documentation", "internal"]
+  }
+]
+```
+
+**mcp/stock.mcp.json**:
+```json
+{
+  "mcpServers": {
+    "stock": {
+      "url": "http://stock-service.internal:8080/mcp",
+      "transport": "http"
+    }
+  }
+}
+```
+
+**mcp/wiki.mcp.json**:
+```json
+{
+  "mcpServers": {
+    "wiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
+      "transport": "http"
+    }
+  }
+}
+```
+
+### Key Features
+
+1. **Root Path Aggregation (`path="/"`)**: 
+   - Creates a single FastMCP server that mounts all root-path MCP services
+   - Client can access all tools via single `/mcp` endpoint
+   - Prevents tool name conflicts via namespacing
+
+2. **Namespaced Services (`path="/stock"`, `path="/wiki"`)**: 
+   - Each service gets its own FastMCP server instance
+   - Isolated at HTTP endpoint level (`/stock/mcp`, `/wiki/mcp`)
+   - Independent authentication and lifecycle
+
+3. **Transport Support**:
+   - HTTP/SSE: Direct HTTP communication to backend MCP servers
+   - stdio: Local process execution (FastMCP handles process management)
+
+4. **Authentication Integration**:
+   - GlobalAuthProvider applies to root MCP server
+   - Validates client tokens before proxying to backend
+   - Supports JWT, OAuth (GitHub, Google, Discord), and custom providers
+
+5. **Dynamic Configuration**:
+   - JSON-based configuration with hot-reloading capability
+   - Environment variable substitution (`$VAR_NAME`, `${VAR_NAME}`)
+   - Schema validation against JSON schemas
+
+### Code Implementation
+
+**McpProxyProvider (src/proxies/mcp_proxy_provider.py)**:
+```python
+class McpProxyProvider(StaticMcpProvider):
+    """Provider class for creating FastMCP instances from MCP configurations."""
+
+    def create_proxy(self) -> FastMCP:
+        """Create and return a FastMCP instance based on the MCP configuration."""
+        if self.config.spec_data is None:
+            raise ValueError(f"spec_data is required for MCP config '{self.config.path}'")
+
+        # Create proxy from MCP spec
+        proxy = create_proxy(self.config.spec_data, name=self.config.path)
+        
+        # Special handling for root path
+        if self.config.path == "/" and self.root_mcp is not None:
+            self.root_mcp.mount(proxy)
+            self.mcp = self.root_mcp
+            self.mcp.auth = self._get_global_auth_provider()
+            return self.mcp
+        
+        # Create namespaced FastMCP server
+        self.mcp = FastMCP(
+            f"{SERVER_NAME}-{self.config.path}",
+            version=SERVER_VERSION,
+        )
+        self.mcp.mount(proxy)
+        return self.mcp
+```
+
+---
+
+## 🌐 Feature 2: Proxy MCP Management for OpenAPI Services
+
+### Overview
+
+drunk-mcp-proxy can automatically convert OpenAPI 3.0 specifications into MCP tools, enabling seamless integration of RESTful APIs into the MCP ecosystem. This feature includes advanced capabilities like route filtering, Azure OAuth2 authentication, and pass-through token authentication.
+
+### Architecture Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                 OpenAPI to MCP Conversion Architecture                 │
+└────────────────────────────────────────────────────────────────────────┘
+
+Configuration Loading:
+┌──────────────┐         ┌──────────────────┐         ┌───────────────┐
+│ config.json  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
+│              │         │ Provider         │         │ (OpenAPI)     │
+│ - spec_type: │         │                  │         │               │
+│   "openapi"  │         │ Filters by type  │         │ - spec_file   │
+│ - base_url   │         │                  │         │ - base_url    │
+│ - filters    │         │                  │         │ - auth        │
+│ - auth       │         │                  │         │ - filters     │
+└──────────────┘         └──────────────────┘         └───────────────┘
+                                  |
+                                  v
+OpenAPI Spec Loading:
+┌─────────────────────────────────────────────────────────────────────┐
+│ Load OpenAPI 3.0 Spec (deepsea.openapi.json)                        │
+│  {                                                                   │
+│    "openapi": "3.0.0",                                               │
+│    "info": { "title": "DeepSea API", "version": "1.0.0" },          │
+│    "paths": {                                                        │
+│      "/currency-pairs": {                                            │
+│        "get": {                                                      │
+│          "operationId": "getCurrencyPairs",                          │
+│          "tags": ["CurrencyPairs"],                                  │
+│          "responses": { ... }                                        │
+│        },                                                            │
+│        "post": { ... }                                               │
+│      }                                                               │
+│    }                                                                 │
+│  }                                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                                  |
+                                  v
+Route Filtering (Optional):
+┌─────────────────────────────────────────────────────────────────────┐
+│ Apply Filters from Config:                                          │
+│  - Methods: ["GET", "POST", "PUT"] (exclude DELETE, PATCH)          │
+│  - Tags: ["CurrencyPairs"] (only include tagged endpoints)          │
+│                                                                      │
+│ custom_route_mapper():                                               │
+│   if route.method not in filters.methods:                           │
+│     return MCPType.EXCLUDE                                           │
+│   if route.tags not in filters.tags:                                │
+│     return MCPType.EXCLUDE                                           │
+│   return mcp_type                                                    │
+└─────────────────────────────────────────────────────────────────────┘
+                                  |
+                                  v
+HTTP Client Creation:
+┌─────────────────────────────────────────────────────────────────────┐
+│ Create httpx.AsyncClient with Authentication:                       │
+│                                                                      │
+│ Option 1: Azure OAuth2 (Client Credentials Flow)                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │ AzureOauth(                                                    │ │
+│  │   client_id="...",                                             │ │
+│  │   client_secret="...",                                         │ │
+│  │   token_url="https://login.microsoftonline.com/.../token",    │ │
+│  │   scope="api://.../.default"                                   │ │
+│  │ )                                                              │ │
+│  │ - Automatic token fetching & caching                          │ │
+│  │ - Token expiry detection & refresh                            │ │
+│  │ - Adds "Authorization: Bearer <token>" to requests            │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│ Option 2: Pass-Through Authentication                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │ AuthPassThrough()                                              │ │
+│  │ - Extracts token from MCP request context                     │ │
+│  │ - Forwards token to backend API                               │ │
+│  │ - No token management/caching                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│ Option 3: Static Token                                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │ headers["Authorization"] = config.auth.auth_token             │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                                  |
+                                  v
+FastMCP Conversion:
+┌─────────────────────────────────────────────────────────────────────┐
+│ FastMCP.from_openapi(                                                │
+│   name="mcp-proxy-server-/deepsea",                                  │
+│   openapi_spec=spec_data,                                            │
+│   client=httpx_client,                                               │
+│   route_map_fn=custom_route_mapper,                                  │
+│   tags=["finance", "api"]                                            │
+│ )                                                                    │
+│                                                                      │
+│ Result: FastMCP server with tools for each OpenAPI endpoint:        │
+│  - Tool name: operationId or auto-generated                          │
+│  - Tool description: from OpenAPI operation summary/description      │
+│  - Tool parameters: from OpenAPI request body & query parameters     │
+│  - Tool execution: HTTP request to backend via httpx client          │
+└─────────────────────────────────────────────────────────────────────┘
+                                  |
+                                  v
+MCP Tool Mapping:
+┌─────────────────────────────────────────────────────────────────────┐
+│ OpenAPI Endpoint → MCP Tool                                          │
+│                                                                      │
+│ GET /currency-pairs?base=USD                                         │
+│   → MCP Tool: getCurrencyPairs                                       │
+│      Parameters: { "base": "USD" }                                   │
+│      Description: "Get list of currency pairs"                      │
+│                                                                      │
+│ POST /currency-pairs { "base": "USD", "quote": "EUR" }              │
+│   → MCP Tool: createCurrencyPair                                     │
+│      Parameters: { "base": "USD", "quote": "EUR" }                   │
+│      Description: "Create a new currency pair"                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Request Flow with Authentication
+
+```
+Step 1: Client MCP Request
+┌──────────────────────────────────────────────────────────────┐
+│ MCP Client (e.g., Claude Desktop)                            │
+│                                                              │
+│ POST /deepsea/mcp                                            │
+│ Headers:                                                     │
+│   Authorization: Bearer <user-jwt-token>                     │
+│ Body:                                                        │
+│   {                                                          │
+│     "jsonrpc": "2.0",                                        │
+│     "method": "tools/call",                                  │
+│     "params": {                                              │
+│       "name": "getCurrencyPairs",                            │
+│       "arguments": { "base": "USD" }                         │
+│     },                                                       │
+│     "id": 1                                                  │
+│   }                                                          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 2: FastMCP Authentication (MCP Level)
+┌──────────────────────────────────────────────────────────────┐
+│ FastMCP Auth Provider validates client                       │
+│  1. Extract Authorization header: Bearer <user-jwt-token>    │
+│  2. Validate JWT token                                       │
+│  3. Store AccessToken in MCP context                         │
+│     → Available via get_access_token()                       │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 3: Tool Execution (OpenAPI Call)
+┌──────────────────────────────────────────────────────────────┐
+│ FastMCP invokes tool: getCurrencyPairs                       │
+│  1. Construct HTTP request: GET /currency-pairs?base=USD     │
+│  2. httpx.AsyncClient uses configured auth:                  │
+│                                                              │
+│     SCENARIO A: Pass-Through Auth                            │
+│     ┌────────────────────────────────────────────────┐      │
+│     │ AuthPassThrough.async_auth_flow()              │      │
+│     │  1. Call get_access_token() from MCP context   │      │
+│     │  2. Extract user-jwt-token                     │      │
+│     │  3. Add to request:                            │      │
+│     │     Authorization: Bearer <user-jwt-token>     │      │
+│     └────────────────────────────────────────────────┘      │
+│                                                              │
+│     SCENARIO B: Azure OAuth                                  │
+│     ┌────────────────────────────────────────────────┐      │
+│     │ AzureOauth.async_auth_flow()                   │      │
+│     │  1. Check cached token                         │      │
+│     │  2. If expired, fetch new token:               │      │
+│     │     POST to Azure token_url with               │      │
+│     │     client credentials                         │      │
+│     │  3. Cache token (in-memory + storage)          │      │
+│     │  4. Add to request:                            │      │
+│     │     Authorization: Bearer <azure-token>        │      │
+│     └────────────────────────────────────────────────┘      │
+│                                                              │
+│  3. Send HTTP request to backend API                        │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 4: Backend OpenAPI Service
+┌──────────────────────────────────────────────────────────────┐
+│ DeepSea API (http://host.docker.internal:5000)               │
+│                                                              │
+│ GET /currency-pairs?base=USD                                 │
+│ Headers:                                                     │
+│   Authorization: Bearer <token>  ← From auth flow            │
+│                                                              │
+│ Response:                                                    │
+│   {                                                          │
+│     "pairs": [                                               │
+│       { "base": "USD", "quote": "EUR", "rate": 0.85 },       │
+│       { "base": "USD", "quote": "GBP", "rate": 0.73 }        │
+│     ]                                                        │
+│   }                                                          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 5: Response to MCP Client
+┌──────────────────────────────────────────────────────────────┐
+│ FastMCP wraps response in MCP format                         │
+│   {                                                          │
+│     "jsonrpc": "2.0",                                        │
+│     "id": 1,                                                 │
+│     "result": {                                              │
+│       "content": [                                           │
+│         {                                                    │
+│           "type": "text",                                    │
+│           "text": "{\"pairs\": [...]}"                       │
+│         }                                                    │
+│       ]                                                      │
+│     }                                                        │
+│   }                                                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Configuration Example
+
+**config.json**:
+```json
+[
+  {
+    "path": "/deepsea",
+    "spec_file": "openapi/deepsea.openapi.json",
+    "spec_type": "openapi",
+    "base_url": "http://host.docker.internal:5000",
+    "filters": {
+      "methods": ["GET", "POST", "PUT"],
+      "tags": ["CurrencyPairs"]
+    },
+    "auth": {
+      "pass_through": true,
+      "azure": {
+        "client_id": "$AZURE_CLIENT_ID",
+        "client_secret": "$AZURE_CLIENT_SECRET",
+        "tenant_id": "$AZURE_TENANT_ID",
+        "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
+        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
+        "scopes": ["api://$AZURE_CLIENT_ID/.default"]
+      }
+    }
+  }
+]
+```
+
+### Key Features
+
+1. **Automatic Tool Generation**:
+   - Each OpenAPI endpoint becomes an MCP tool
+   - Tool names derived from `operationId` or auto-generated
+   - Tool descriptions from OpenAPI `summary` or `description`
+   - Parameters automatically mapped from query params, path params, and request body
+
+2. **Route Filtering**:
+   - **By HTTP Method**: Include only specific methods (GET, POST, PUT, DELETE, PATCH)
+   - **By Tags**: Include only endpoints with specific tags
+   - Reduces tool clutter and improves security
+
+3. **Flexible Authentication**:
+   - **Pass-Through**: Forward client token to backend (zero configuration)
+   - **Azure OAuth2**: Automatic client credentials flow with token caching
+   - **Static Token**: Use a pre-configured API key
+   - **No Auth**: Public APIs
+
+4. **HTTP Client Management**:
+   - Automatic base URL handling
+   - Request/response serialization
+   - Error handling and retries
+   - Connection pooling via httpx
+
+### Code Implementation
+
+**OpenApiMcpProvider (src/proxies/openapi_mcp_provider.py)**:
+```python
+class OpenApiMcpProvider(StaticMcpProvider):
+    """Provider class for creating FastMCP instances from OpenAPI specs."""
+
+    def custom_route_mapper(self, route: HTTPRoute, mcp_type: MCPType) -> MCPType | None:
+        """Filter routes based on configured filters."""
+        if self.config.filters is not None:
+            if self.config.filters.methods:
+                if route.method not in self.config.filters.methods:
+                    return MCPType.EXCLUDE
+            if self.config.filters.tags:
+                if not any(tag in route.tags for tag in self.config.filters.tags):
+                    return MCPType.EXCLUDE
+        return mcp_type
+
+    def create_client(self) -> httpx.AsyncClient:
+        """Return an appropriate HTTP client for the configured service."""
+        if not self.config.base_url:
+            raise ValueError("base_url is required for OpenAPI clients")
+
+        auth: Auth | None = None
+        headers: dict[str, str] = {}
+        
+        if self.config.auth and self.config.auth.azure:
+            # Azure OAuth2 client credentials flow
+            auth = self._create_client_auth(self.config.auth.azure)
+        elif self.config.auth and self.config.auth.auth_token:
+            # Static token
+            headers["Authorization"] = self.config.auth.auth_token
+
+        return httpx.AsyncClient(base_url=self.config.base_url, auth=auth, headers=headers)
+
+    def create_proxy(self) -> FastMCP:
+        """Create and return a FastMCP instance based on the loaded configurations."""
+        client = self.create_client()
+        
+        self.mcp = FastMCP.from_openapi(
+            name=f"{SERVER_NAME}-{self.config.path}",
+            openapi_spec=self.config.spec_data,
+            client=client,
+            route_map_fn=self.custom_route_mapper,
+            tags=self.config.tags
+        )
+        
+        return self.mcp
+```
+
+---
+
+## 🔐 Feature 3: Authentication Configuration (Pass-Through Token Focus)
+
+### Overview
+
+drunk-mcp-proxy provides a sophisticated multi-layer authentication system that operates at both the MCP protocol level (client authentication) and the backend service level (service authentication). The pass-through authentication feature is particularly powerful, enabling zero-configuration token forwarding from MCP clients to backend APIs.
+
+### Authentication Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   Multi-Layer Authentication Architecture              │
+└────────────────────────────────────────────────────────────────────────┘
+
+Layer 1: MCP Client Authentication (Proxy Level)
+┌─────────────────────────────────────────────────────────────────────┐
+│ GlobalAuthProvider (Configured via auth.json)                        │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Supported Providers:                                           │ │
+│  │  - JWT: Token validation via JWKS_URI                          │ │
+│  │  - GitHub OAuth: GitHub authentication                         │ │
+│  │  - Google OAuth: Google authentication                         │ │
+│  │  - Discord OAuth: Discord authentication                       │ │
+│  │  - WorkOS/AuthKit: Enterprise SSO                              │ │
+│  │  - Descope, Supabase, Scalekit: Other identity providers      │ │
+│  │  - Custom: Any FastMCP AuthProvider subclass                  │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│ Configuration: data/auth.json                                        │
+│  {                                                                   │
+│    "enabled": true,                                                  │
+│    "default_provider": "jwt",                                        │
+│    "jwt": {                                                          │
+│      "jwks_uri": "https://auth.example.com/.well-known/jwks.json",  │
+│      "issuer": "https://auth.example.com/",                          │
+│      "audience": "mcp-proxy-api"                                     │
+│    }                                                                 │
+│  }                                                                   │
+│                                                                      │
+│ Result: AccessToken stored in MCP context                           │
+│  - Available via get_access_token()                                  │
+│  - Contains: token, claims, expiry                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+Layer 2: Backend Service Authentication (Service Level)
+┌─────────────────────────────────────────────────────────────────────┐
+│ Per-Service Authentication (Configured in config.json)              │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Option 1: Pass-Through Authentication                          │ │
+│  │  {                                                             │ │
+│  │    "auth": {                                                   │ │
+│  │      "pass_through": true                                      │ │
+│  │    }                                                           │ │
+│  │  }                                                             │ │
+│  │  → AuthPassThrough: Forwards MCP client token to backend      │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Option 2: Azure OAuth2 Client Credentials                     │ │
+│  │  {                                                             │ │
+│  │    "auth": {                                                   │ │
+│  │      "azure": {                                                │ │
+│  │        "client_id": "$AZURE_CLIENT_ID",                        │ │
+│  │        "client_secret": "$AZURE_CLIENT_SECRET",                │ │
+│  │        "token_url": "https://login.../oauth2/v2.0/token",      │ │
+│  │        "scopes": ["api://.../.default"]                        │ │
+│  │      }                                                          │ │
+│  │    }                                                           │ │
+│  │  }                                                             │ │
+│  │  → AzureOauth: Fetches service token via client credentials   │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ Option 3: Static API Token                                     │ │
+│  │  {                                                             │ │
+│  │    "auth": {                                                   │ │
+│  │      "auth_token": "Bearer sk-1234567890"                      │ │
+│  │    }                                                           │ │
+│  │  }                                                             │ │
+│  │  → Static header added to all requests                        │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Pass-Through Authentication Deep Dive
+
+#### Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│              Pass-Through Authentication Flow (Detailed)               │
+└────────────────────────────────────────────────────────────────────────┘
+
+Step 1: Client Request with Token
+┌──────────────────────────────────────────────────────────────┐
+│ MCP Client (e.g., Claude Desktop, Custom App)                │
+│                                                              │
+│ POST /deepsea/mcp                                            │
+│ Headers:                                                     │
+│   Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6...     │
+│   Content-Type: application/json                            │
+│ Body:                                                        │
+│   {                                                          │
+│     "jsonrpc": "2.0",                                        │
+│     "method": "tools/call",                                  │
+│     "params": {                                              │
+│       "name": "getCurrencyPairs",                            │
+│       "arguments": { "base": "USD" }                         │
+│     },                                                       │
+│     "id": 1                                                  │
+│   }                                                          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 2: MCP Protocol Layer - Token Extraction
+┌──────────────────────────────────────────────────────────────┐
+│ FastMCP Server (Mounted at /deepsea)                         │
+│                                                              │
+│ 1. FastMCP Auth Provider (if configured):                   │
+│    - Validates Authorization header                          │
+│    - Extracts JWT claims                                     │
+│    - Stores AccessToken in MCP context                       │
+│                                                              │
+│ 2. AccessToken Structure:                                    │
+│    class AccessToken:                                        │
+│      token: str  ← Original JWT string                       │
+│      claims: dict ← Decoded JWT claims (user_id, etc.)       │
+│      expires_at: datetime                                    │
+│                                                              │
+│ 3. Context Storage:                                          │
+│    MCP request context stores AccessToken                    │
+│    Available to all tool executions via dependency injection │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 3: Tool Execution - Pass-Through Auth Flow
+┌──────────────────────────────────────────────────────────────┐
+│ OpenAPI Tool Execution (getCurrencyPairs)                    │
+│                                                              │
+│ 1. FastMCP prepares HTTP request via httpx.AsyncClient      │
+│    GET /currency-pairs?base=USD                              │
+│                                                              │
+│ 2. httpx client has auth=AuthPassThrough()                   │
+│    → Triggers async_auth_flow()                              │
+│                                                              │
+│ 3. AuthPassThrough.async_auth_flow():                        │
+│    ┌────────────────────────────────────────────────────┐   │
+│    │ from fastmcp.server.dependencies import (          │   │
+│    │     get_access_token                               │   │
+│    │ )                                                  │   │
+│    │                                                    │   │
+│    │ def async_auth_flow(self, request: httpx.Request):│   │
+│    │     # Get token from MCP context                  │   │
+│    │     token = get_access_token()                     │   │
+│    │                                                    │   │
+│    │     if token:                                      │   │
+│    │         # Forward original client token           │   │
+│    │         request.headers["Authorization"] = (      │   │
+│    │             f"Bearer {token.token}"                │   │
+│    │         )                                          │   │
+│    │     else:                                          │   │
+│    │         logger.warning("No access token available")│   │
+│    │                                                    │   │
+│    │     yield request                                  │   │
+│    └────────────────────────────────────────────────────┘   │
+│                                                              │
+│ 4. Modified request:                                         │
+│    GET /currency-pairs?base=USD                              │
+│    Headers:                                                  │
+│      Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6...  │
+│      ↑ Same token from original MCP client request          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 4: Backend API Request
+┌──────────────────────────────────────────────────────────────┐
+│ Backend OpenAPI Service (http://host.docker.internal:5000)   │
+│                                                              │
+│ Receives:                                                    │
+│   GET /currency-pairs?base=USD                               │
+│   Headers:                                                   │
+│     Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6...   │
+│                                                              │
+│ Backend validates token:                                     │
+│   - Validates JWT signature                                  │
+│   - Checks issuer, audience, expiry                          │
+│   - Extracts user identity (user_id, email, roles)           │
+│   - Enforces authorization policies                          │
+│                                                              │
+│ Returns response:                                            │
+│   200 OK                                                     │
+│   { "pairs": [...] }                                         │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 5: Response Returned to Client
+┌──────────────────────────────────────────────────────────────┐
+│ Response flows back through FastMCP to MCP client            │
+│   {                                                          │
+│     "jsonrpc": "2.0",                                        │
+│     "id": 1,                                                 │
+│     "result": {                                              │
+│       "content": [                                           │
+│         { "type": "text", "text": "{\"pairs\": [...]}" }     │
+│       ]                                                      │
+│     }                                                        │
+│   }                                                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### Key Benefits
+
+1. **Zero Configuration**:
+   - No need to manage service-specific credentials
+   - No token exchange or translation required
+   - Works with any backend that accepts JWT tokens
+
+2. **User Context Preservation**:
+   - Backend receives original user token
+   - Backend can enforce user-specific policies
+   - Audit logs show actual user, not service account
+
+3. **Security**:
+   - No credential storage in config files
+   - No shared service accounts
+   - Token never leaves secure channel (HTTPS)
+
+4. **Flexibility**:
+   - Works with any JWT issuer
+   - Compatible with OAuth2, OIDC, custom auth systems
+   - Backend can use token for additional API calls
+
+#### Code Implementation
+
+**AuthPassThrough (src/auth_providers/auth_pass_through.py)**:
+```python
+import httpx
+import typing
+import logging
+from fastmcp.server.dependencies import get_access_token
+from mcp.server.auth.provider import AccessToken
+
+logger = logging.getLogger(__name__)
+
+class AuthPassThrough(httpx.Auth):
+    """
+    Pass-through authentication for httpx clients.
+    
+    Extracts the access token from the MCP request context
+    and forwards it to the backend service.
+    """
+    
+    def _get_token(self) -> AccessToken | None:
+        """Get token from MCP context."""
+        token = get_access_token()
+        if token:
+            logger.info(f"Access token: {token}")
+        else:
+            logger.warning("No access token available")
+        return token
+    
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> typing.Generator[httpx.Request, httpx.Response, None]:
+        """Sync auth flow for pass-through authentication."""
+        token = self._get_token()
+        if token:
+            request.headers["Authorization"] = f"Bearer {token.token}"
+        yield request
+
+    async def async_auth_flow(
+        self, request: httpx.Request
+    ) -> typing.AsyncGenerator[httpx.Request, httpx.Response]:
+        """Async auth flow for pass-through authentication."""
+        token = self._get_token()
+        if token:
+            request.headers["Authorization"] = f"Bearer {token.token}"
+        yield request
+```
+
+#### Configuration Examples
+
+**Example 1: Pass-Through Only**
+```json
+{
+  "path": "/api",
+  "spec_file": "openapi/api.openapi.json",
+  "spec_type": "openapi",
+  "base_url": "https://api.example.com",
+  "auth": {
+    "pass_through": true
+  }
+}
+```
+
+**Example 2: Pass-Through with Fallback to Azure OAuth**
+```json
+{
+  "path": "/api",
+  "spec_file": "openapi/api.openapi.json",
+  "spec_type": "openapi",
+  "base_url": "https://api.example.com",
+  "auth": {
+    "pass_through": true,
+    "azure": {
+      "client_id": "$AZURE_CLIENT_ID",
+      "client_secret": "$AZURE_CLIENT_SECRET",
+      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
+      "scopes": ["api://example-api/.default"]
+    }
+  }
+}
+```
+*Note: When both are configured, pass-through takes precedence if available.*
+
+**Example 3: MCP Client Auth Configuration (auth.json)**
+```json
+{
+  "enabled": true,
+  "default_provider": "jwt",
+  "jwt": {
+    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
+    "issuer": "https://auth.example.com/",
+    "audience": "mcp-proxy-api",
+    "algorithms": ["RS256"]
+  }
+}
+```
+
+### Azure OAuth2 Client Credentials
+
+For comparison, here's how Azure OAuth2 works (alternative to pass-through):
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│              Azure OAuth2 Client Credentials Flow                      │
+└────────────────────────────────────────────────────────────────────────┘
+
+Step 1: Initial Request
+┌──────────────────────────────────────────────────────────────┐
+│ httpx.AsyncClient makes first API request                    │
+│ → Triggers AzureOauth.async_auth_flow()                       │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 2: Token Fetch (if not cached)
+┌──────────────────────────────────────────────────────────────┐
+│ POST https://login.microsoftonline.com/TENANT/oauth2/v2.0/token│
+│ Headers:                                                      │
+│   Content-Type: application/x-www-form-urlencoded            │
+│ Body:                                                        │
+│   grant_type=client_credentials                              │
+│   client_id=YOUR_CLIENT_ID                                   │
+│   client_secret=YOUR_CLIENT_SECRET                           │
+│   scope=api://YOUR_CLIENT_ID/.default                        │
+│                                                              │
+│ Response:                                                    │
+│   {                                                          │
+│     "token_type": "Bearer",                                  │
+│     "expires_in": 3599,                                      │
+│     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJS..."       │
+│   }                                                          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 3: Token Caching
+┌──────────────────────────────────────────────────────────────┐
+│ AzureOauth stores token:                                     │
+│  - In-memory cache (immediate reuse)                         │
+│  - Persistent storage (optional, survives restarts)          │
+│  - Expiry tracking (auto-refresh before expiration)          │
+└───────────────────────┬──────────────────────────────────────┘
+                        │
+                        v
+Step 4: Add Token to Request
+┌──────────────────────────────────────────────────────────────┐
+│ request.headers["Authorization"] = f"Bearer {azure_token}"   │
+│ → Backend receives service account token, NOT user token    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Key Difference**: Azure OAuth uses **service account** credentials, while pass-through uses **user credentials**.
+
+### Authentication Decision Matrix
+
+| Scenario | Recommended Auth | Reason |
+|----------|------------------|---------|
+| User-specific actions (e.g., CRUD on user data) | **Pass-Through** | Backend needs user identity for authorization |
+| Service-to-service (e.g., read shared resources) | **Azure OAuth** | Service account sufficient, better for caching |
+| Public API (no auth) | **None** | No authentication required |
+| API Key based | **Static Token** | Simple, no OAuth overhead |
+| Multi-tenant with user context | **Pass-Through** | Each user needs their own token |
+| High-volume background jobs | **Azure OAuth** | Minimize token validations, better performance |
+
+### Environment Variables for Authentication
+
+**MCP Client Authentication (Global)**:
+```bash
+# JWT Provider
+FASTMCP_SERVER_AUTH=jwt
+JWKS_URI=https://auth.example.com/.well-known/jwks.json
+ISSUER=https://auth.example.com/
+AUDIENCE=mcp-proxy-api
+
+# GitHub OAuth Provider
+FASTMCP_SERVER_AUTH=github
+FASTMCP_SERVER_AUTH_GITHUB_CLIENT_ID=your-github-client-id
+FASTMCP_SERVER_AUTH_GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Google OAuth Provider
+FASTMCP_SERVER_AUTH=google
+FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID=your-google-client-id
+FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+**Backend Service Authentication (Per-Service in config.json)**:
+```bash
+# Azure OAuth
+AZURE_CLIENT_ID=your-app-client-id
+AZURE_CLIENT_SECRET=your-app-client-secret
+AZURE_TENANT_ID=your-tenant-id
+```
+
+### Best Practices
+
+1. **Use Pass-Through When**:
+   - Backend enforces user-level permissions
+   - Audit logs require user identity
+   - Backend makes downstream API calls on behalf of user
+
+2. **Use Azure OAuth When**:
+   - Backend doesn't require user context
+   - High request volume (token caching reduces overhead)
+   - Service-to-service communication
+
+3. **Security Considerations**:
+   - Always use HTTPS in production
+   - Rotate client secrets regularly (Azure OAuth)
+   - Configure appropriate token expiry times
+   - Validate tokens on backend (don't trust proxy alone)
+   - Use minimum required scopes
+
+4. **Monitoring**:
+   - Log authentication failures
+   - Track token refresh rates (Azure OAuth)
+   - Monitor pass-through availability
+   - Alert on expired credentials
+
+---
+
+## 📖 Configuration Reference
+
+### Complete config.json Example
+
+```json
+[
+  {
+    "path": "/",
+    "spec_file": "mcp/mcp.json",
+    "spec_type": "mcp",
+    "base_url": null
+  },
+  {
+    "path": "/stock",
+    "spec_file": "mcp/stock.mcp.json",
+    "spec_type": "mcp",
+    "base_url": null,
+    "tags": ["finance", "internal"]
+  },
+  {
+    "path": "/deepsea",
+    "spec_file": "openapi/deepsea.openapi.json",
+    "spec_type": "openapi",
+    "base_url": "http://host.docker.internal:5000",
+    "filters": {
+      "methods": ["GET", "POST", "PUT"],
+      "tags": ["CurrencyPairs", "Trading"]
+    },
+    "auth": {
+      "pass_through": true,
+      "azure": {
+        "client_id": "$AZURE_CLIENT_ID",
+        "client_secret": "$AZURE_CLIENT_SECRET",
+        "tenant_id": "$AZURE_TENANT_ID",
+        "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
+        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
+        "scopes": ["api://$AZURE_CLIENT_ID/.default"]
+      }
+    }
+  }
+]
+```
+
+### Complete auth.json Example
+
+```json
+{
+  "enabled": true,
+  "default_provider": "jwt",
+  "jwt": {
+    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
+    "issuer": "https://auth.example.com/",
+    "audience": "mcp-proxy-api",
+    "algorithms": ["RS256", "ES256"]
+  },
+  "github": {
+    "client_id": "$GITHUB_CLIENT_ID",
+    "client_secret": "$GITHUB_CLIENT_SECRET"
+  },
+  "azure": {
+    "client_id": "$AZURE_AUTH_CLIENT_ID",
+    "tenant_id": "$AZURE_AUTH_TENANT_ID",
+    "client_secret": "$AZURE_AUTH_CLIENT_SECRET"
+  }
+}
+```
 
 ## 📖 Configuration
 
