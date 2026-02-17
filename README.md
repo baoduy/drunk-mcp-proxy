@@ -402,6 +402,85 @@ Step 6: Response to Client
 }
 ```
 
+### Skills Directory Provider
+
+The Skills Directory Provider allows you to expose markdown-based skill documentation as MCP resources. This is useful for providing LLMs with structured knowledge about code patterns, best practices, and domain-specific information.
+
+#### Configuration
+
+Add the `skill_dir` field to your MCP configuration to enable the Skills Directory Provider:
+
+**config.json with skill_dir**:
+```json
+[
+  {
+    "path": "/",
+    "spec_type": "mcp",
+    "skill_dir": "skills",
+    "mcpServers": {
+      "memory": {
+        "enabled": true,
+        "timeout": 60,
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-memory"],
+        "transport": "stdio"
+      }
+    }
+  }
+]
+```
+
+#### Directory Structure
+
+The `skill_dir` should contain subdirectories, where each subdirectory represents a skill category. The provider automatically scans all subdirectories and makes them available as MCP resources:
+
+```
+data/
+└── skills/
+    ├── dknet/
+    │   ├── README.md
+    │   ├── efcore-repos/
+    │   │   └── SKILL.md
+    │   ├── slimbus-messaging/
+    │   │   └── SKILL.md
+    │   ├── aspcore-idempotency/
+    │   │   └── SKILL.md
+    │   └── dknet-overview/
+    │       └── SKILL.md
+    └── architecture/
+        ├── patterns/
+        │   └── SKILL.md
+        └── guidelines/
+            └── SKILL.md
+```
+
+#### How It Works
+
+1. **Directory Scanning**: The provider scans all subdirectories in the specified `skill_dir`
+2. **Sorted Loading**: Subdirectories are loaded in alphabetical order for consistent behavior
+3. **Resource Registration**: Each subdirectory is registered with FastMCP's `SkillsDirectoryProvider`
+4. **MCP Resource Access**: Skills are exposed as MCP resources that clients can query
+
+#### Example Skills
+
+See the example skills in `data/skills/dknet/` for a reference implementation. Each skill typically contains:
+- **SKILL.md**: Main skill documentation with code examples and best practices
+- **README.md**: Overview of the skill category
+
+#### Key Features
+
+- **Automatic Discovery**: No need to manually register each skill
+- **Markdown Support**: Skills are written in markdown for easy maintenance
+- **Hierarchical Organization**: Organize skills into logical subdirectories
+- **Multiple Categories**: Support for multiple skill categories in a single configuration
+
+#### Notes
+
+- If `skill_dir` is not specified, no skills will be loaded
+- If the directory doesn't exist, the provider will silently skip loading skills
+- Only subdirectories are loaded; files in the root of `skill_dir` are ignored
+- Hidden directories (starting with `.`) are included if present
+
 ### Key Features
 
 1. **Root Path Aggregation (`path="/"`)**: 
@@ -1274,7 +1353,8 @@ The proxy uses two main configuration files:
     "path": "/",
     "spec_file": "mcp/mcp.json",
     "spec_type": "mcp",
-    "base_url": null
+    "base_url": null,
+    "skill_dir": "skills"
   },
   {
     "path": "/stock",
@@ -1423,12 +1503,14 @@ The main configuration file is `data/config.json`, which defines all proxy servi
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `path` | string | Yes | Mount path for the proxy service (e.g., `"/"`, `"/api"`) |
-| `spec_file` | string | Yes | Path to spec file relative to config directory |
+| `spec_file` | string | Conditional | Path to spec file relative to config directory (required unless using inline `mcpServers`) |
 | `spec_type` | enum | Yes | Type of spec: `"mcp"` or `"openapi"` |
 | `base_url` | string | Conditional | Base URL for the API (required for OpenAPI unless using Azure auth, `null` for MCP) |
 | `tags` | array | No | Tags for categorization (optional) |
 | `filters` | object | No | Filter methods/tags for OpenAPI specs (optional) |
 | `auth` | object | No | Authentication configuration for backend service (optional) |
+| `skill_dir` | string | No | Directory path (relative to config directory) containing skill subdirectories for MCP resources (optional, MCP only) |
+| `mcpServers` | object | No | Inline MCP server configurations (alternative to `spec_file`, MCP only) |
 
 ### MCP Specification File
 
