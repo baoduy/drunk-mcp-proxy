@@ -1,0 +1,14 @@
+services:
+  app:
+    # image: mcr.microsoft.com/devcontainers/typescript-node
+    build:
+      context: ./
+      dockerfile: ./dev.dockerfile
+    entrypoint:
+      - sleep
+      - infinity
+    init: true
+    volumes:
+      - type: bind
+        source: ../
+        target: /code

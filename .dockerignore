@@ -29,13 +29,16 @@ docker-compose.yml
 .dockerignore
 
 # Testing
+tests/
 .pytest_cache/
 .coverage
 htmlcov/
 
 # Runtime files (should be mounted as volumes)
 proxies.json
-data/
 
 # Examples
 config.example.json
+data/
+docs/
+scripts/

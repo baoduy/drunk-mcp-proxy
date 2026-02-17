@@ -1,0 +1,55 @@
+[
+  {
+    "path": "/deepsea",
+    "spec_file": "openapi/deepsea.openapi.json",
+    "spec_type": "openapi",
+    "base_url": "http://host.docker.internal:5000",
+    "filters": {
+      "methods": [
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "tags": [
+        "CurrencyPairs"
+      ]
+    },
+    "auth": {
+      "pass_through": true,
+      "azure": {
+        "client_id": "$AZURE_CLIENT_ID",
+        "client_secret": "$AZURE_CLIENT_SECRET",
+        "tenant_id": "$AZURE_TENANT_ID",
+        "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
+        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
+        "scopes": [
+          "api://$AZURE_CLIENT_ID/.default"
+        ]
+      }
+    }
+  },
+  {
+    "path": "/",
+    "spec_file": "mcp/mcp.json",
+    "spec_type": "mcp",
+    "base_url": null
+  },
+  {
+    "path": "/stock",
+    "spec_file": "mcp/stock.mcp.json",
+    "spec_type": "mcp",
+    "base_url": null,
+    "tags": [
+      "internal"
+    ]
+  },
+  {
+    "path": "/wiki",
+    "spec_file": "mcp/wiki.mcp.json",
+    "spec_type": "mcp",
+    "base_url": null,
+    "tags": [
+      "internal"
+    ]
+  }
+]

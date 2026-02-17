@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "tradingview": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "uvx",
+      "args": [
+        "tradingview-mcp"
+      ],
+      "transport": "stdio"
+    },
+    "alphavantage": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "uvx",
+      "args": [
+        "av-mcp",
+        "${ALPHAVANTAGE_API_KEY}"
+      ],
+      "transport": "stdio"
+    },
+    "yahoo-finance": {
+      "enabled": true,
+      "timeout": 60,
+      "command": "uvx",
+      "args": [
+        "yahoo-finance-server"
+      ],
+      "transport": "stdio"
+    }
+  }
+}

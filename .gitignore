@@ -27,7 +27,6 @@ env/
 .venv
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -36,11 +35,6 @@ env/
 # Environment variables
 .env
 .env.local
-
-# MCP configuration
-data/proxies.json
-data/auth.json
-data/mcp.json
 
 # Testing
 .pytest_cache/

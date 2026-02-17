@@ -1,0 +1,44 @@
+[run]
+# Source packages to measure coverage for
+source = src
+branch = True
+parallel = True
+
+# Files/directories to omit from coverage
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */site-packages/*
+    .venv/*
+
+[report]
+# Patterns of files to exclude from coverage report
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abstractproperty
+    pass
+    class .*\(Protocol\):
+    @overload
+
+# Ignore missing imports in third-party libraries
+ignore_errors = True
+
+# Set minimum coverage percentage
+precision = 2
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml
+
+[json]
+output = coverage.json
+

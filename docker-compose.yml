@@ -4,13 +4,57 @@ services:
     image: drunk-mcp-proxy:latest
     container_name: mcp-proxy-server
     ports:
-      - "8000:8000"
+      - "${FASTMCP_PORT:-9123}:${FASTMCP_PORT:-9123}"
     volumes:
       # Mount data directory for all configuration files
       - ./data:/app/data
+      # Mount pip cache for persistent package cache across restarts
+      - mcp-pip-cache:/tmp/pip-cache
+      # Mount user home for uv and npm caches
+      - mcp-home-cache:/home/appuser
+    env_file:
+      - .env
     environment:
-      - MCP_CONFIG_FILE=/app/data/mcp.json
-      - MCP_PROXIES_FILE=/app/data/proxies.json
-      - MCP_AUTH_CONFIG_FILE=/app/data/auth.json
+      - FASTMCP_CONFIG_DIR=/app/data
+      - FASTMCP_SCHEMA_DIR=/app/schemas
+      - FASTMCP_HOST=0.0.0.0
+      - FASTMCP_PORT=${FASTMCP_PORT:-9123}
+      - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
+      - FASTMCP_SERVER_VERSION=${FASTMCP_SERVER_VERSION:-1.0.0}
+      - FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY=${FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY}
       - PYTHONPATH=/app/src
+      # Enable pip caching
+      - PIP_CACHE_DIR=/tmp/pip-cache
     restart: unless-stopped
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  mcp-inspector:
+    image: ghcr.io/modelcontextprotocol/inspector:latest
+    container_name: mcp-inspector
+    ports:
+      - "127.0.0.1:6274:6274"
+      - "127.0.0.1:6277:6277"
+    environment:
+      - HOST=0.0.0.0
+      - MCP_AUTO_OPEN_ENABLED=false
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  # Named volumes for persistent caching
+  mcp-pip-cache:
+    driver: local
+  mcp-home-cache:
+    driver: local
