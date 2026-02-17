@@ -404,7 +404,7 @@ Step 6: Response to Client
 
 ### Skills Directory Provider
 
-The Skills Directory Provider allows you to expose markdown-based skill documentation as MCP resources. This is useful for providing LLMs with structured knowledge about code patterns, best practices, and domain-specific information.
+The Skills Directory Provider allows you to expose Markdown-based skill documentation as MCP resources. This is useful for providing LLMs with structured knowledge about code patterns, best practices, and domain-specific information.
 
 #### Configuration
 
@@ -463,9 +463,12 @@ data/
 
 #### Example Skills
 
-See the example skills in `data/skills/dknet/` for a reference implementation. Each skill typically contains:
+See the example skills in `data/skills/dknet/` for a reference implementation. Each skill directory can contain any files supported by the SkillsDirectoryProvider. Common patterns include:
 - **SKILL.md**: Main skill documentation with code examples and best practices
 - **README.md**: Overview of the skill category
+- Other markdown files with additional documentation
+
+**Note**: The exact file naming conventions depend on the SkillsDirectoryProvider implementation in FastMCP.
 
 #### Key Features
 
@@ -477,7 +480,7 @@ See the example skills in `data/skills/dknet/` for a reference implementation. E
 #### Notes
 
 - If `skill_dir` is not specified, no skills will be loaded
-- If the directory doesn't exist, the provider will silently skip loading skills
+- If the directory doesn't exist, the provider will skip loading skills without logging an error (returns silently)
 - Only subdirectories are loaded; files in the root of `skill_dir` are ignored
 - Hidden directories (starting with `.`) are included if present
 
