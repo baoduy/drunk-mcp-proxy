@@ -271,28 +271,3 @@ class TestOpenApiMcpProviderCreateProxy:
         with pytest.raises(ValueError) as exc_info:
             provider.create_proxy()
         assert "base_url is required" in str(exc_info.value)
-
-    @patch('src.proxies.static_mcp_provider.StaticMcpProvider._get_global_auth_provider')
-    @patch('src.proxies.openapi_mcp_provider.FastMCP')
-    @patch.object(OpenApiMcpProvider, 'create_client')
-    def test_create_proxy_initialization_failure(self, mock_create_client, mock_fastmcp_cls, mock_get_auth):
-        """Test create_proxy raises error when FastMCP initialization fails."""
-        mock_config = Mock(spec=SpecConfig)
-        mock_config.path = "/test-api"
-        mock_config.base_url = "https://api.example.com"
-        mock_config.auth = None
-        mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
-        mock_config.tags = []
-
-        mock_client = Mock()
-        mock_create_client.return_value = mock_client
-        mock_get_auth.return_value = None
-
-        # Return None to simulate initialization failure
-        mock_fastmcp_cls.from_openapi.return_value = None
-
-        provider = OpenApiMcpProvider(mock_config)
-
-        with pytest.raises(RuntimeError) as exc_info:
-            provider.create_proxy()
-        assert "FastMCP failed to initialize" in str(exc_info.value)

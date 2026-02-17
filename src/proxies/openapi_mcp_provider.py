@@ -73,16 +73,16 @@ class OpenApiMcpProvider(StaticMcpProvider):
 
         assert self.config.spec_data
         self.mcp = FastMCP.from_openapi(
-            name=f"{SERVER_NAME}-{self.config.path}",
+            name=f"{SERVER_NAME}{self.config.path}",
             openapi_spec=self.config.spec_data,
             client=client,
             route_map_fn=self.custom_route_mapper,
             tags=self.config.tags
         )
         
-        if self.mcp is None:
-            raise RuntimeError("FastMCP failed to initialize")
         self.mcp.auth = super()._get_global_auth_provider()
+        self._create_skill_proxy(self.mcp)
+        
         return self.mcp
 
     @staticmethod

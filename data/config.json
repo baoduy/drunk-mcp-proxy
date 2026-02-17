@@ -30,26 +30,29 @@
   },
   {
     "path": "/",
-    "spec_file": "mcp/mcp.json",
     "spec_type": "mcp",
-    "base_url": null
+    "skill_dir": "skills",
+    "mcpServers": {
+      "server-memory": {
+        "enabled": true,
+        "timeout": 60,
+        "command": "npx",
+        "args": [
+          "@playwright/mcp@0.0.64"
+        ],
+        "transport": "stdio"
+      }
+    }
   },
   {
     "path": "/stock",
     "spec_file": "mcp/stock.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "tags": [
-      "internal"
-    ]
+    "spec_type": "mcp"
   },
   {
     "path": "/wiki",
     "spec_file": "mcp/wiki.mcp.json",
     "spec_type": "mcp",
-    "base_url": null,
-    "tags": [
-      "internal"
-    ]
+    "base_url": null
   }
 ]

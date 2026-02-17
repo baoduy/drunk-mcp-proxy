@@ -10,7 +10,7 @@ class AuthHeaderMiddleware(Middleware):
         if context.type == "request":
             token = get_access_token()
             if token:
-                logger.info(f"Access token: {token}")
+                logger.info(f"Access token: {token.client_id}")
             else:
                 logger.warning("No access token available")
 
