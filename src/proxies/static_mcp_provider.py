@@ -11,7 +11,7 @@ from src.tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
 from auth_providers import AzureOauth
 from dataclasses import dataclass
-from tools.env import SERVER_TRANSPORT
+from tools.env import CONFIG_DIR, SERVER_TRANSPORT
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -89,6 +89,33 @@ class StaticMcpProvider(ABC):
         from app import GlobalAuthProvider
         return GlobalAuthProvider.get_auth_provider(provider_name)
     
+    def _create_skill_proxy(self, mcp:FastMCP):
+        if self.config.skill_dir is None:
+            return
+        
+        from pathlib import Path
+        from fastmcp.server.providers.skills import SkillsDirectoryProvider
+
+        skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")
+        if not skill_dir_path.exists():
+            #self.logger.warning(f"Skill directory '{self.config.skill_dir}' does not exist for MCP config '{self.config.path}'")
+            return
+        
+        # Scan all subdirectories for skill providers
+        subdirs = sorted([d for d in skill_dir_path.iterdir() if d.is_dir()])
+        
+        if not subdirs:
+            #self.logger.warning(f"No subdirectories found in skill directory '{self.config.skill_dir}' for MCP config '{self.config.path}'")
+            return
+        
+        provider = SkillsDirectoryProvider(
+            roots=subdirs,
+            reload=False)
+        
+        #self.logger.info("Adding skill provider for MCP config '%s' with %d skill directories: %s", 
+        #                self.config.path, len(subdirs), [d.name for d in subdirs])
+        mcp.add_provider(provider)
+        
     @staticmethod
     def _scope_value(config: AzureAuthConfig) -> str | None:
         if not config.scopes:

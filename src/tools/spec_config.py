@@ -98,11 +98,7 @@ class SpecConfig(BaseModel):
         spec_data: Loaded JSON data from the spec_file
     """
     # Note: 'path' is required for all configs to ensure proper routing, even if it's just "/"
-    path: str = Field(description="Base path for the proxy")
-    # spec_file is optional because for MCP specs we can also provide spec_data directly (e.g., from mcp_servers field)
-    spec_file: Optional[str] = Field(default=None, description="Path to the specification file (relative to config dir)")
-    # spec_type is required to determine how to validate and process the spec_data
-    spec_type: SpecType = Field(description="Type of specification ('openapi' or 'mcp')")
+    path: str = Field(description="Base path for the proxy")    
     # base_url is only applicable for OpenAPI specs, and is not required for MCP specs
     base_url: Optional[str] = Field(default=None, description="Base URL for the API (None for MCP specs)")
     # the global tags applied for open-api
@@ -111,8 +107,14 @@ class SpecConfig(BaseModel):
     filters: Optional[Filters] = Field(default=None, description="Optional filters for methods and tags")
     # Authentication configuration, which can be used for both OpenAPI and MCP specs
     auth: Optional[AuthField] = Field(default=None, description="Optional authentication configuration")
+    # skill_dir is only applicable for MCP specs that reference external skill files, and is not required for OpenAPI specs
+    skill_dir: Optional[str] = Field(default=None, description="Directory for skill files (if applicable)")
     # For MCP specs, we can allow defining the MCP servers directly in the config file instead of a separate spec file
     mcp_servers: Optional[dict[str, Any]] = Field(default=None,alias="mcpServers", description="MCP server configurations")
+    # spec_file is optional because for MCP specs we can also provide spec_data directly (e.g., from mcp_servers field)
+    spec_file: Optional[str] = Field(default=None, description="Path to the specification file (relative to config dir)")
+    # spec_type is required to determine how to validate and process the spec_data
+    spec_type: SpecType = Field(description="Type of specification ('openapi' or 'mcp')")
     # spec_data is not included in serialization and is populated after loading the spec_file
     spec_data: Optional[dict[str, Any]] = Field(default_factory=dict, exclude=True,
                                                 description="Loaded JSON data from the spec_file (not included in serialization)")
