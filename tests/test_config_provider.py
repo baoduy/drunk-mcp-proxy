@@ -10,7 +10,17 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.proxies.static_proxies_provider import StaticProxiesProvider
+from src.proxies.static_mcp_provider import McpProxyConfig
+from src.proxies.mcp_proxy_provider import McpProxyProvider
 from src.tools.spec_config import SpecType
+
+
+class ConcreteProxiesProvider(StaticProxiesProvider):
+    """Concrete implementation of StaticProxiesProvider for testing."""
+    
+    def create_proxy(self):
+        """Implementation of abstract method for testing."""
+        pass
 
 
 class TestProxyConfigProviderInit:
@@ -18,7 +28,7 @@ class TestProxyConfigProviderInit:
 
     def test_init_with_default_config_dir(self):
         """Test initialization with default CONFIG_DIR."""
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         assert provider.config_dir is not None
         assert provider.config_file_path.endswith("config.json")
         assert provider.configs == []
@@ -113,7 +123,7 @@ class TestProxyConfigProviderGetConfigsByType:
         mock_config2.spec_type = SpecType.MCP
         mock_config2.path = "/mcp1"
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         provider.configs = [mock_config1, mock_config2]
 
         openapi_configs = provider._get_configs_by_type(SpecType.OPENAPI)
@@ -132,7 +142,7 @@ class TestProxyConfigProviderGetConfigsByType:
         mock_config2.spec_type = SpecType.MCP
         mock_config2.path = "/mcp1"
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         provider.configs = [mock_config1, mock_config2]
 
         mcp_configs = provider._get_configs_by_type(SpecType.MCP)
@@ -146,7 +156,7 @@ class TestProxyConfigProviderGetConfigsByType:
         mock_config = Mock()
         mock_config.spec_type = SpecType.OPENAPI
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         provider.configs = [mock_config]
 
         mcp_configs = provider._get_configs_by_type(SpecType.MCP)
@@ -163,7 +173,7 @@ class TestProxyConfigProviderProperties:
         mock_configs = [Mock(), Mock()]
         mock_get_configs.return_value = mock_configs
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         result = provider.openapi_configs
 
         mock_get_configs.assert_called_once_with(SpecType.OPENAPI)
@@ -175,7 +185,7 @@ class TestProxyConfigProviderProperties:
         mock_configs = [Mock(), Mock()]
         mock_get_configs.return_value = mock_configs
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         result = provider.mcp_configs
 
         mock_get_configs.assert_called_once_with(SpecType.MCP)
@@ -188,105 +198,85 @@ class TestProxyConfigProviderGetMcpServices:
     @patch.object(StaticProxiesProvider, 'mcp_configs', [])
     def test_get_mcp_services_empty_configs(self):
         """Test _get_mcp_services with no MCP configurations."""
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
 
         result = provider._get_mcp_services()
 
         assert len(result) == 0
 
-    @patch('src.proxies.static_proxies_provider.McpProxyConfig')
-    @patch('src.proxies.static_proxies_provider.create_proxy')
-    @patch('src.proxies.static_proxies_provider.FastMCP')
+    @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
     @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_with_root_path(self, mock_mcp_configs, mock_fastmcp_cls, mock_create_proxy,
-                                             mock_proxy_config_cls):
+    def test_get_mcp_services_with_root_path(self, mock_mcp_configs, mock_create_mcp_proxies):
         """Test _get_mcp_services with root path configuration."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
         mock_config.path = "/"
         mock_config.spec_data = {"test": "data"}
-        mock_mcp_configs.__get__ = Mock(return_value=[mock_config])
+        
+        mock_mcp_configs_list = [mock_config]
+        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        
+        # Create the expected McpProxyConfig result
+        mock_proxy_config = Mock(spec=McpProxyConfig)
+        mock_proxy_config.path = "/"
+        mock_create_mcp_proxies.return_value = [mock_proxy_config]
 
-        mock_root_mcp = Mock()
-        mock_fastmcp_cls.return_value = mock_root_mcp
-        mock_proxy = Mock()
-        mock_create_proxy.return_value = mock_proxy
-
-        # Set up proxy config mock to return object with path attribute
-        mock_root_config = Mock()
-        mock_root_config.path = "/"
-        mock_proxy_config_cls.return_value = mock_root_config
-
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
+        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 
         assert len(result) == 1
         assert result[0].path == "/"
-        mock_root_mcp.mount.assert_called_once_with(mock_proxy)
+        mock_create_mcp_proxies.assert_called_once_with(mock_mcp_configs_list)
 
-    @patch('src.proxies.static_proxies_provider.McpProxyConfig')
-    @patch('src.proxies.static_proxies_provider.create_proxy')
-    @patch('src.proxies.static_proxies_provider.FastMCP')
+    @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
     @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_with_custom_path(self, mock_mcp_configs, mock_fastmcp_cls, mock_create_proxy,
-                                               mock_proxy_config_cls):
+    def test_get_mcp_services_with_custom_path(self, mock_mcp_configs, mock_create_mcp_proxies):
         """Test _get_mcp_services with custom path configuration."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
         mock_config.path = "/custom"
         mock_config.spec_data = {"test": "data"}
-        mock_mcp_configs.__get__ = Mock(return_value=[mock_config])
-
-        mock_root_mcp = Mock()
-        mock_custom_mcp = Mock()
-        mock_fastmcp_cls.side_effect = [mock_root_mcp, mock_custom_mcp]
-        mock_proxy = Mock()
-        mock_create_proxy.return_value = mock_proxy
-
-        # Create mock proxy configs with proper paths
-        mock_root_config = Mock()
-        mock_root_config.path = "/"
-        mock_custom_config = Mock()
+        
+        mock_mcp_configs_list = [mock_config]
+        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        
+        # Create the expected McpProxyConfig results
+        mock_custom_config = Mock(spec=McpProxyConfig)
         mock_custom_config.path = "/custom"
-        mock_proxy_config_cls.side_effect = [mock_root_config, mock_custom_config]
+        mock_create_mcp_proxies.return_value = [mock_custom_config]
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
+        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 
-        assert len(result) == 2
-        assert result[0].path == "/"
-        assert result[1].path == "/custom"
-        mock_custom_mcp.mount.assert_called_once_with(mock_proxy)
+        assert len(result) == 1
+        assert result[0].path == "/custom"
+        mock_create_mcp_proxies.assert_called_once_with(mock_mcp_configs_list)
 
-    @patch('src.proxies.static_proxies_provider.McpProxyConfig')
-    @patch('src.proxies.static_proxies_provider.create_proxy')
-    @patch('src.proxies.static_proxies_provider.FastMCP')
+    @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
     @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_skips_none_spec_data(self, mock_mcp_configs, mock_fastmcp, mock_create_proxy,
-                                                   mock_proxy_config_cls):
+    def test_get_mcp_services_skips_none_spec_data(self, mock_mcp_configs, mock_create_mcp_proxies):
         """Test _get_mcp_services skips configs with None spec_data."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
         mock_config.spec_data = None
-        mock_mcp_configs.__get__ = Mock(return_value=[mock_config])
+        
+        mock_mcp_configs_list = [mock_config]
+        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        
+        # Return empty list since the config has None spec_data
+        mock_create_mcp_proxies.return_value = []
 
-        mock_root_mcp = Mock()
-        mock_fastmcp.return_value = mock_root_mcp
-
-        mock_root_config = Mock()
-        mock_root_config.path = "/"
-        mock_proxy_config_cls.return_value = mock_root_config
-
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
+        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 
-        # Should only have root, no custom MCP
-        assert len(result) == 1
-        assert result[0].path == "/"
-        mock_create_proxy.assert_not_called()
+        assert len(result) == 0
+        mock_create_mcp_proxies.assert_called_once_with(mock_mcp_configs_list)
 
 
 class TestProxyConfigProviderGetOpenapiServices:
@@ -295,16 +285,15 @@ class TestProxyConfigProviderGetOpenapiServices:
     @patch.object(StaticProxiesProvider, 'openapi_configs', [])
     def test_get_openapi_services_empty_configs(self):
         """Test _get_openapi_services with no OpenAPI configurations."""
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
 
         result = provider._get_openapi_services()
 
         assert len(result) == 0
 
-    @patch('src.proxies.static_proxies_provider.McpProxyConfig')
-    @patch('src.proxies.openapi_mcp_provider.OpenApiMcpProvider')
+    @patch('src.proxies.openapi_mcp_provider.OpenApiMcpProvider.create_mcp_proxies_configs')
     @patch.object(StaticProxiesProvider, 'openapi_configs')
-    def test_get_openapi_services_success(self, mock_openapi_configs, mock_openapi_provider_cls, mock_proxy_config_cls):
+    def test_get_openapi_services_success(self, mock_openapi_configs, mock_create_mcp_proxies):
         """Test _get_openapi_services with valid configuration."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.OPENAPI
@@ -312,22 +301,17 @@ class TestProxyConfigProviderGetOpenapiServices:
         mock_config.spec_data = {"openapi": "3.0"}
         mock_openapi_configs.__get__ = Mock(return_value=[mock_config])
 
-        mock_mcp = Mock()
-        mock_provider = Mock()
-        mock_provider.create_proxy.return_value = mock_mcp
-        mock_openapi_provider_cls.return_value = mock_provider
-
         mock_proxy_config = Mock()
         mock_proxy_config.path = "/api"
-        mock_proxy_config_cls.return_value = mock_proxy_config
+        mock_create_mcp_proxies.return_value = [mock_proxy_config]
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
 
         result = provider._get_openapi_services()
 
         assert len(result) == 1
         assert result[0].path == "/api"
-        mock_openapi_provider_cls.assert_called_once_with(mock_config)
+        mock_create_mcp_proxies.assert_called_once_with([mock_config])
 
     @patch.object(StaticProxiesProvider, 'openapi_configs')
     def test_get_openapi_services_skips_none_spec_data(self, mock_openapi_configs):
@@ -337,7 +321,7 @@ class TestProxyConfigProviderGetOpenapiServices:
         mock_config.spec_data = None
         mock_openapi_configs.__get__ = Mock(return_value=[mock_config])
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
 
         result = provider._get_openapi_services()
 
@@ -359,7 +343,7 @@ class TestProxyConfigProviderGetConfigServices:
         mock_get_mcp.return_value = [mock_mcp_service]
         mock_get_openapi.return_value = [mock_openapi_service]
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         result = provider.get_config_services()
 
         assert len(result) == 2
@@ -373,7 +357,7 @@ class TestProxyConfigProviderGetConfigServices:
         mock_get_mcp.return_value = []
         mock_get_openapi.return_value = []
 
-        provider = StaticProxiesProvider()
+        provider = ConcreteProxiesProvider()
         result = provider.get_config_services()
 
         assert len(result) == 0

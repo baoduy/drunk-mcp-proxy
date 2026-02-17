@@ -10,14 +10,13 @@ import httpx
 from fastmcp.utilities.openapi import HTTPRoute
 
 if TYPE_CHECKING:
-    from fastmcp import FastMCP
     from fastmcp.server.providers.openapi import MCPType
     from httpx import Auth
 else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
-from src.proxies.static_mcp_provider import StaticMcpProvider
+from src.proxies.static_mcp_provider import StaticMcpProvider,McpProxyConfig
 from tools import SpecConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
@@ -58,7 +57,10 @@ class OpenApiMcpProvider(StaticMcpProvider):
 
         return httpx.AsyncClient(base_url=self.config.base_url, auth=auth, headers=headers)
 
-    def _create_proxy(self) -> "FastMCP":
+    def create_proxy(self) -> FastMCP:
+        """
+        Create and return a FastMCP instance based on the loaded configurations.
+        """
         if self.mcp is not None:
             return self.mcp
 
@@ -80,5 +82,16 @@ class OpenApiMcpProvider(StaticMcpProvider):
         
         if self.mcp is None:
             raise RuntimeError("FastMCP failed to initialize")
-        self.mcp.auth = super()._create_auth_provider()
+        self.mcp.auth = super()._get_global_auth_provider()
         return self.mcp
+
+    @staticmethod
+    def create_mcp_proxies_configs(configs: list[SpecConfig]) -> list[McpProxyConfig]:
+        mcp_proxy_configs: list[McpProxyConfig] = []
+        for config in configs:
+            if config.spec_data is None:
+                continue
+
+            mcp = OpenApiMcpProvider(config)
+            mcp_proxy_configs.append(mcp.get_mcp_proxy_config())
+        return mcp_proxy_configs

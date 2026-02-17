@@ -31,7 +31,7 @@ from starlette.middleware import Middleware
 from .middleware import build_middleware
 from .starlette_app import StarletteApp
 from proxies import StaticProxiesProvider
-from proxies.mcp_proxy_config import McpProxyConfig
+from proxies.static_mcp_provider import McpProxyConfig
 from tools.env import (
     CONFIG_DIR,
     LOG_LEVEL,

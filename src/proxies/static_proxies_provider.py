@@ -8,11 +8,9 @@ configurations using SpecConfig from the CONFIG_DIR/config.json file.
 import os
 from typing import Optional
 
-from fastmcp import FastMCP
-from fastmcp.server import create_proxy
-
-from .mcp_proxy_config import McpProxyConfig
-from tools.env import CONFIG_DIR, SERVER_NAME, SERVER_VERSION
+from .static_mcp_provider import McpProxyConfig
+from .mcp_proxy_provider import McpProxyProvider
+from tools.env import CONFIG_DIR
 from tools.logging_config import setup_logging
 from tools.spec_config import SpecConfig
 from tools.spec_config import SpecType
@@ -118,8 +116,9 @@ class StaticProxiesProvider:
         """
         Set up MCP services based on loaded MCP configurations.
         
-        This method creates FastMCP server instances for each MCP configuration
-        and returns a list of McpProxyConfig containing the server details.
+        This method delegates to McpProxyProvider to create FastMCP server 
+        instances for each MCP configuration and returns a list of McpProxyConfig 
+        containing the server details.
         
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
@@ -128,27 +127,7 @@ class StaticProxiesProvider:
         if len(mcp_configs) == 0:
             self.logger.warning("No MCP configurations found in config file")
             return []
-
-        root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
-
-        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(path="/", mcp_server=root_mcp)]
-
-        for config in mcp_configs:
-            if config.spec_data is None:
-                self.logger.warning(f"Skipping MCP config '{config.path}' because spec_data is None")
-                continue
-
-            proxy = create_proxy(config.spec_data, name=config.path)
-            if config.path == "/":
-                root_mcp.mount(proxy)
-                self.logger.info(f"Set up MCP proxy for config: {config.path} at root (path='/')")
-            else:
-                mcp = FastMCP(f"{SERVER_NAME}-{config.path}", version=SERVER_VERSION)
-                mcp.mount(proxy)
-                mcp_proxy_configs.append(McpProxyConfig(path=config.path, mcp_server=mcp))
-                self.logger.info(f"Set up MCP proxy for config: {config.path}, path='{config.path}')")
-
-        return mcp_proxy_configs
+        return McpProxyProvider.create_mcp_proxies_configs(mcp_configs)
 
     def _get_openapi_services(self) -> list[McpProxyConfig]:
         """
@@ -161,24 +140,14 @@ class StaticProxiesProvider:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
         # Import here to avoid circular dependency
-        from .openapi_mcp_provider import OpenApiMcpProvider
-
         openapi_configs = self.openapi_configs
         if len(openapi_configs) == 0:
             self.logger.warning("No OpenAPI configurations found in config file")
             return []
-
-        mcp_proxy_configs: list[McpProxyConfig] = []
-        for config in openapi_configs:
-            if config.spec_data is None:
-                self.logger.warning(f"Skipping OpenAPI config '{config.path}' because spec_data is None")
-                continue
-
-            mcp = OpenApiMcpProvider(config)._create_proxy()
-            mcp_proxy_configs.append(McpProxyConfig(path=config.path, mcp_server=mcp))
-            self.logger.info(f"Set up OpenAPI proxy for config: {config.path}, path='{config.path}')")
-        return mcp_proxy_configs
-
+        
+        from .openapi_mcp_provider import OpenApiMcpProvider
+        return OpenApiMcpProvider.create_mcp_proxies_configs(openapi_configs)
+        
     def get_config_services(self) -> list[McpProxyConfig]:
         """
         Set up MCP services based on loaded MCP configurations.

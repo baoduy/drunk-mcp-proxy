@@ -7,7 +7,7 @@ from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 import src.app.starlette_app as starlette_app
-from src.proxies.mcp_proxy_config import McpProxyConfig
+from src.proxies.static_mcp_provider import McpProxyConfig
 
 
 class DummyMcpServer:
@@ -18,7 +18,7 @@ class DummyMcpServer:
 
 
 def _make_config(path: str) -> McpProxyConfig:
-    return McpProxyConfig.model_construct(path=path, mcp_server=DummyMcpServer())
+    return McpProxyConfig(path=path, mcp_server=DummyMcpServer())
 
 
 def test_health_check_returns_service_name(monkeypatch):

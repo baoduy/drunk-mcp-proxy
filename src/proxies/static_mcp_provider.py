@@ -4,20 +4,35 @@ This module provides an abstract base class for creating MCP provider implementa
 """
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from app import GlobalAuthProvider
 from src.tools.auth_config import AuthProviderType
 from src.tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
 from tools import SpecConfig, AzureOauth
 from src.app.cache_provider import CacheProvider
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
+    from fastmcp import FastMCP
 
+@dataclass
+class McpProxyConfig:
+    """
+    Configuration model for MCP proxy instances.
 
+    This model holds the configuration for a single MCP proxy,
+    including its name and the associated FastMCP server instance.
+
+    Attributes:
+        path: The path identifier for the proxy
+        mcp_server: The FastMCP server instance
+    """
+    path: str
+    mcp_server: FastMCP
+    
 class StaticMcpProvider(ABC):
     """Abstract base class for MCP provider implementations."""
 
@@ -29,12 +44,31 @@ class StaticMcpProvider(ABC):
         """
         self.config = config
 
-    def _create_auth_provider(self, provider_name: AuthProviderType | None = None) -> AuthProvider | None:
+    @abstractmethod
+    def create_proxy(self) -> "FastMCP":
+        """
+        Create and return a FastMCP instance based on the loaded configurations.
+        
+        This method loads the configurations if they haven't been loaded yet,
+        sets up MCP services for both MCP and OpenAPI configurations, and
+        returns a list of McpProxyConfig instances containing the server details.
+        
+        Returns:
+            FastMCP instance with initialized proxy configurations
+        """
+        pass
+
+    def get_mcp_proxy_config(self) -> McpProxyConfig:
+        service = self.create_proxy()
+        return McpProxyConfig(path=self.config.path, mcp_server=service)
+
+    def _get_global_auth_provider(self, provider_name: AuthProviderType | None = None) -> AuthProvider | None:
         """Create and return an authentication handler.
 
         Returns:
             An Authentication provider instance for the provider.
         """
+        from app import GlobalAuthProvider
         return GlobalAuthProvider.get_auth_provider(provider_name)
     
     @staticmethod

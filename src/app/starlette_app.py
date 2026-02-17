@@ -6,6 +6,7 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 """
 
 from functools import partial
+from typing import TYPE_CHECKING
 
 from fastmcp.server.http import StarletteWithLifespan
 from starlette.applications import Starlette
@@ -14,9 +15,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from .lifespan import AppLifespanManager
-from proxies.mcp_proxy_config import McpProxyConfig
 from tools.env import SERVER_NAME, HOST, PORT
 from tools.logging_config import setup_logging
+
+if TYPE_CHECKING:
+    from proxies.static_mcp_provider import McpProxyConfig
 
 logger = setup_logging("StarletteApp")
 
@@ -87,7 +90,7 @@ class StarletteApp:
         """
         return JSONResponse({"status": "healthy", "service": self.service_name})
 
-    def add_mcp_service(self, service: McpProxyConfig
+    def add_mcp_service(self, service: "McpProxyConfig"
                         ) -> None:
         """
         Add an MCP server mount to the application.
@@ -112,7 +115,7 @@ class StarletteApp:
 
     def add_mcp_services(
             self,
-            services: list[McpProxyConfig]
+            services: list["McpProxyConfig"]
     ) -> None:
         """
         Add multiple MCP server mounts to the application.

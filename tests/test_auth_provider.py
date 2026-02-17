@@ -89,7 +89,7 @@ class TestGlobalAuthProviderGetAuthProvider:
         mock_load_config.return_value = mock_config
 
         mock_provider_class = Mock()
-        mock_get_class.return_value = mock_provider_class
+        mock_get_class.return_value = (mock_provider_class, True)
 
         mock_provider_instance = Mock()
         mock_create.return_value = mock_provider_instance
@@ -99,7 +99,7 @@ class TestGlobalAuthProviderGetAuthProvider:
         assert result == mock_provider_instance
         mock_config.get_config.assert_called_once_with(AuthProviderType.AZURE)
         mock_get_class.assert_called_once_with(AuthProviderType.AZURE)
-        mock_create.assert_called_once_with(mock_provider_class, mock_provider_config)
+        mock_create.assert_called_once_with(mock_provider_class, mock_provider_config, True)
 
     @patch.object(GlobalAuthProvider, '_create_provider_instance')
     @patch.object(GlobalAuthProvider, '_get_provider_class')
@@ -113,7 +113,7 @@ class TestGlobalAuthProviderGetAuthProvider:
         mock_load_config.return_value = mock_config
 
         mock_provider_class = Mock()
-        mock_get_class.return_value = mock_provider_class
+        mock_get_class.return_value = (mock_provider_class, True)
 
         mock_provider_instance = Mock()
         mock_create.return_value = mock_provider_instance
@@ -167,7 +167,7 @@ class TestGlobalAuthProviderGetAuthProvider:
         mock_load_config.return_value = mock_config
 
         mock_provider_class = Mock()
-        mock_get_class.return_value = mock_provider_class
+        mock_get_class.return_value = (mock_provider_class, True)
 
         mock_provider_instance = Mock()
         mock_create.return_value = mock_provider_instance
@@ -195,13 +195,11 @@ class TestGlobalAuthProviderGetAuthProvider:
 
     @patch.object(GlobalAuthProvider, '_load_config')
     def test_get_auth_provider_exception_handling(self, mock_load_config):
-        """Test that exceptions are caught and None is returned."""
+        """Test that exceptions are raised when config loading fails."""
         mock_load_config.side_effect = FileNotFoundError("Config file not found")
 
-        result = GlobalAuthProvider.get_auth_provider(AuthProviderType.AZURE)
-
-        assert result is None
-        assert GlobalAuthProvider._provider_cache[AuthProviderType.AZURE] is None
+        with pytest.raises(FileNotFoundError):
+            GlobalAuthProvider.get_auth_provider(AuthProviderType.AZURE)
 
 
 class TestGetProviderClass:
@@ -210,30 +208,42 @@ class TestGetProviderClass:
     def test_get_provider_class_azure(self):
         """Test getting Azure provider class."""
         result = GlobalAuthProvider._get_provider_class(AuthProviderType.AZURE)
-        # Should return a class or None depending on fastmcp availability
-        assert result is None or isinstance(result, type)
+        # Should return a tuple of (class, bool) or None depending on fastmcp availability
+        if result is not None:
+            assert isinstance(result, tuple) and len(result) == 2
+            assert isinstance(result[0], type) and isinstance(result[1], bool)
+            assert result[1] is True  # Azure needs client_storage
 
     def test_get_provider_class_github(self):
         """Test getting GitHub provider class."""
         result = GlobalAuthProvider._get_provider_class(AuthProviderType.GITHUB)
-        assert result is None or isinstance(result, type)
+        if result is not None:
+            assert isinstance(result, tuple) and len(result) == 2
+            assert isinstance(result[0], type) and isinstance(result[1], bool)
+            assert result[1] is True  # GitHub needs client_storage
 
     def test_get_provider_class_google(self):
         """Test getting Google provider class."""
         result = GlobalAuthProvider._get_provider_class(AuthProviderType.GOOGLE)
-        assert result is None or isinstance(result, type)
+        if result is not None:
+            assert isinstance(result, tuple) and len(result) == 2
+            assert isinstance(result[0], type) and isinstance(result[1], bool)
+            assert result[1] is True  # Google needs client_storage
 
     def test_get_provider_class_jwt(self):
         """Test getting JWT provider class."""
         result = GlobalAuthProvider._get_provider_class(AuthProviderType.JWT)
-        assert result is None or isinstance(result, type)
+        if result is not None:
+            assert isinstance(result, tuple) and len(result) == 2
+            assert isinstance(result[0], type) and isinstance(result[1], bool)
+            assert result[1] is False  # JWT doesn't need client_storage
 
 
 class TestCreateProviderInstance:
     """Test suite for GlobalAuthProvider._create_provider_instance method."""
 
     def test_create_provider_instance_success(self):
-        """Test successful provider instance creation."""
+        """Test successful provider instance creation with client_storage."""
         mock_config = {
             'client_id': 'test_id',
             'client_secret': 'test_secret'
@@ -243,7 +253,7 @@ class TestCreateProviderInstance:
         mock_provider_class.__name__ = 'TestProvider'
 
         with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
-            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config, needs_client_storage=True)
 
         assert result == 'provider_instance'
         mock_provider_class.assert_called_once_with(
@@ -260,34 +270,37 @@ class TestCreateProviderInstance:
         mock_provider_class.__name__ = 'TestProvider'
 
         with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
-            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config, needs_client_storage=True)
 
         assert result == 'provider_instance'
         mock_provider_class.assert_called_once_with(client_storage='mock_store')
 
-    def test_create_provider_instance_model_dump_error(self):
-        """Test handling of error when config is not a dict."""
-        # This simulates when config fails to be treated as a dict
-        mock_config = Mock(spec=[])  # Empty spec prevents dict-like behavior
-        mock_provider_class = Mock(side_effect=TypeError("Cannot unpack non-dict"))
+    def test_create_provider_instance_without_client_storage(self):
+        """Test that client_storage is not added when needs_client_storage is False."""
+        mock_config = {
+            'token': 'test_token'
+        }
+
+        mock_provider_class = Mock(return_value='provider_instance')
         mock_provider_class.__name__ = 'TestProvider'
 
         with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
-            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config, needs_client_storage=False)
 
-        assert result is None
+        assert result == 'provider_instance'
+        # When needs_client_storage is False, client_storage should not be passed
+        mock_provider_class.assert_called_once_with(token='test_token')
 
     def test_create_provider_instance_init_error(self):
-        """Test handling of provider initialization errors."""
+        """Test that provider initialization errors are raised."""
         mock_config = {'invalid': 'param'}
 
         mock_provider_class = Mock(side_effect=TypeError("Unexpected keyword argument"))
         mock_provider_class.__name__ = 'TestProvider'
 
         with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
-            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
-
-        assert result is None
+            with pytest.raises(TypeError):
+                GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config, needs_client_storage=True)
 
     def test_create_provider_instance_with_config_dict(self):
         """Test that config is properly passed to provider class."""
@@ -301,13 +314,15 @@ class TestCreateProviderInstance:
         mock_provider_class.__name__ = 'TestProvider'
 
         with patch('src.app.auth_provider.CacheProvider.get_oauth_store', return_value='mock_store'):
-            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config)
+            result = GlobalAuthProvider._create_provider_instance(mock_provider_class, mock_config, needs_client_storage=True)
 
         assert result == 'provider_instance'
         mock_provider_class.assert_called_once()
         call_args = mock_provider_class.call_args[1]
         assert call_args['client_id'] == 'test_id'
         assert call_args['client_secret'] == 'test_secret'
+        assert call_args['audience'] == 'test_aud'
+        assert call_args['client_storage'] == 'mock_store'
         assert call_args['audience'] == 'test_aud'
         assert call_args['client_storage'] == 'mock_store'
 
@@ -351,9 +366,9 @@ class TestGlobalAuthProviderIntegration:
 
         def get_class_side_effect(provider_type):
             if provider_type == AuthProviderType.AZURE:
-                return azure_class
+                return (azure_class, True)  # Azure needs client_storage
             elif provider_type == AuthProviderType.GITHUB:
-                return github_class
+                return (github_class, True)  # GitHub needs client_storage
             return None
 
         mock_get_class.side_effect = get_class_side_effect
@@ -361,7 +376,7 @@ class TestGlobalAuthProviderIntegration:
         azure_instance = Mock()
         github_instance = Mock()
 
-        def create_side_effect(provider_class, config):
+        def create_side_effect(provider_class, config, needs_client_storage):
             if provider_class == azure_class:
                 return azure_instance
             elif provider_class == github_class:

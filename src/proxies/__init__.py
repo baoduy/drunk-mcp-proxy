@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .static_proxies_provider import StaticProxiesProvider
     from .auth_config_provider import AuthConfigProvider
-    from .mcp_proxy_config import McpProxyConfig
+    from .static_mcp_provider import McpProxyConfig
     from .openapi_mcp_provider import OpenApiMcpProvider
 
 __all__ = [
@@ -30,7 +30,7 @@ __all__ = [
 
 def __getattr__(name: str):
     if name == "McpProxyConfig":
-        from .mcp_proxy_config import McpProxyConfig
+        from .static_mcp_provider import McpProxyConfig
         return McpProxyConfig
     
     if name == "StaticProxiesProvider":
