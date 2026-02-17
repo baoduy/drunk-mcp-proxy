@@ -10,13 +10,14 @@ from src.tools.auth_config import AuthProviderType
 from src.tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
 from tools import SpecConfig, AzureOauth
-from src.app.cache_provider import CacheProvider
 from dataclasses import dataclass
+from tools.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
     from fastmcp import FastMCP
+    from fastmcp.server.http import StarletteWithLifespan
 
 @dataclass
 class McpProxyConfig:
@@ -32,6 +33,10 @@ class McpProxyConfig:
     """
     path: str
     mcp_server: FastMCP
+
+    def http_app(self, path: str = "/")-> "StarletteWithLifespan":
+        """Return the underlying ASGI application for this MCP proxy."""
+        return self.mcp_server.http_app(path=path, transport=SERVER_TRANSPORT or "streamable-http") # type: ignore
     
 class StaticMcpProvider(ABC):
     """Abstract base class for MCP provider implementations."""
@@ -78,6 +83,8 @@ class StaticMcpProvider(ABC):
         return " ".join(config.scopes)
     
     def _create_client_auth(self, azure_config: AzureAuthConfig) -> "Auth":
+        from src.app.cache_provider import CacheProvider
+        
         scope_value = self._scope_value(azure_config)
         assert self.config.base_url
 

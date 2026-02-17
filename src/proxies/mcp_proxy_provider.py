@@ -47,10 +47,10 @@ class McpProxyProvider(StaticMcpProvider):
         
         self.mcp = FastMCP(
             f"{SERVER_NAME}-{self.config.path}",
-            version=SERVER_VERSION
+            version=SERVER_VERSION,
+            auth=super()._get_global_auth_provider()
         )
         self.mcp.mount(proxy)
-        self.mcp.auth = super()._get_global_auth_provider()
 
         return self.mcp
 

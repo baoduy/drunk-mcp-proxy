@@ -99,19 +99,10 @@ class StarletteApp:
         Args:
             service: FastMCP server instance to mount
         """
-        if service.path == "/":
-            # Root mount: serve at /mcp
-            mount_path = "/mcp"
-            mcp_app = service.mcp_server.http_app(path="/", transport="http")
-            logger.info(
-                "Adding root MCP mount at (path=%s)", mount_path)
-        else:
-            # Namespaced mount: mount at /{name}/mcp
-            mount_path = f"{service.path}/mcp"
-            mcp_app = service.mcp_server.http_app(path="/", transport="http")
-            logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
-
+        mount_path = "/mcp" if service.path == "/" else f"{service.path}/mcp"
+        mcp_app = service.http_app()
         self.mcp_apps.append((mount_path, mcp_app))
+        logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
 
     def add_mcp_services(
             self,
@@ -131,12 +122,8 @@ class StarletteApp:
         logger.info("Adding %d MCP mount(s)", len(services))
 
         for service in services:
-            try:
-                self.add_mcp_service(service)
-            except Exception as e:
-                logger.error("Failed to add MCP mount (path=%s): %s",
-                             service.path, str(e), exc_info=True)
-                raise
+            self.add_mcp_service(service)
+           
 
     def build(self) -> Starlette:
         """

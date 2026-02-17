@@ -5,7 +5,7 @@ Tests proxy configuration loading and management.
 """
 
 import json
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
 
@@ -205,8 +205,8 @@ class TestProxyConfigProviderGetMcpServices:
         assert len(result) == 0
 
     @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
-    @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_with_root_path(self, mock_mcp_configs, mock_create_mcp_proxies):
+    @patch.object(StaticProxiesProvider, 'mcp_configs', new_callable=PropertyMock)
+    def test_get_mcp_services_with_root_path(self, mock_mcp_configs_prop, mock_create_mcp_proxies):
         """Test _get_mcp_services with root path configuration."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
@@ -214,7 +214,7 @@ class TestProxyConfigProviderGetMcpServices:
         mock_config.spec_data = {"test": "data"}
         
         mock_mcp_configs_list = [mock_config]
-        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        mock_mcp_configs_prop.return_value = mock_mcp_configs_list
         
         # Create the expected McpProxyConfig result
         mock_proxy_config = Mock(spec=McpProxyConfig)
@@ -222,7 +222,6 @@ class TestProxyConfigProviderGetMcpServices:
         mock_create_mcp_proxies.return_value = [mock_proxy_config]
 
         provider = ConcreteProxiesProvider()
-        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 
@@ -231,8 +230,8 @@ class TestProxyConfigProviderGetMcpServices:
         mock_create_mcp_proxies.assert_called_once_with(mock_mcp_configs_list)
 
     @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
-    @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_with_custom_path(self, mock_mcp_configs, mock_create_mcp_proxies):
+    @patch.object(StaticProxiesProvider, 'mcp_configs', new_callable=PropertyMock)
+    def test_get_mcp_services_with_custom_path(self, mock_mcp_configs_prop, mock_create_mcp_proxies):
         """Test _get_mcp_services with custom path configuration."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
@@ -240,7 +239,7 @@ class TestProxyConfigProviderGetMcpServices:
         mock_config.spec_data = {"test": "data"}
         
         mock_mcp_configs_list = [mock_config]
-        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        mock_mcp_configs_prop.return_value = mock_mcp_configs_list
         
         # Create the expected McpProxyConfig results
         mock_custom_config = Mock(spec=McpProxyConfig)
@@ -248,7 +247,6 @@ class TestProxyConfigProviderGetMcpServices:
         mock_create_mcp_proxies.return_value = [mock_custom_config]
 
         provider = ConcreteProxiesProvider()
-        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 
@@ -257,21 +255,20 @@ class TestProxyConfigProviderGetMcpServices:
         mock_create_mcp_proxies.assert_called_once_with(mock_mcp_configs_list)
 
     @patch('src.proxies.static_proxies_provider.McpProxyProvider.create_mcp_proxies_configs')
-    @patch.object(StaticProxiesProvider, 'mcp_configs')
-    def test_get_mcp_services_skips_none_spec_data(self, mock_mcp_configs, mock_create_mcp_proxies):
+    @patch.object(StaticProxiesProvider, 'mcp_configs', new_callable=PropertyMock)
+    def test_get_mcp_services_skips_none_spec_data(self, mock_mcp_configs_prop, mock_create_mcp_proxies):
         """Test _get_mcp_services skips configs with None spec_data."""
         mock_config = Mock()
         mock_config.spec_type = SpecType.MCP
         mock_config.spec_data = None
         
         mock_mcp_configs_list = [mock_config]
-        type(mock_mcp_configs).fget = Mock(return_value=mock_mcp_configs_list)
+        mock_mcp_configs_prop.return_value = mock_mcp_configs_list
         
         # Return empty list since the config has None spec_data
         mock_create_mcp_proxies.return_value = []
 
         provider = ConcreteProxiesProvider()
-        provider.configs = [mock_config]
 
         result = provider._get_mcp_services()
 

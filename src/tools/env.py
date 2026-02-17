@@ -62,7 +62,7 @@ LOG_LEVEL = os.environ.get("FASTMCP_LOG_LEVEL", "INFO").upper()
 # These values identify the server in logs and health checks
 SERVER_NAME = os.environ.get("FASTMCP_SERVER_NAME", "mcp-proxy-server").strip()
 SERVER_VERSION = os.environ.get("FASTMCP_SERVER_VERSION", "1.0.0").strip()
-
+SERVER_TRANSPORT = os.environ.get("FASTMCP_SERVER_TRANSPORT", "http").strip()
 # CORS Configuration
 # ==================
 # Cross-Origin Resource Sharing settings for web clients
