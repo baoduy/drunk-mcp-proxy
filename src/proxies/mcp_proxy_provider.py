@@ -3,6 +3,7 @@
 This module provides a class for creating FastMCP instances from MCP configurations.
 """
 from __future__ import annotations
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server import create_proxy
@@ -33,10 +34,9 @@ class McpProxyProvider(StaticMcpProvider):
             return self.mcp
 
         if self.config.spec_data is None:
-            raise ValueError(f"spec_data is required for MCP config '{self.config.path}'")
+            raise ValueError(f"spec_data or mcp_servers is required for MCP config '{self.config.path}'")
 
         self.logger.info("Creating proxy for MCP config: %s", self.config.path)
-
         proxy = create_proxy(self.config.spec_data, name=self.config.path)
         if(self.config.path == "/" and self.root_mcp is not None):
             self.root_mcp.mount(proxy)
