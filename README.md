@@ -61,14 +61,15 @@ cd drunk-mcp-proxy
 ```json
 [
   {
-    "name": "github-docs",
-    "specType": "mcp",
-    "specFile": "mcp/github-docs.json",
     "path": "/",
-    "namespace": "github"
+    "spec_file": "mcp/mcp.json",
+    "spec_type": "mcp",
+    "base_url": null
   }
 ]
 ```
+
+   See `data/config.json` for a complete working example with multiple MCP and OpenAPI services.
 
 3. **Start the services**:
 ```bash
@@ -1108,15 +1109,18 @@ class AuthPassThrough(httpx.Auth):
 ```json
 {
   "enabled": true,
-  "default_provider": "jwt",
+  "defaultProvider": "jwt",
   "jwt": {
+    "base_url": null,
     "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
     "issuer": "https://auth.example.com/",
     "audience": "mcp-proxy-api",
-    "algorithms": ["RS256"]
+    "algorithm": "RS256"
   }
 }
 ```
+
+**Note**: The field name is `defaultProvider` (camelCase) in auth.json, unlike config.json which uses snake_case.
 
 ### Azure OAuth2 Client Credentials
 
@@ -1241,6 +1245,27 @@ AZURE_TENANT_ID=your-tenant-id
 
 ## 📖 Configuration Reference
 
+This section provides detailed reference for all configuration files in the `data/` directory.
+
+### Configuration Files Overview
+
+The proxy uses two main configuration files:
+
+1. **`data/config.json`** - Defines the MCP and OpenAPI services to proxy
+   - Configures which backend services to expose
+   - Specifies paths, spec files, filters, and backend authentication
+   - Uses `snake_case` for field names (e.g., `spec_type`, `spec_file`, `base_url`)
+
+2. **`data/auth.json`** - Configures authentication for the proxy server itself
+   - Controls how MCP clients authenticate to the proxy
+   - Supports multiple authentication providers (JWT, OAuth, etc.)
+   - Uses `camelCase` for top-level fields (e.g., `defaultProvider`)
+   - See `data/auth_example.json` for complete provider list
+
+**Important**: These are two separate layers of authentication:
+- **Client → Proxy**: Configured in `auth.json` (proxy-level authentication)
+- **Proxy → Backend Services**: Configured per-service in `config.json` under the `auth` field
+
 ### Complete config.json Example
 
 ```json
@@ -1284,27 +1309,73 @@ AZURE_TENANT_ID=your-tenant-id
 
 ### Complete auth.json Example
 
+The `data/auth.json` file configures authentication for the MCP proxy server itself (client authentication). This is separate from the backend service authentication configured in `config.json`.
+
+**Basic JWT Example:**
 ```json
 {
   "enabled": true,
-  "default_provider": "jwt",
+  "defaultProvider": "jwt",
   "jwt": {
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api",
-    "algorithms": ["RS256", "ES256"]
-  },
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET"
-  },
-  "azure": {
-    "client_id": "$AZURE_AUTH_CLIENT_ID",
-    "tenant_id": "$AZURE_AUTH_TENANT_ID",
-    "client_secret": "$AZURE_AUTH_CLIENT_SECRET"
+    "base_url": null,
+    "jwks_uri": "https://login.microsoftonline.com/common/discovery/keys",
+    "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
+    "audience": "api://your-client-id",
+    "algorithm": "RS256"
   }
 }
 ```
+
+**Multiple Providers Example:**
+```json
+{
+  "enabled": true,
+  "defaultProvider": "jwt",
+  "jwt": {
+    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
+    "issuer": "https://auth.example.com/",
+    "audience": "mcp-proxy-api"
+  },
+  "github": {
+    "client_id": "$GITHUB_CLIENT_ID",
+    "client_secret": "$GITHUB_CLIENT_SECRET",
+    "base_url": "$BASE_URL"
+  },
+  "inMemory": {
+    "users": {
+      "user1": "password1",
+      "user2": "password2"
+    }
+  }
+}
+```
+
+**Complete Reference:**
+For a comprehensive list of all supported authentication providers and their configuration options, see `data/auth_example.json` which includes:
+- `auth0` - Auth0 authentication
+- `aws` - AWS Cognito authentication
+- `azure` - Azure AD/Entra ID authentication
+- `debug` - Debug authentication (development only)
+- `descope` - Descope authentication
+- `discord` - Discord OAuth
+- `github` - GitHub OAuth
+- `google` - Google OAuth
+- `inMemory` - In-memory user authentication
+- `introspection` - Token introspection
+- `jwt` - JWT token validation
+- `oci` - Oracle Cloud Infrastructure
+- `scalekit` - Scalekit authentication
+- `supabase` - Supabase authentication
+- `workos` - WorkOS authentication
+- `authkit` - AuthKit (WorkOS) authentication
+
+**Key Fields:**
+- `enabled` (boolean): Whether authentication is enabled globally
+- `defaultProvider` (string): The default authentication provider to use
+- Each provider configuration object contains provider-specific settings
+
+**Environment Variables:**
+All configuration values support environment variable substitution using `$VAR_NAME` or `${VAR_NAME}` syntax.
 
 ## 📖 Configuration
 
@@ -1315,49 +1386,49 @@ The main configuration file is `data/config.json`, which defines all proxy servi
 ```json
 [
   {
-    "name": "service-name",
-    "specType": "mcp",
-    "specFile": "mcp/service-spec.json",
     "path": "/",
-    "namespace": "service",
+    "spec_file": "mcp/service-spec.json",
+    "spec_type": "mcp",
+    "base_url": null,
     "tags": ["tag1", "tag2"]
   },
   {
-    "name": "api-service",
-    "specType": "openapi",
-    "specFile": "openapi/api-spec.json",
-    "baseUrl": "https://api.example.com",
     "path": "/api",
+    "spec_file": "openapi/api-spec.json",
+    "spec_type": "openapi",
+    "base_url": "https://api.example.com",
     "filters": {
       "methods": ["GET", "POST"],
       "tags": ["users", "posts"]
     },
     "auth": {
+      "pass_through": true,
       "azure": {
-        "tokenUrl": "$AZURE_TOKEN_URL",
-        "clientId": "$AZURE_CLIENT_ID",
-        "clientSecret": "$AZURE_CLIENT_SECRET",
-        "tenantId": "$AZURE_TENANT_ID",
-        "scope": ["https://api.example.com/.default"]
+        "token_url": "$AZURE_TOKEN_URL",
+        "client_id": "$AZURE_CLIENT_ID",
+        "client_secret": "$AZURE_CLIENT_SECRET",
+        "tenant_id": "$AZURE_TENANT_ID",
+        "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
+        "scopes": ["https://api.example.com/.default"]
       }
     }
   }
 ]
 ```
 
+**Note**: Field names use `snake_case` (e.g., `spec_type`, `spec_file`, `base_url`), not camelCase.
+
 ### Configuration Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Unique identifier for the service |
-| `specType` | enum | Yes | Type of spec: `"mcp"` or `"openapi"` |
-| `specFile` | string | Yes | Path to spec file relative to config directory |
-| `path` | string | No | Mount path (default: `"/"`) |
-| `namespace` | string | No | Namespace for tools (prevents conflicts) |
-| `baseUrl` | string | Conditional | Required for OpenAPI specs (unless using Azure auth) |
-| `tags` | array | No | Tags for categorization |
-| `filters` | object | No | Filter methods/tags for OpenAPI specs |
-| `auth` | object | No | Authentication configuration |
+| `path` | string | Yes | Mount path for the proxy service (e.g., `"/"`, `"/api"`) |
+| `spec_file` | string | Yes | Path to spec file relative to config directory |
+| `spec_type` | enum | Yes | Type of spec: `"mcp"` or `"openapi"` |
+| `base_url` | string | Conditional | Base URL for the API (required for OpenAPI unless using Azure auth, `null` for MCP) |
+| `tags` | array | No | Tags for categorization (optional) |
+| `filters` | object | No | Filter methods/tags for OpenAPI specs (optional) |
+| `auth` | object | No | Authentication configuration for backend service (optional) |
 
 ### MCP Specification File
 
@@ -1380,16 +1451,38 @@ OpenAPI spec files (in `data/openapi/`) are standard OpenAPI 3.0 specifications.
 
 ### Environment Variable Resolution
 
-Configuration values support environment variable substitution:
+Configuration values in both `config.json` and `auth.json` support environment variable substitution:
 
 - `$VARIABLE_NAME`: Simple substitution
 - `${VARIABLE_NAME}`: Braced substitution
 
-Example:
+**Example in config.json:**
 ```json
 {
-  "clientId": "$AZURE_CLIENT_ID",
-  "tokenUrl": "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token"
+  "path": "/api",
+  "spec_file": "openapi/api-spec.json",
+  "spec_type": "openapi",
+  "base_url": "${API_BASE_URL}",
+  "auth": {
+    "azure": {
+      "client_id": "$AZURE_CLIENT_ID",
+      "tenant_id": "$AZURE_TENANT_ID",
+      "token_url": "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
+    }
+  }
+}
+```
+
+**Example in auth.json:**
+```json
+{
+  "enabled": true,
+  "defaultProvider": "jwt",
+  "jwt": {
+    "jwks_uri": "$JWT_JWKS_URI",
+    "issuer": "$JWT_ISSUER",
+    "audience": "$JWT_AUDIENCE"
+  }
 }
 ```
 
@@ -1984,10 +2077,10 @@ mypy src/
 2. **Add to config.json**:
    ```json
    {
-     "name": "my-service",
-     "specType": "mcp",
-     "specFile": "mcp/my-service.json",
-     "namespace": "myservice"
+     "path": "/myservice",
+     "spec_file": "mcp/my-service.json",
+     "spec_type": "mcp",
+     "base_url": null
    }
    ```
 3. **Set environment variables** (if needed)
@@ -2295,7 +2388,7 @@ export FASTMCP_CORS_ALLOW_ORIGINS=*
 **Error**: `Failed to connect to OpenAPI service`
 
 **Solution**:
-1. Verify `baseUrl` is correct in config.json
+1. Verify `base_url` is correct in config.json
 2. Test endpoint directly: `curl https://api.example.com`
 3. Check network connectivity
 4. Verify Azure OAuth credentials (if using)
