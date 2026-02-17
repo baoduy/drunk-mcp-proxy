@@ -81,6 +81,7 @@ class AuthConfig(BaseModel):
             client_id = config.github.get("client_id")
             scopes = config.github.get("scopes", [])
     """
+    enabled: bool = Field(default=False, description="Whether authentication is enabled")
     default_provider: Optional[AuthProviderType] = Field(default=None, alias="defaultProvider", description="Default authentication provider type")
     auth0: Optional[dict[str, Any]] = Field(default=None, description="Auth0 provider configuration")
     aws: Optional[dict[str, Any]] = Field(default=None, description="AWS provider configuration")
@@ -148,6 +149,9 @@ class AuthConfig(BaseModel):
                 client_id = azure_config.get("client_id")
                 client_secret = azure_config.get("client_secret")
         """
+        if self.enabled is False:
+            return None
+        
         if provider_type is None and self.default_provider is not None:
             provider_type = self.default_provider
         return getattr(self, provider_type.value, None) if provider_type else None

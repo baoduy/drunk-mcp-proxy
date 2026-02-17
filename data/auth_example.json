@@ -1,4 +1,5 @@
 {
+  "enabled": true,
   "defaultProvider": "azure",
   "auth0": {
     "config_url": "$AUTH0_CONFIG_URL",
@@ -7,7 +8,9 @@
     "audience": "$AUTH0_AUDIENCE",
     "base_url": "$BASE_URL",
     "issuer_url": null,
-    "required_scopes": ["openid"],
+    "required_scopes": [
+      "openid"
+    ],
     "redirect_path": null,
     "allowed_client_redirect_uris": null,
     "client_storage": null,
@@ -22,7 +25,9 @@
     "aws_region": "eu-central-1",
     "issuer_url": null,
     "redirect_path": "/auth/callback",
-    "required_scopes": ["openid"],
+    "required_scopes": [
+      "openid"
+    ],
     "allowed_client_redirect_uris": null,
     "client_storage": null,
     "jwt_signing_key": null,
@@ -32,12 +37,18 @@
     "client_id": "$AZURE_CLIENT_ID",
     "client_secret": "$AZURE_CLIENT_SECRET",
     "tenant_id": "$AZURE_TENANT_ID",
-    "required_scopes": ["read", "write"],
+    "required_scopes": [
+      "read",
+      "write"
+    ],
     "base_url": "$BASE_URL",
     "identifier_uri": null,
     "issuer_url": null,
     "redirect_path": null,
-    "additional_authorize_scopes": ["User.Read", "Mail.Read"],
+    "additional_authorize_scopes": [
+      "User.Read",
+      "Mail.Read"
+    ],
     "allowed_client_redirect_uris": null,
     "client_storage": null,
     "jwt_signing_key": null,
@@ -64,7 +75,9 @@
     "base_url": "$BASE_URL",
     "issuer_url": null,
     "redirect_path": null,
-    "required_scopes": ["identify"],
+    "required_scopes": [
+      "identify"
+    ],
     "timeout_seconds": 10,
     "allowed_client_redirect_uris": null,
     "client_storage": null,
@@ -77,7 +90,9 @@
     "base_url": "$BASE_URL",
     "issuer_url": null,
     "redirect_path": null,
-    "required_scopes": ["user"],
+    "required_scopes": [
+      "user"
+    ],
     "timeout_seconds": 10,
     "allowed_client_redirect_uris": null,
     "client_storage": null,
@@ -90,7 +105,9 @@
     "base_url": "$BASE_URL",
     "issuer_url": null,
     "redirect_path": null,
-    "required_scopes": ["openid"],
+    "required_scopes": [
+      "openid"
+    ],
     "timeout_seconds": 10,
     "allowed_client_redirect_uris": null,
     "client_storage": null,
@@ -134,7 +151,9 @@
     "base_url": "$BASE_URL",
     "audience": null,
     "issuer_url": null,
-    "required_scopes": ["openid"],
+    "required_scopes": [
+      "openid"
+    ],
     "redirect_path": null,
     "allowed_client_redirect_uris": null,
     "client_storage": null,

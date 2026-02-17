@@ -87,6 +87,7 @@ class TestAuthConfigBasicCreation:
     def test_get_config_with_provider_type(self):
         """Test get_config() method with AuthProviderType enum."""
         data = {
+            "enabled": True,
             "azure": {
                 "client_id": "test-id",
                 "client_secret": "test-secret",
@@ -123,6 +124,7 @@ class TestAuthConfigBasicCreation:
     def test_get_config_for_default_provider(self):
         """Test retrieving the default provider using get_config()."""
         data = {
+            "enabled": True,
             "defaultProvider": "jwt",
             "jwt": {
                 "secret_key": "secret"
@@ -550,6 +552,7 @@ class TestAuthProviderTypeEnum:
     def test_get_config_with_all_provider_types(self):
         """Test get_config() works with all provider types."""
         data = {
+            "enabled": True,
             "azure": {
                 "client_id": "id",
                 "client_secret": "secret",
@@ -611,6 +614,7 @@ class TestDefaultProvider:
     def test_get_default_provider_config(self):
         """Test getting configuration of the default provider."""
         data = {
+            "enabled": True,
             "defaultProvider": "jwt",
             "jwt": {
                 "secret_key": "my-secret",
@@ -675,6 +679,7 @@ class TestDefaultProvider:
     def test_multiple_providers_with_default(self):
         """Test multiple providers configured with one as default."""
         data = {
+            "enabled": True,
             "defaultProvider": "scalekit",
             "azure": {
                 "client_id": "azure-id",
@@ -717,6 +722,7 @@ class TestAuthConfigIntegration:
 
         auth_file = tmp_path / "auth.json"
         data = {
+            "enabled": True,
             "defaultProvider": "azure",
             "azure": {
                 "client_id": "$AZURE_CLIENT_ID",
@@ -757,6 +763,7 @@ class TestAuthConfigIntegration:
 
         auth_file = tmp_path / "auth.json"
         data = {
+            "enabled": True,
             "defaultProvider": "github",
             "azure": {
                 "client_id": "$AZURE_CLIENT_ID",
@@ -818,6 +825,7 @@ class TestAuthConfigIntegration:
         """Test creating config with all provider types."""
         auth_file = tmp_path / "auth.json"
         data = {
+            "enabled": True,
             "defaultProvider": "aws",
             "auth0": {"domain": "x.auth0.com", "client_id": "id", "client_secret": "secret"},
             "aws": {"access_key_id": "key", "secret_access_key": "secret", "region": "us-east-1"},

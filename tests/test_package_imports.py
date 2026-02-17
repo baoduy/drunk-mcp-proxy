@@ -32,12 +32,6 @@ class TestToolsPackageImports:
         assert SpecConfig is not None
         assert SpecConfig.__name__ == "SpecConfig"
 
-    def test_import_azure_oauth(self):
-        """Test importing AzureOauth from tools package."""
-        from src.tools import AzureOauth
-        assert AzureOauth is not None
-        assert AzureOauth.__name__ == "AzureOauth"
-
     def test_import_cache(self):
         """Test importing Cache from app package."""
         from src.app.cache_provider import CacheProvider
@@ -48,8 +42,7 @@ class TestToolsPackageImports:
         """Test __all__ contains expected exports."""
         import src.tools as tools
         assert "SpecConfig" in tools.__all__
-        assert "AzureOauth" in tools.__all__
         assert "AuthConfig" in tools.__all__
         assert "AuthProviderType" in tools.__all__
         # Cache is exported from app, not tools
-        assert len(tools.__all__) == 4
+        assert len(tools.__all__) == 3

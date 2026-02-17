@@ -78,6 +78,7 @@ class AuthField(BaseModel):
     Attributes:
         azure: Optional OAuth configuration
     """
+    pass_through: bool = Field(default=False, description="Whether to pass through authentication headers without modification")
     azure: Optional[AzureAuthConfig] = Field(default=None, description="OAuth configuration")
     auth_token: Optional[str] = Field(default=None, description="Static auth token for API authentication (if applicable)")
 

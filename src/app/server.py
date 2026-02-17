@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 
 from starlette.middleware import Middleware
 
-from .middleware import build_middleware
+from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from proxies import StaticProxiesProvider
 from proxies.static_mcp_provider import McpProxyConfig
@@ -217,7 +217,7 @@ class MCPProxyServer:
             # Step 2: Start the MCP server
             # Starts the async server with the configured transport and middleware
             # This call blocks until the server is shut down
-            await self._async_start_server(services, build_middleware())
+            await self._async_start_server(services, get_middlewares())
 
         except KeyboardInterrupt:
             self.logger.info("Server interrupted by user")

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from src.tools.auth_config import AuthProviderType
 from src.tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
-from tools import SpecConfig, AzureOauth
+from auth_providers import AzureOauth
 from dataclasses import dataclass
 from tools.env import SERVER_TRANSPORT
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
     from fastmcp import FastMCP
+    from fastmcp.server.middleware import Middleware
     from fastmcp.server.http import StarletteWithLifespan
 
 @dataclass
@@ -49,6 +50,15 @@ class StaticMcpProvider(ABC):
         """
         self.config = config
 
+    def _get_middlewares(self) -> list[Middleware]:
+        """Get the list of middlewares to apply to the FastMCP server.
+
+        Returns:
+            A list of Starlette Middleware instances.
+        """
+        #from src.middleware.auth_header_middleware import AuthHeaderMiddleware
+        return []
+    
     @abstractmethod
     def create_proxy(self) -> "FastMCP":
         """
@@ -65,6 +75,9 @@ class StaticMcpProvider(ABC):
 
     def get_mcp_proxy_config(self) -> McpProxyConfig:
         service = self.create_proxy()
+        for middleware in self._get_middlewares():
+            service.add_middleware(middleware)
+
         return McpProxyConfig(path=self.config.path, mcp_server=service)
 
     def _get_global_auth_provider(self, provider_name: AuthProviderType | None = None) -> AuthProvider | None:
@@ -83,11 +96,13 @@ class StaticMcpProvider(ABC):
         return " ".join(config.scopes)
     
     def _create_client_auth(self, azure_config: AzureAuthConfig) -> "Auth":
+        if self.config.auth and self.config.auth.pass_through:
+            from auth_providers import AuthPassThrough
+            return AuthPassThrough()
+        
         from src.app.cache_provider import CacheProvider
         
         scope_value = self._scope_value(azure_config)
-        assert self.config.base_url
-
         auth = AzureOauth(
             client_id=azure_config.client_id,
             client_secret=azure_config.client_secret,
