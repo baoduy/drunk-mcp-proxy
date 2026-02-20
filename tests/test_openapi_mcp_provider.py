@@ -213,6 +213,7 @@ class TestOpenApiMcpProviderCreateProxy:
         mock_config.auth = None
         mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
         mock_config.tags = ["v1"]
+        mock_config.skill_dir = None
 
         mock_client = Mock()
         mock_create_client.return_value = mock_client
@@ -240,6 +241,7 @@ class TestOpenApiMcpProviderCreateProxy:
         mock_config.auth = None
         mock_config.spec_data = {"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}
         mock_config.tags = ["v1"]
+        mock_config.skill_dir = None
 
         mock_client = Mock()
         mock_create_client.return_value = mock_client

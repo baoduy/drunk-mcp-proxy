@@ -1,8 +1,11 @@
 {
-  "mcpServers": {
-    "mcp-deepwiki": {
-      "command": "npx",
-      "args": ["-y", "mcp-deepwiki@latest"]
+  "servers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-781bfe6d-92a5-4232-8b21-9181bdec2a0a"
+      }
     }
-  }
+  },
+  "inputs": []
 }

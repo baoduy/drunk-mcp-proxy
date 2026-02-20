@@ -17,6 +17,7 @@ services:
     environment:
       - FASTMCP_CONFIG_DIR=/app/data
       - FASTMCP_SCHEMA_DIR=/app/schemas
+      - FASTMCP_ENABLE_OPENAPI=${FASTMCP_ENABLE_OPENAPI:-true}
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
       - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
