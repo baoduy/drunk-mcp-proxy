@@ -10,7 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 from cryptography.fernet import Fernet
@@ -182,6 +182,7 @@ def test_get_oauth_store_wraps_with_encryption(mock_env_memory, encryption_key):
     assert hasattr(store, 'key_value')
 
 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_get_oauth_store_uses_correct_encryption_key(encryption_key, monkeypatch):
     """Test that the correct encryption key is used."""
     monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
@@ -340,6 +341,7 @@ def test_get_oauth_store_generates_key_when_missing(monkeypatch):
         assert not isinstance(store, FernetEncryptionWrapper)
 
 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_get_oauth_store_encodes_string_key(monkeypatch):
     """Use string keys directly for encryption when provided."""
     key_str = Fernet.generate_key().decode()
@@ -360,6 +362,7 @@ def test_get_oauth_store_encodes_string_key(monkeypatch):
         assert isinstance(store, FernetEncryptionWrapper)
 
 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_get_oauth_store_redis_import_error_fallback(encryption_key, monkeypatch):
     """Fallback to memory if Redis store import fails."""
     monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
@@ -379,3 +382,70 @@ def test_get_oauth_store_redis_import_error_fallback(encryption_key, monkeypatch
             CacheProvider.get_oauth_store()
 
     mock_memory_store.assert_called_once()
+
+
+def test_get_oauth_store_logs_warning_no_encryption_for_redis(monkeypatch):
+    """Test warning is logged when encryption key is missing for Redis storage."""
+    # Reset the singleton cache
+    CacheProvider.token_storage = None
+    
+    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0")
+    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+
+    import builtins
+    original_import = builtins.__import__
+    
+    def mock_import(name, *args, **kwargs):
+        if name == "key_value.aio.stores.redis":
+            # Create a mock module with RedisStore
+            mock_module = Mock()
+            mock_module.RedisStore = Mock()
+            return mock_module
+        return original_import(name, *args, **kwargs)
+    
+    with patch("builtins.__import__", side_effect=mock_import):
+        with patch("src.app.cache_provider.logging") as mock_logging:
+            CacheProvider.get_oauth_store()
+            
+            # Should warn about missing encryption key for non-memory storage
+            mock_logging.warning.assert_called_once()
+            warning_message = mock_logging.warning.call_args[0][0]
+            assert "OAUTH_STORAGE_ENCRYPTION_KEY" in warning_message
+
+
+def test_get_oauth_store_logs_warning_no_encryption_for_sqlite(monkeypatch):
+    """Test warning is logged when encryption key is missing for SQLite storage."""
+    # Reset the singleton cache
+    CacheProvider.token_storage = None
+    
+    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "sqlite")
+    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+
+    import builtins
+    original_import = builtins.__import__
+    
+    def mock_import(name, *args, **kwargs):
+        if name == "key_value.aio.stores.disk":
+            # Create a mock module with DiskStore
+            mock_module = Mock()
+            mock_module.DiskStore = Mock()
+            return mock_module
+        return original_import(name, *args, **kwargs)
+    
+    with patch("builtins.__import__", side_effect=mock_import):
+        with patch("src.app.cache_provider.logging") as mock_logging:
+            CacheProvider.get_oauth_store()
+            
+            # Should warn about missing encryption key for non-memory storage
+            mock_logging.warning.assert_called_once()
+            warning_message = mock_logging.warning.call_args[0][0]
+            assert "OAUTH_STORAGE_ENCRYPTION_KEY" in warning_message
+
+        # Should warn about missing encryption key for non-memory storage
+        mock_logging.warning.assert_called_once()
+        warning_message = mock_logging.warning.call_args[0][0]
+        assert "OAUTH_STORAGE_ENCRYPTION_KEY" in warning_message

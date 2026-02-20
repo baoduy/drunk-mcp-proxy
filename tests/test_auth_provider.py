@@ -238,6 +238,37 @@ class TestGetProviderClass:
             assert isinstance(result[0], type) and isinstance(result[1], bool)
             assert result[1] is False  # JWT doesn't need client_storage
 
+    def test_get_provider_class_unsupported_type(self):
+        """Test getting provider class for unsupported type returns None."""
+        # Create a mock auth provider type not in the mapping
+        fake_provider_type = Mock(spec=AuthProviderType)
+        result = GlobalAuthProvider._get_provider_class(fake_provider_type)
+        assert result is None
+
+    def test_get_provider_class_import_error(self):
+        """Test handling of import errors when loading provider module."""
+        real_provider_type = AuthProviderType.AZURE
+        
+        with patch('src.app.auth_provider.logger') as mock_logger:
+            with patch('builtins.__import__', side_effect=ImportError("Module not found")):
+                result = GlobalAuthProvider._get_provider_class(real_provider_type)
+                
+        assert result is None
+        mock_logger.error.assert_called_once()
+        error_call_args = str(mock_logger.error.call_args)
+        assert "Failed to import provider class" in error_call_args
+
+    def test_get_provider_class_attribute_error(self):
+        """Test handling of attribute errors when loading provider class."""
+        real_provider_type = AuthProviderType.AZURE
+        
+        with patch('src.app.auth_provider.logger') as mock_logger:
+            with patch('builtins.__import__', side_effect=AttributeError("Attribute not found")):
+                result = GlobalAuthProvider._get_provider_class(real_provider_type)
+                
+        assert result is None
+        mock_logger.error.assert_called_once()
+
 
 class TestCreateProviderInstance:
     """Test suite for GlobalAuthProvider._create_provider_instance method."""

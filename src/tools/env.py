@@ -29,6 +29,9 @@ Environment Variables:
         FASTMCP_HOST: Host to bind to (default: "0.0.0.0")
         FASTMCP_PORT: Port to listen on (default: 9123)
 
+    OpenAPI:
+        FASTMCP_ENABLE_OPENAPI: Enable OpenAPI schema endpoint (default: false)
+
     OAuth:
         FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY: Fernet encryption key for OAuth token storage (required if using OAuth)
 
@@ -44,70 +47,109 @@ Example .env file:
 
 import os
 
+def getEnvString(key: str, default: str = "") -> str:
+    """
+    Get an environment variable as a string with a default fallback.
+
+    Args:
+        key (str): The name of the environment variable to retrieve.
+        default (str): The default value to return if the environment variable is not set.
+
+    Returns:
+        str: The value of the environment variable or the default if not set.
+    """
+    return os.environ.get(key, default).strip()
+def getEnvInt(key: str, default: int = 0) -> int:
+    """
+    Get an environment variable as an integer with a default fallback.
+
+    Args:
+        key (str): The name of the environment variable to retrieve.
+        default (int): The default value to return if the environment variable is not set or invalid.
+
+    Returns:
+        int: The integer value of the environment variable or the default if not set or invalid.
+    """
+    try:
+        return int(os.environ.get(key, str(default)).strip())
+    except ValueError:
+        return default
+def getEnvBool(key: str, default: bool = False) -> bool:
+    """
+    Get an environment variable as a boolean with a default fallback.
+
+    Args:
+        key (str): The name of the environment variable to retrieve.
+        default (bool): The default value to return if the environment variable is not set.
+
+    Returns:
+        bool: The boolean value of the environment variable or the default if not set.
+    """
+    value = os.environ.get(key, "").strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    elif value in {"0", "false", "no", "off"}:
+        return False
+    else:
+        return default
+    
 # Configuration Files
 # ===================
 # Directory containing MCP server configuration files (*.mcp.json)
-CONFIG_DIR = os.environ.get("FASTMCP_CONFIG_DIR", "data")
+CONFIG_DIR = getEnvString("FASTMCP_CONFIG_DIR", "data")
 # Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
-SCHEMA_DIR = os.environ.get("FASTMCP_SCHEMA_DIR", "schemas")
+SCHEMA_DIR = getEnvString("FASTMCP_SCHEMA_DIR", "schemas")
 
 # Logging Configuration
 # =====================
 # Log level controls verbosity of logging output
 # Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOG_LEVEL = os.environ.get("FASTMCP_LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = getEnvString("FASTMCP_LOG_LEVEL", "INFO").upper()
 
 # Server Identity
 # ===============
 # These values identify the server in logs and health checks
-SERVER_NAME = os.environ.get("FASTMCP_SERVER_NAME", "mcp-proxy-server").strip()
-SERVER_VERSION = os.environ.get("FASTMCP_SERVER_VERSION", "1.0.0").strip()
-SERVER_TRANSPORT = os.environ.get("FASTMCP_SERVER_TRANSPORT", "http").strip()
+SERVER_NAME = getEnvString("FASTMCP_SERVER_NAME", "mcp-proxy-server")
+SERVER_VERSION = getEnvString("FASTMCP_SERVER_VERSION", "1.0.0")
+SERVER_TRANSPORT = getEnvString("FASTMCP_SERVER_TRANSPORT", "http")
+
 # CORS Configuration
 # ==================
 # Cross-Origin Resource Sharing settings for web clients
 # All values are comma-separated lists
-CORS_ALLOW_ORIGINS = os.environ.get("FASTMCP_CORS_ALLOW_ORIGINS", "").strip()
-CORS_ALLOW_METHODS = os.environ.get("FASTMCP_CORS_ALLOW_METHODS", "").strip()
-CORS_ALLOW_HEADERS = os.environ.get("FASTMCP_CORS_ALLOW_HEADERS", "").strip()
-CORS_EXPOSE_HEADERS = os.environ.get("FASTMCP_CORS_EXPOSE_HEADERS", "").strip()
-
-_raw_cors_allow_credentials = os.environ.get("FASTMCP_CORS_ALLOW_CREDENTIALS", "").strip().lower()
-CORS_ALLOW_CREDENTIALS = _raw_cors_allow_credentials in {"1", "true", "yes", "on"}
-
-_raw_cors_max_age = os.environ.get("FASTMCP_CORS_MAX_AGE", "").strip()
-try:
-    CORS_MAX_AGE = int(_raw_cors_max_age) if _raw_cors_max_age else 3600
-except ValueError:
-    CORS_MAX_AGE = 3600
+CORS_ALLOW_ORIGINS = getEnvString("FASTMCP_CORS_ALLOW_ORIGINS")
+CORS_ALLOW_METHODS = getEnvString("FASTMCP_CORS_ALLOW_METHODS")
+CORS_ALLOW_HEADERS = getEnvString("FASTMCP_CORS_ALLOW_HEADERS")
+CORS_EXPOSE_HEADERS = getEnvString("FASTMCP_CORS_EXPOSE_HEADERS")
+CORS_ALLOW_CREDENTIALS = getEnvBool("FASTMCP_CORS_ALLOW_CREDENTIALS", False)
+CORS_MAX_AGE = getEnvInt("FASTMCP_CORS_MAX_AGE", 3600)
 
 # Server Binding
 # ==============
 # Host and port configuration for the server
 # HOST: "0.0.0.0" binds to all interfaces, "localhost" binds to local only
 # PORT: Must be a valid port number (1-65535)
-HOST = os.environ.get("FASTMCP_HOST", "0.0.0.0").strip()
+HOST = getEnvString("FASTMCP_HOST", "0.0.0.0")
+PORT = getEnvInt("FASTMCP_PORT", 9123)
 
-# Port with validation - defaults to 9123 if invalid
-try:
-    PORT = int(os.environ.get("FASTMCP_PORT", "9123").strip())
-except ValueError:
-    # Invalid port value, use default
-    PORT = 9123 
+# OpenAPI Configuration
+# =====================
+# Controls whether the OpenAPI schema endpoint is enabled
+OPENAPI_ENABLED = getEnvBool("FASTMCP_ENABLE_OPENAPI", False)
 
 # OAuth Configuration
 # ===================
 # Encryption key for storing OAuth tokens securely
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-OAUTH_STORAGE_ENCRYPTION_KEY = os.environ.get("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY", "").strip()
+OAUTH_STORAGE_ENCRYPTION_KEY = getEnvString("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY")
 
 # OAuth Storage Type Configuration
 # ==================================
 # Type of storage backend for OAuth tokens (e.g., "redis", "memory", "database")
-OAUTH_STORAGE_TYPE = os.environ.get("MCP_OAUTH_STORAGE_TYPE", "memory").strip()
+OAUTH_STORAGE_TYPE = getEnvString("MCP_OAUTH_STORAGE_TYPE", "memory")
 
 # Redis Configuration
 # ====================
 # Connection string for Redis backend
 # Format: redis://[user:password@]host:port/database
-REDIS_CONNECTION_STRING = os.environ.get("MCP_REDIS_CONNECTION_STRING", None)
+REDIS_CONNECTION_STRING = getEnvString("MCP_REDIS_CONNECTION_STRING") or None
