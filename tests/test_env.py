@@ -230,3 +230,34 @@ class TestEnvConfiguration:
             assert env_module.OAUTH_STORAGE_ENCRYPTION_KEY == "test-key-123"
         finally:
             os.environ.pop("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY", None)
+
+    def test_get_env_bool_false_values(self):
+        """Test getEnvBool with false values."""
+        from src.tools.env import getEnvBool
+        
+        os.environ["TEST_BOOL"] = "0"
+        assert getEnvBool("TEST_BOOL", True) is False
+        
+        os.environ["TEST_BOOL"] = "false"
+        assert getEnvBool("TEST_BOOL", True) is False
+        
+        os.environ["TEST_BOOL"] = "no"
+        assert getEnvBool("TEST_BOOL", True) is False
+        
+        os.environ["TEST_BOOL"] = "off"
+        assert getEnvBool("TEST_BOOL", True) is False
+        
+        os.environ.pop("TEST_BOOL", None)
+
+    def test_get_env_bool_default_for_invalid(self):
+        """Test getEnvBool returns default for invalid/empty values."""
+        from src.tools.env import getEnvBool
+        
+        os.environ["TEST_BOOL"] = "maybe"
+        assert getEnvBool("TEST_BOOL", True) is True
+        assert getEnvBool("TEST_BOOL", False) is False
+        
+        os.environ["TEST_BOOL"] = ""
+        assert getEnvBool("TEST_BOOL", True) is True
+        
+        os.environ.pop("TEST_BOOL", None)

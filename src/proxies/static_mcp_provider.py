@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from src.tools.auth_config import AuthProviderType
-from src.tools.spec_config import AzureAuthConfig
+from tools.auth_config import AuthProviderType
+from tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
 from auth_providers import AzureOauth
 from dataclasses import dataclass
-from tools.env import CONFIG_DIR, SERVER_TRANSPORT
+from tools.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -94,6 +94,7 @@ class StaticMcpProvider(ABC):
             return
         
         from pathlib import Path
+        from tools.env import CONFIG_DIR
         from fastmcp.server.providers.skills import SkillsDirectoryProvider
 
         skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")

@@ -6,11 +6,11 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 import sys
 from pathlib import Path
 
-from .app.server import MCPProxyServer
-
-project_root = Path(__file__).resolve().parent.parent
+project_root = Path(__file__).resolve().parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+from app import MCPProxyServer  # type: ignore[import-not-found]
 
 
 def main() -> None:
@@ -22,7 +22,7 @@ def main() -> None:
 
     Usage:
         python -m pip install -e .
-        python src/main.py
+        python -m main
     """
     server = MCPProxyServer()
     server.run()

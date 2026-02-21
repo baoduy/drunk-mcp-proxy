@@ -25,8 +25,7 @@ Supported Transports:
 """
 
 from typing import TYPE_CHECKING
-
-from starlette.middleware import Middleware
+from proxies.llm_proxies_provider import LlmProxiesProvider
 
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
@@ -34,6 +33,7 @@ from proxies import StaticProxiesProvider
 from proxies.static_mcp_provider import McpProxyConfig
 from tools.env import (
     CONFIG_DIR,
+    LLM_ROUTE_PREFIX,
     LOG_LEVEL,
     HOST,
     PORT,
@@ -65,14 +65,14 @@ class MCPProxyServer:
     def __init__(self):
         """Initialize the MCP Proxy Server."""
         self.logger = logger
+        self.mcp_services: list[McpProxyConfig] = []
+        self.llm_services: list[tuple[str, LlmProxiesProvider]] = []
 
     # Server Management Methods
     # =========================
 
     async def _async_start_server(
-            self,
-            mcp_list: list[McpProxyConfig],
-            middleware: list[Middleware] | None = None,
+            self
     ) -> None:
         """
         Initialize and run the MCP server with Starlette and uvicorn.
@@ -102,10 +102,11 @@ class MCPProxyServer:
         try:
             # Create StarletteApp with middleware
             # Host, port, and service name are loaded from environment variables
-            starlette_app = StarletteApp(middleware=middleware)
+            starlette_app = StarletteApp(middleware=get_middlewares())
 
             # Add all MCP mounts
-            starlette_app.add_mcp_services(mcp_list)
+            starlette_app.add_mcp_services(self.mcp_services)
+            starlette_app.add_llm_services(self.llm_services)
 
             # Build the Starlette application with lifespan management
             app = starlette_app.build()
@@ -135,32 +136,6 @@ class MCPProxyServer:
     # Utility Methods
     # ===============
 
-    @staticmethod
-    def _retrieve_configuration() -> dict[str, str | bool | int]:
-        """
-        Retrieve the current server configuration as a dictionary.
-
-        Returns all relevant server configuration values for inspection,
-        debugging, and logging purposes.
-
-        Returns:
-            Dictionary containing server configuration details:
-            - server_name: Name of the server
-            - server_version: Version string
-            - host: Server hostname/IP address
-            - port: Server port number
-            - log_level: Logging level
-            - config_dir: Configuration directory path
-        """
-        return {
-            "server_name": SERVER_NAME,
-            "server_version": SERVER_VERSION,
-            "host": HOST or "0.0.0.0",
-            "port": PORT or 9123,
-            "log_level": LOG_LEVEL,
-            "config_dir": CONFIG_DIR
-        }
-
     def _log_startup_configuration(self) -> None:
         """
         Log server configuration details at startup.
@@ -172,7 +147,14 @@ class MCPProxyServer:
         Called during server startup to provide visibility into the server configuration
         and aid in troubleshooting and monitoring.
         """
-        config = self._retrieve_configuration()
+        config:dict[str, str | bool | int] = {
+            "server_name": SERVER_NAME,
+            "server_version": SERVER_VERSION,
+            "host": HOST or "0.0.0.0",
+            "port": PORT or 9123,
+            "log_level": LOG_LEVEL,
+            "config_dir": CONFIG_DIR
+        }
         self.logger.info("MCP Proxy Server Configuration:")
         self.logger.info("  Server Name: %s", config["server_name"])
         self.logger.info("  Server Version: %s", config["server_version"])
@@ -202,28 +184,26 @@ class MCPProxyServer:
         Raises:
             Exception: Various server startup errors
         """
-        try:
-            self.logger.info("Starting MCP Proxy Server")
-            self._log_startup_configuration()
-            print("=" * 50)
+      
+        self.logger.info("Starting MCP Proxy Server")
+        self._log_startup_configuration()
+        print("=" * 50)
 
-            provider = StaticProxiesProvider(config_dir=CONFIG_DIR)
-            services = provider.get_config_services()
-            self.logger.info("Total MCP servers loaded: %d", len(services))
+        provider = StaticProxiesProvider(config_dir=CONFIG_DIR)
+        self.mcp_services = provider.get_config_services()
+        self.logger.info("Total MCP servers loaded: %d", len(self.mcp_services))
 
-            print("MCP Proxy Server is ready!")
-            print("=" * 50)
+        llmProvider = LlmProxiesProvider(config_dir=CONFIG_DIR)
+        self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
+        self.logger.info("LLM Proxies Provider loaded with %d providers", len(llmProvider.providers))
 
-            # Step 2: Start the MCP server
-            # Starts the async server with the configured transport and middleware
-            # This call blocks until the server is shut down
-            await self._async_start_server(services, get_middlewares())
+        print("MCP Proxy Server is ready!")
+        print("=" * 50)
 
-        except KeyboardInterrupt:
-            self.logger.info("Server interrupted by user")
-        except Exception as e:
-            self.logger.error("Server startup failed: %s", str(e), exc_info=True)
-            raise
+        # Step 2: Start the MCP server
+        # Starts the async server with the configured transport and middleware
+        # This call blocks until the server is shut down
+        await self._async_start_server()
 
     def run(self) -> None:
         """

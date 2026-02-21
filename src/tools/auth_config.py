@@ -15,6 +15,7 @@ The configuration file (data/auth.json) is a flat JSON object where:
 import json
 import os
 from enum import Enum
+from tools.env import AUTH_ENABLED
 from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
@@ -81,7 +82,7 @@ class AuthConfig(BaseModel):
             client_id = config.github.get("client_id")
             scopes = config.github.get("scopes", [])
     """
-    enabled: bool = Field(default=False, description="Whether authentication is enabled")
+    enabled: bool = AUTH_ENABLED
     default_provider: Optional[AuthProviderType] = Field(default=None, alias="defaultProvider", description="Default authentication provider type")
     auth0: Optional[dict[str, Any]] = Field(default=None, description="Auth0 provider configuration")
     aws: Optional[dict[str, Any]] = Field(default=None, description="AWS provider configuration")

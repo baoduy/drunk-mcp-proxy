@@ -110,6 +110,7 @@ class TestBuildCorsMiddleware:
 class TestGetMiddlewares:
     """Test suite for get_middlewares function."""
 
+    @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
     @patch('src.app.middleware_provider._create_cros_middleware')
     def test_get_middlewares_with_cors(self, mock_create_cors):
         """Test get_middlewares includes CORS middleware."""
@@ -121,6 +122,7 @@ class TestGetMiddlewares:
         assert len(result) == 1
         assert result[0] == mock_cors_middleware
 
+    @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
     @patch('src.app.middleware_provider._create_cros_middleware')
     def test_get_middlewares_without_cors(self, mock_create_cors):
         """Test get_middlewares still returns list when CORS middleware is mocked as None."""
@@ -132,6 +134,7 @@ class TestGetMiddlewares:
         assert len(result) == 1
         assert result[0] is None
 
+    @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
     @patch('src.app.middleware_provider._create_cros_middleware')
     def test_get_middlewares_returns_list(self, mock_create_cors):
         """Test get_middlewares always returns a list."""
@@ -140,3 +143,19 @@ class TestGetMiddlewares:
         result = middleware_provider.get_middlewares()
         
         assert isinstance(result, list)
+
+    @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', True)
+    @patch('src.app.middleware_provider._create_rate_limit_middleware')
+    @patch('src.app.middleware_provider._create_cros_middleware')
+    def test_get_middlewares_includes_rate_limit(self, mock_create_cors, mock_rate_limit):
+        """Test get_middlewares includes rate limit middleware when enabled."""
+        mock_cors_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_rate_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_create_cors.return_value = mock_cors_middleware
+        mock_rate_limit.return_value = mock_rate_middleware
+
+        result = middleware_provider.get_middlewares()
+
+        assert len(result) == 2
+        assert result[0] == mock_cors_middleware
+        assert result[1] == mock_rate_middleware

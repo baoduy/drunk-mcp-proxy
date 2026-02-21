@@ -20,7 +20,8 @@ class TestAppPackageImports:
         assert "MCPProxyServer" in app.__all__
         assert "CacheProvider" in app.__all__
         assert "GlobalAuthProvider" in app.__all__
-        assert len(app.__all__) == 3
+        assert "SwaggerProvider" in app.__all__
+        assert len(app.__all__) == 4
 
 
 class TestToolsPackageImports:
@@ -45,4 +46,4 @@ class TestToolsPackageImports:
         assert "AuthConfig" in tools.__all__
         assert "AuthProviderType" in tools.__all__
         # Cache is exported from app, not tools
-        assert len(tools.__all__) == 3
+        assert len(tools.__all__) == 4

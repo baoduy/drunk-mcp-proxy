@@ -32,6 +32,14 @@ Environment Variables:
     OpenAPI:
         FASTMCP_ENABLE_OPENAPI: Enable OpenAPI schema endpoint (default: false)
 
+    Authentication:
+        FASTMCP_AUTH_ENABLED: Enable request header validation (default: false)
+
+    Rate Limiting:
+        FASTMCP_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
+        FASTMCP_RATE_LIMIT_REQUESTS: Max requests per window (default: 60)
+        FASTMCP_RATE_LIMIT_WINDOW_SECONDS: Window size in seconds (default: 60)
+
     OAuth:
         FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY: Fernet encryption key for OAuth token storage (required if using OAuth)
 
@@ -59,6 +67,7 @@ def getEnvString(key: str, default: str = "") -> str:
         str: The value of the environment variable or the default if not set.
     """
     return os.environ.get(key, default).strip()
+
 def getEnvInt(key: str, default: int = 0) -> int:
     """
     Get an environment variable as an integer with a default fallback.
@@ -74,6 +83,7 @@ def getEnvInt(key: str, default: int = 0) -> int:
         return int(os.environ.get(key, str(default)).strip())
     except ValueError:
         return default
+    
 def getEnvBool(key: str, default: bool = False) -> bool:
     """
     Get an environment variable as a boolean with a default fallback.
@@ -99,6 +109,8 @@ def getEnvBool(key: str, default: bool = False) -> bool:
 CONFIG_DIR = getEnvString("FASTMCP_CONFIG_DIR", "data")
 # Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
 SCHEMA_DIR = getEnvString("FASTMCP_SCHEMA_DIR", "schemas")
+# Route prefix for LLM proxy endpoints
+LLM_ROUTE_PREFIX = getEnvString("FASTMCP_LLM_ROUTE_PREFIX", "/llm/v1")
 
 # Logging Configuration
 # =====================
@@ -136,6 +148,18 @@ PORT = getEnvInt("FASTMCP_PORT", 9123)
 # =====================
 # Controls whether the OpenAPI schema endpoint is enabled
 OPENAPI_ENABLED = getEnvBool("FASTMCP_ENABLE_OPENAPI", False)
+
+# Authentication Configuration
+# =============================
+# Enable or disable request header validation (Authorization header must not be empty)
+AUTH_ENABLED = getEnvBool("FASTMCP_AUTH_ENABLED", False)
+
+# Rate Limiting Configuration
+# ===========================
+# Enable/disable rate limiting and configure fixed window limits
+RATE_LIMIT_ENABLED = getEnvBool("FASTMCP_RATE_LIMIT_ENABLED", False)
+RATE_LIMIT_REQUESTS = getEnvInt("FASTMCP_RATE_LIMIT_REQUESTS", 60)
+RATE_LIMIT_WINDOW_SECONDS = getEnvInt("FASTMCP_RATE_LIMIT_WINDOW_SECONDS", 60)
 
 # OAuth Configuration
 # ===================

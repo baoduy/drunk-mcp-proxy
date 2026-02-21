@@ -12,14 +12,15 @@ from fastmcp.server.http import StarletteWithLifespan
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, HTMLResponse
-from starlette.schemas import SchemaGenerator
+from starlette.responses import JSONResponse
 from .lifespan import AppLifespanManager
+from .swagger_provider import SwaggerProvider
 from tools.env import SERVER_NAME, HOST, PORT, OPENAPI_ENABLED
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    from proxies.static_mcp_provider import McpProxyConfig
+    from ..proxies.static_mcp_provider import McpProxyConfig
+    from ..proxies.llm_proxies_provider import LlmProxiesProvider
 
 logger = setup_logging("StarletteApp")
 
@@ -76,56 +77,9 @@ class StarletteApp:
         self.host = HOST or "0.0.0.0"
         self.port = PORT or 9123
         self.mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
-        # Initialize schema generator
-        self.schemas = SchemaGenerator(
-            {"openapi": "3.0.0", "info": {"title": self.service_name, "version": "1.0"}}
-        )
-
-    def _openapi_schema(self, request: Request) -> JSONResponse:
-        """
-        Generate and return OpenAPI schema as JSON.
-        
-        Returns JSON response with proper content-type to display in browser
-        instead of triggering download.
-        ---
-        responses:
-          200:
-            description: OpenAPI schema in JSON format
-        """
-        # Generate schema from app routes
-        schema = self.schemas.get_schema(routes=request.app.routes)
-        
-        # Manually add mounted MCP services to the schema
-        if "paths" not in schema:
-            schema["paths"] = {}
-            
-        for mount_path, _ in self.mcp_apps:
-            if mount_path:
-                # Add MCP endpoint documentation
-                schema["paths"][f"{mount_path}/"] = {
-                    "get": {
-                        "summary": mount_path,
-                        "description": f"Model Context Protocol server endpoint: {mount_path}",
-                        "responses": {
-                            "200": {"description": "MCP server response"}
-                        }
-                    },
-                    "post": {
-                        "summary": mount_path,
-                        "description": f"Model Context Protocol server endpoint: {mount_path}",
-                        "responses": {
-                            "200": {"description": "MCP server response"}
-                        }
-                    }
-                }
-        
-        # Return as JSON with explicit content-type to display in browser
-        return JSONResponse(
-            content=schema,
-            headers={
-                "Content-Type": "application/json; charset=utf-8"
-            }
-        )
+        self.llm_services: list[tuple[str, LlmProxiesProvider]] = []
+        # Initialize Swagger provider
+        self.swagger_provider = SwaggerProvider(self.service_name)
 
     def _health_check_handler(self, request: Request) -> JSONResponse:
         """
@@ -138,33 +92,6 @@ class StarletteApp:
             description: Service health status
         """
         return JSONResponse({"status": "healthy", "service": self.service_name})
-
-    def _redoc_html(self, request: Request) -> HTMLResponse:
-        """
-        ReDoc endpoint for alternative API documentation UI.
-        
-        Provides interactive API documentation using ReDoc.
-        ---
-        responses:
-          200:
-            description: ReDoc HTML page
-        """
-        html = """<!DOCTYPE html>
-<html>
-<head>
-    <title>{title} - ReDoc</title>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {{ margin: 0; padding: 0; }}
-    </style>
-</head>
-<body>
-    <redoc spec-url='/openapi.json'></redoc>
-    <script src="https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js"></script>
-</body>
-</html>""".format(title=self.service_name)
-        return HTMLResponse(content=html)
 
     def add_mcp_service(self, service: "McpProxyConfig"
                         ) -> None:
@@ -200,6 +127,33 @@ class StarletteApp:
         for service in services:
             self.add_mcp_service(service)
            
+    def _add_llm_service(self, path:str, service: "LlmProxiesProvider") -> None:
+        """
+        Add an LLM provider service mount to the application.
+
+        Args:
+            service: LlmProxiesProvider instance to mount
+        """
+        # For LLM providers, we can use a fixed mount path based on the provider name
+        self.llm_services.append((path, service))
+
+    def add_llm_services(
+            self,
+            services: list[tuple[str, "LlmProxiesProvider"]]
+    ) -> None:
+        """
+        Add multiple LLM provider service mounts to the application.
+
+        Args:
+            services: List of (path, LlmProxiesProvider) tuples to mount
+
+        Raises:
+            Exception: If any mount fails to be added
+        """
+        logger.info("Adding %d LLM provider service(s)", len(services))
+
+        for path, service in services:
+            self._add_llm_service(path, service)
 
     def build(self) -> Starlette:
         """
@@ -219,13 +173,14 @@ class StarletteApp:
             assert mount_path is not None  # Always set to string in add_mcp_service
             app.mount(mount_path, mcp_app)
 
+        for path, llm_service in self.llm_services:
+            llm_service.mount(app, route_prefix=path)
+
         # Add health check endpoint
         app.add_route("/health", self._health_check_handler, methods=["GET"], include_in_schema=True)
         
         # Add OpenAPI documentation endpoints if enabled
         if OPENAPI_ENABLED:
-            app.add_route("/openapi.json", self._openapi_schema, methods=["GET"], include_in_schema=False)
-            app.add_route("/docs", self._redoc_html, methods=["GET"], include_in_schema=False)
-            logger.info("OpenAPI endpoints enabled: /openapi.json, /docs")
+            self.swagger_provider.mount(app, self.mcp_apps, self.llm_services)
 
         return app

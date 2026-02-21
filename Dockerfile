@@ -1,5 +1,5 @@
 ARG TARGETPLATFORM
-FROM python:3.14-slim as builder
+FROM python:3.14-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -25,9 +25,9 @@ RUN pip install --no-cache-dir uv
 # ============================================================
 # Final stage - minimal runtime image
 # ============================================================
-FROM python:3.14-slim
+FROM python:3.14-slim AS runtime
 
-WORKDIR /app
+WORKDIR /drunk-proxy
 
 # Create non-root user early
 RUN useradd -m -u 10001 appuser
@@ -44,7 +44,7 @@ RUN apt-get update && \
 
 # Copy pre-built virtual environment from builder
 COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
-COPY schemas/ ./app/schemas/
+COPY schemas/ ./schemas/
 
 # Activate venv
 ENV PATH="/opt/venv/bin:$PATH" \
@@ -53,21 +53,19 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Copy application code
-COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser src/ ./
 COPY --chown=appuser:appuser schemas/ ./schemas/
 
 # Create data directory
-RUN mkdir -p /app/data && chown appuser:appuser /app/data
+RUN mkdir -p ./data && chown appuser:appuser ./data
 
 # Create pip cache directory for runtime installations
 RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 
 # Consolidate environment variables
-ENV FASTMCP_CONFIG_DIR=/app/data \
-    FASTMCP_SCHEMA_DIR=/app/schemas \
-    FASTMCP_HOST=0.0.0.0 \
-    FASTMCP_PORT=9123 \
-    PYTHONPATH=/app/src \
+ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
+    FASTMCP_SCHEMA_DIR=/drunk-proxy/schemas \
+    PYTHONPATH=/drunk-proxy \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser \
     NPM_CONFIG_PREFIX=/home/appuser/.npm-global \
@@ -95,4 +93,4 @@ USER appuser
 # Verify both npx and uvx are available (uv already in venv from builder)
 RUN npx --version && uvx --version
 
-CMD ["python", "-m", "src.main"]
+CMD ["python", "-m", "main"]

@@ -7,7 +7,7 @@ services:
       - "${FASTMCP_PORT:-9123}:${FASTMCP_PORT:-9123}"
     volumes:
       # Mount data directory for all configuration files
-      - ./data:/app/data
+      - ./data:/drunk-proxy/data
       # Mount pip cache for persistent package cache across restarts
       - mcp-pip-cache:/tmp/pip-cache
       # Mount user home for uv and npm caches
@@ -15,17 +15,12 @@ services:
     env_file:
       - .env
     environment:
-      - FASTMCP_CONFIG_DIR=/app/data
-      - FASTMCP_SCHEMA_DIR=/app/schemas
       - FASTMCP_ENABLE_OPENAPI=${FASTMCP_ENABLE_OPENAPI:-true}
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
       - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
       - FASTMCP_SERVER_VERSION=${FASTMCP_SERVER_VERSION:-1.0.0}
       - FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY=${FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY}
-      - PYTHONPATH=/app/src
-      # Enable pip caching
-      - PIP_CACHE_DIR=/tmp/pip-cache
     restart: unless-stopped
     networks:
       - mcp-network
@@ -49,6 +44,23 @@ services:
     networks:
       - mcp-network
 
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: openwebui
+    ports:
+      - "3000:8080"
+    environment:
+      - WEBUI_AUTH=false
+      - WEBUI_SECRET_KEY=Dj3EFkjbwL9NaLjXTBn7
+      - ENABLE_OPENAI_API=true
+      - OPENAI_API_BASE_URL=http://mcp-proxy-server:9123/llm/v1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - openwebui-data:/app/backend/data
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
 networks:
   mcp-network:
     driver: bridge
@@ -58,4 +70,6 @@ volumes:
   mcp-pip-cache:
     driver: local
   mcp-home-cache:
+    driver: local
+  openwebui-data:
     driver: local
