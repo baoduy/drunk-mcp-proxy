@@ -20,6 +20,7 @@ from src.tools.llm_config import LlmProviderConfig
 
 
 def _build_provider() -> LlmProxiesProvider:
+    # TODO: Mock this provider for testing instead of using a real config
     provider_config = LlmProviderConfig.model_validate(
         {
             "provider": "openrouter",
