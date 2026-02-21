@@ -1,17 +1,23 @@
 from __future__ import annotations
 import json
 import os
-from typing import Any
-from fastapi import FastAPI, Request
+from typing import TYPE_CHECKING, Any
+from fastapi import Depends, FastAPI, Request
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security.http import HTTPBase
 from fastapi.responses import JSONResponse, StreamingResponse
+from httpx import Auth
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from starlette.applications import Starlette
-
+from fastapi.security.utils import get_authorization_scheme_param
+from tools.env import SERVER_NAME, SERVER_VERSION
 from tools.llm_config import LlmConfig, LlmProviderConfig
 from tools.logging_config import setup_logging
-
-
+from fastmcp.server.dependencies import get_access_token
+if TYPE_CHECKING:
+    from fastmcp.server.auth import AuthProvider
+    
 logger = setup_logging("LlmProxiesProvider")
 
 class LlmModel(BaseModel):
@@ -22,6 +28,24 @@ class ProviderModel(BaseModel):
     name: str
     slug: str
 
+class FastAuthMiddleware(HTTPBase): 
+    def __init__(self, auth_provider:AuthProvider):
+        super().__init__(scheme="bearer")
+        self.auth_provider = auth_provider
+        self.auto_error = True
+
+    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials | None:
+        authorization = request.headers.get("Authorization")
+        scheme, token = get_authorization_scheme_param(authorization)
+        
+        if not (authorization and scheme and token):
+            raise self.make_not_authenticated_error()
+        
+        rs = await self.auth_provider.verify_token(token)
+        if rs is None or rs.claims.__len__() <= 0:
+            raise self.make_not_authenticated_error()
+        return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
+    
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
     def __init__(self,providers: list[LlmProviderConfig]):
@@ -81,7 +105,16 @@ class LlmProxiesProvider:
 
     def _get_fastapi_app(self) -> FastAPI:
         if self._fastapi_app is None:
-            app = FastAPI()
+            auth = None
+            dependencies = []
+            
+            from app.auth_provider import GlobalAuthProvider
+            auth = GlobalAuthProvider.get_auth_provider()
+            if auth:
+                dependencies = [Depends(FastAuthMiddleware(auth_provider=auth))]
+           
+            app = FastAPI(title=SERVER_NAME, version=SERVER_VERSION, dependencies=dependencies)
+            
             app.add_api_route(
                 "/chat/completions",
                 self._chat_completions_endpoint,
@@ -121,6 +154,7 @@ class LlmProxiesProvider:
                 "/providers",
                 self._get_providers_endpoint,
                 methods=["GET"],
+                tags=["Providers"],
             )
 
             self._fastapi_app = app

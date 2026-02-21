@@ -356,7 +356,7 @@ def test_llm_providers_endpoint_schema():
     
     providers_endpoint = schema["paths"]["/llm/v1/providers"]["get"]
     
-    assert providers_endpoint["tags"] == ["Providers"]
+    assert providers_endpoint["tags"] == ["OpenAI"]
     assert "200" in providers_endpoint["responses"]
     
     # Check response schema includes name and slug

@@ -20,7 +20,8 @@ class TestAppPackageImports:
         assert "MCPProxyServer" in app.__all__
         assert "CacheProvider" in app.__all__
         assert "GlobalAuthProvider" in app.__all__
-        assert len(app.__all__) == 3
+        assert "SwaggerProvider" in app.__all__
+        assert len(app.__all__) == 4
 
 
 class TestToolsPackageImports:

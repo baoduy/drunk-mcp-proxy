@@ -442,7 +442,7 @@ class SwaggerProvider:
             # Providers endpoint
             schema["paths"][f"{path}/providers"] = {
                 "get": {
-                    "tags": ["Providers"],
+                    "tags": ["OpenAI"],
                     "summary": "List available providers",
                     "description": "Returns a list of all configured LLM providers.",
                     "operationId": f"listProviders_{path.replace('/', '_')}",

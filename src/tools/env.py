@@ -32,6 +32,14 @@ Environment Variables:
     OpenAPI:
         FASTMCP_ENABLE_OPENAPI: Enable OpenAPI schema endpoint (default: false)
 
+    Authentication:
+        FASTMCP_AUTH_ENABLED: Enable request header validation (default: false)
+
+    Rate Limiting:
+        FASTMCP_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
+        FASTMCP_RATE_LIMIT_REQUESTS: Max requests per window (default: 60)
+        FASTMCP_RATE_LIMIT_WINDOW_SECONDS: Window size in seconds (default: 60)
+
     OAuth:
         FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY: Fernet encryption key for OAuth token storage (required if using OAuth)
 
@@ -140,6 +148,18 @@ PORT = getEnvInt("FASTMCP_PORT", 9123)
 # =====================
 # Controls whether the OpenAPI schema endpoint is enabled
 OPENAPI_ENABLED = getEnvBool("FASTMCP_ENABLE_OPENAPI", False)
+
+# Authentication Configuration
+# =============================
+# Enable or disable request header validation (Authorization header must not be empty)
+AUTH_ENABLED = getEnvBool("FASTMCP_AUTH_ENABLED", False)
+
+# Rate Limiting Configuration
+# ===========================
+# Enable/disable rate limiting and configure fixed window limits
+RATE_LIMIT_ENABLED = getEnvBool("FASTMCP_RATE_LIMIT_ENABLED", False)
+RATE_LIMIT_REQUESTS = getEnvInt("FASTMCP_RATE_LIMIT_REQUESTS", 60)
+RATE_LIMIT_WINDOW_SECONDS = getEnvInt("FASTMCP_RATE_LIMIT_WINDOW_SECONDS", 60)
 
 # OAuth Configuration
 # ===================

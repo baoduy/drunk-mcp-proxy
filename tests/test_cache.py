@@ -126,7 +126,7 @@ def test_get_oauth_store_sqlite_backend(mock_env_sqlite):
 
         store = CacheProvider.get_oauth_store()
 
-        mock_disk_store.assert_called_once_with(directory="/tmp/test-config/oauth-tokens")
+        mock_disk_store.assert_called_once_with(directory="/tmp/test-config/key-values")
         assert isinstance(store, FernetEncryptionWrapper)
 
 

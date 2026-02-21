@@ -32,7 +32,8 @@ def _build_provider() -> LlmProxiesProvider:
 
 def _build_app(provider: LlmProxiesProvider) -> Starlette:
     app = Starlette()
-    provider.mount(app)
+    with patch('src.app.auth_provider.GlobalAuthProvider.get_auth_provider', return_value=None):
+        provider.mount(app)
     return app
 
 

@@ -105,8 +105,11 @@ class CacheProvider:
         """Create a new key-value store instance based on the configured storage type."""
         
         if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None:
-            from key_value.aio.stores.redis import RedisStore
-            return RedisStore(default_collection=REDIS_CONNECTION_STRING)
+            try:
+                from key_value.aio.stores.redis import RedisStore
+                return RedisStore(default_collection=REDIS_CONNECTION_STRING)
+            except ImportError:
+                logging.warning("Redis store not available, falling back to memory store")
 
         if OAUTH_STORAGE_TYPE == "sqlite":
             from key_value.aio.stores.disk import DiskStore
