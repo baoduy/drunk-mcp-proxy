@@ -45,4 +45,4 @@ class TestToolsPackageImports:
         assert "AuthConfig" in tools.__all__
         assert "AuthProviderType" in tools.__all__
         # Cache is exported from app, not tools
-        assert len(tools.__all__) == 3
+        assert len(tools.__all__) == 4

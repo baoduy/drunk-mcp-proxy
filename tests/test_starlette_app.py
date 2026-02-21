@@ -21,6 +21,17 @@ def _make_config(path: str) -> McpProxyConfig:
     return McpProxyConfig(path=path, mcp_server=DummyMcpServer())
 
 
+class DummyLlmProvider:
+    """Minimal LLM provider stub for testing."""
+    
+    def __init__(self, providers=None):
+        self.providers = providers or []
+        self.mounted_routes = []
+    
+    def mount(self, app, route_prefix="/llm/v1"):
+        self.mounted_routes.append((app, route_prefix))
+
+
 def test_health_check_returns_service_name(monkeypatch):
     monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
     app_factory = starlette_app.StarletteApp()
@@ -78,3 +89,45 @@ def test_add_mcp_services_propagates_error(monkeypatch):
         assert str(exc) == "boom"
     else:
         assert False, "Expected RuntimeError to be raised"
+
+
+def test_add_llm_service_stores_service(monkeypatch):
+    monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
+    app_factory = starlette_app.StarletteApp()
+    
+    llm_service = DummyLlmProvider(providers=["provider1"])
+    app_factory._add_llm_service("/llm/v1", llm_service)
+    
+    assert len(app_factory.llm_services) == 1
+    assert app_factory.llm_services[0] == ("/llm/v1", llm_service)
+
+
+def test_add_llm_services_adds_all(monkeypatch):
+    monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
+    app_factory = starlette_app.StarletteApp()
+    
+    llm_provider1 = DummyLlmProvider(providers=["provider1"])
+    llm_provider2 = DummyLlmProvider(providers=["provider2"])
+    services = [("prefix1", llm_provider1), ("prefix2", llm_provider2)]
+    
+    app_factory.add_llm_services(services)
+    
+    assert len(app_factory.llm_services) == 2
+    assert app_factory.llm_services[0] == ("prefix1", llm_provider1)
+    assert app_factory.llm_services[1] == ("prefix2", llm_provider2)
+
+
+def test_build_mounts_llm_services(monkeypatch):
+    monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
+    monkeypatch.setattr(starlette_app, "OPENAPI_ENABLED", False)
+    app_factory = starlette_app.StarletteApp()
+    
+    llm_provider = DummyLlmProvider(providers=["provider1"])
+    app_factory._add_llm_service("/llm/v1", llm_provider)
+    
+    app = app_factory.build()
+    
+    assert len(llm_provider.mounted_routes) == 1
+    mounted_app, route_prefix = llm_provider.mounted_routes[0]
+    assert mounted_app == app
+    assert route_prefix == "/llm/v1"

@@ -15,7 +15,6 @@ from tools.logging_config import setup_logging
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
 
-
 logger = setup_logging(__name__)
 
 

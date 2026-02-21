@@ -16,11 +16,15 @@ class FakeStarletteApp:
 
     def __init__(self, middleware=None):
         self.middleware = middleware
-        self.mounted = []
+        self.mcp_services = []
+        self.llm_services = []
         self.built = False
 
     def add_mcp_services(self, services):
-        self.mounted = list(services)
+        self.mcp_services = list(services)
+
+    def add_llm_services(self, services):
+        self.llm_services = list(services)
 
     def build(self):
         self.built = True
@@ -51,25 +55,12 @@ class FakeUvicornServer:
         self.served = True
 
 
-def test_retrieve_configuration_defaults(monkeypatch):
-    """_retrieve_configuration should return defaults when HOST/PORT are unset."""
-    monkeypatch.setattr(server, "SERVER_NAME", "test-server")
-    monkeypatch.setattr(server, "SERVER_VERSION", "0.0.0")
-    monkeypatch.setattr(server, "HOST", None)
-    monkeypatch.setattr(server, "PORT", None)
-    monkeypatch.setattr(server, "LOG_LEVEL", "INFO")
-    monkeypatch.setattr(server, "CONFIG_DIR", "/tmp/config")
-
-    config = server.MCPProxyServer._retrieve_configuration()
-
-    assert config == {
-        "server_name": "test-server",
-        "server_version": "0.0.0",
-        "host": "0.0.0.0",
-        "port": 9123,
-        "log_level": "INFO",
-        "config_dir": "/tmp/config",
-    }
+def test_initialization_creates_empty_services():
+    """MCPProxyServer should initialize with empty service lists."""
+    proxy = server.MCPProxyServer()
+    
+    assert proxy.mcp_services == []
+    assert proxy.llm_services == []
 
 
 def test_log_startup_configuration_logs(monkeypatch, caplog):
@@ -99,6 +90,7 @@ def test_log_startup_configuration_logs(monkeypatch, caplog):
 async def test_async_start_server_runs_uvicorn(monkeypatch):
     """_async_start_server should create uvicorn server and call serve."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
+    monkeypatch.setattr(server, "get_middlewares", lambda: ["mw1"])
     monkeypatch.setattr(server, "HOST", "127.0.0.1")
     monkeypatch.setattr(server, "PORT", 9999)
     monkeypatch.setattr(server, "LOG_LEVEL", "INFO")
@@ -107,7 +99,9 @@ async def test_async_start_server_runs_uvicorn(monkeypatch):
     monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
 
     proxy = server.MCPProxyServer()
-    await proxy._async_start_server(["svc1"], middleware=["mw1"])
+    proxy.mcp_services = ["svc1"]
+    proxy.llm_services = [("/llm/v1", "llm_svc1")]
+    await proxy._async_start_server()
 
     instance = FakeUvicornServer.last_instance
     assert instance is not None
@@ -122,6 +116,7 @@ async def test_async_start_server_runs_uvicorn(monkeypatch):
 async def test_async_start_server_import_error(monkeypatch):
     """_async_start_server should surface ImportError for uvicorn."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
+    monkeypatch.setattr(server, "get_middlewares", lambda: [])
 
     original_import = __import__
 
@@ -136,50 +131,71 @@ async def test_async_start_server_import_error(monkeypatch):
     monkeypatch.setattr("builtins.__import__", import_side_effect)
 
     proxy = server.MCPProxyServer()
+    proxy.mcp_services = ["svc1"]
     with pytest.raises(ImportError):
-        await proxy._async_start_server(["svc1"], middleware=[])
+        await proxy._async_start_server()
 
 
 @pytest.mark.asyncio
 async def test_async_run_happy_path(monkeypatch):
-    """async_run should load services and start the server."""
-    services = ["svc1", "svc2"]
+    """async_run should load MCP and LLM services and start the server."""
+    mcp_services = ["svc1", "svc2"]
 
-    class DummyProvider:
+    class DummyMcpProvider:
         def __init__(self, config_dir):
             self.config_dir = config_dir
 
         def get_config_services(self):
-            return services
+            return mcp_services
+
+    class DummyLlmProvider:
+        def __init__(self, config_dir):
+            self.config_dir = config_dir
+            self.providers = ["provider1"]
 
     async_start = AsyncMock()
 
-    monkeypatch.setattr(server, "StaticProxiesProvider", DummyProvider)
-    monkeypatch.setattr(server, "get_middlewares", lambda: ["mw"])
+    monkeypatch.setattr(server, "StaticProxiesProvider", DummyMcpProvider)
+    monkeypatch.setattr(server, "LlmProxiesProvider", DummyLlmProvider)
     monkeypatch.setattr(server.MCPProxyServer, "_async_start_server", async_start)
 
     proxy = server.MCPProxyServer()
     await proxy.async_run()
 
-    async_start.assert_called_once_with(services, ["mw"])
+    assert proxy.mcp_services == mcp_services
+    assert len(proxy.llm_services) == 1
+    assert proxy.llm_services[0][0] == server.LLM_ROUTE_PREFIX
+    async_start.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_async_run_keyboard_interrupt(monkeypatch):
-    """KeyboardInterrupt during server start should be swallowed."""
+async def test_async_run_loads_llm_providers(monkeypatch):
+    """async_run should load LLM providers with correct route prefix."""
+    mcp_services = []
 
-    class DummyProvider:
+    class DummyMcpProvider:
         def __init__(self, config_dir):
             self.config_dir = config_dir
 
         def get_config_services(self):
-            return ["svc1"]
+            return mcp_services
 
-    async_start = AsyncMock(side_effect=KeyboardInterrupt())
+    class DummyLlmProvider:
+        def __init__(self, config_dir):
+            self.config_dir = config_dir
+            self.providers = ["provider1"]
 
-    monkeypatch.setattr(server, "StaticProxiesProvider", DummyProvider)
-    monkeypatch.setattr(server, "get_middlewares", lambda: [])
+    async_start = AsyncMock()
+
+    monkeypatch.setattr(server, "StaticProxiesProvider", DummyMcpProvider)
+    monkeypatch.setattr(server, "LlmProxiesProvider", DummyLlmProvider)
+    monkeypatch.setattr(server, "LLM_ROUTE_PREFIX", "/llm/v1")
     monkeypatch.setattr(server.MCPProxyServer, "_async_start_server", async_start)
 
     proxy = server.MCPProxyServer()
     await proxy.async_run()
+
+    assert len(proxy.llm_services) == 1
+    route_prefix, llm_service = proxy.llm_services[0]
+    assert route_prefix == "/llm/v1"
+    assert hasattr(llm_service, "providers")

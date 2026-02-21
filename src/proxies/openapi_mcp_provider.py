@@ -16,7 +16,7 @@ else:
     # Import for runtime use
     from fastmcp.server.providers.openapi import MCPType
 
-from src.proxies.static_mcp_provider import StaticMcpProvider,McpProxyConfig
+from proxies.static_mcp_provider import StaticMcpProvider,McpProxyConfig
 from tools import SpecConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging

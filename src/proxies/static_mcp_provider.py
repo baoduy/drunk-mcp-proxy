@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from src.tools.auth_config import AuthProviderType
-from src.tools.spec_config import AzureAuthConfig
+from tools.auth_config import AuthProviderType
+from tools.spec_config import AzureAuthConfig
 from tools import SpecConfig
 from auth_providers import AzureOauth
 from dataclasses import dataclass
