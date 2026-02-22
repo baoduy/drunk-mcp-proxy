@@ -2,6 +2,10 @@
 
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=baoduy_drunk-mcp-proxy)](https://sonarcloud.io/summary/new_code?id=baoduy_drunk-mcp-proxy)
 
+## Docs
+- [deepwiki](https://deepwiki.com/baoduy/drunk-mcp-proxy)
+- [github-docs](https://baoduy.github.io/drunk-mcp-proxy/)
+
 A powerful, production-ready dynamic proxy server for the Model Context Protocol (MCP) built with Python and FastMCP. This service enables MCP clients to seamlessly connect to multiple backend MCP servers through a unified, scalable interface with advanced features including authentication, CORS support, and environment-based configuration.
 
 ## 🎯 Overview
