@@ -128,7 +128,11 @@ class GlobalAuthProvider:
             AuthProviderType.INTROSPECTION: ("fastmcp.server.auth.providers.introspection", "IntrospectionProvider", False),
             AuthProviderType.SUPABASE: ("fastmcp.server.auth.providers.supabase", "SupabaseProvider", True),
         }
-
+    
+        if provider_type == AuthProviderType.BEARER:
+            from auth_providers.api_auth_provider import ApiKeyAuthProvider
+            return (ApiKeyAuthProvider, False)
+        
         if provider_type not in provider_mapping:
             return None
 

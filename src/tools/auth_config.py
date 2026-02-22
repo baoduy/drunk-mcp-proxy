@@ -25,6 +25,7 @@ from .env_resolver import resolve_env_var
 
 class AuthProviderType(str, Enum):
     """Enumeration of supported authentication provider types."""
+    BEARER = "bearer"
     AUTH0 = "auth0"
     AWS = "aws"
     AZURE = "azure"
@@ -84,6 +85,7 @@ class AuthConfig(BaseModel):
     """
     enabled: bool = AUTH_ENABLED
     default_provider: Optional[AuthProviderType] = Field(default=None, alias="defaultProvider", description="Default authentication provider type")
+    bearer: Optional[dict[str, Any]] = Field(default=None, description="Bearer token provider configuration")
     auth0: Optional[dict[str, Any]] = Field(default=None, description="Auth0 provider configuration")
     aws: Optional[dict[str, Any]] = Field(default=None, description="AWS provider configuration")
     azure: Optional[dict[str, Any]] = Field(default=None, description="Azure provider configuration")

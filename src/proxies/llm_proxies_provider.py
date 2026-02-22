@@ -42,9 +42,10 @@ class FastAuthMiddleware(HTTPBase):
             raise self.make_not_authenticated_error()
         
         rs = await self.auth_provider.verify_token(token)
-        if rs is None or rs.claims.__len__() <= 0:
-            raise self.make_not_authenticated_error()
-        return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
+        if rs is not None and (rs.claims.__len__() > 0 or rs.scopes.__len__() > 0):
+            return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
+        raise self.make_not_authenticated_error()
+        
     
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
