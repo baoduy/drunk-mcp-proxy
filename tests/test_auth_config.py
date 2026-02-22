@@ -518,9 +518,9 @@ class TestAuthProviderTypeEnum:
     """Test AuthProviderType enumeration."""
 
     def test_all_providers_defined(self):
-        """Test that all 15 providers are defined."""
+        """Test that all 16 providers are defined."""
         providers = list(AuthProviderType)
-        assert len(providers) == 15
+        assert len(providers) == 16
 
     def test_auth0_defined(self):
         """Test Auth0 provider is defined."""
@@ -544,7 +544,7 @@ class TestAuthProviderTypeEnum:
             "auth0", "aws", "azure", "debug", "descope",
             "discord", "github", "google", "in_memory",
             "introspection", "jwt", "oci", "scalekit",
-            "supabase", "workos"
+            "supabase", "workos", "bearer"
         }
         actual_providers = {p.value for p in AuthProviderType}
         assert actual_providers == expected_providers
