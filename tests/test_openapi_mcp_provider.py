@@ -209,7 +209,7 @@ class TestOpenApiMcpProviderScopeValue:
 class TestOpenApiMcpProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("src.app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
     @patch("src.proxies.openapi_mcp_provider.FastMCP")
     @patch.object(OpenApiMcpProvider, "create_client")
     def test_create_proxy_success(
@@ -243,7 +243,7 @@ class TestOpenApiMcpProviderCreateProxy:
         assert provider.mcp == mock_mcp
         mock_fastmcp_cls.from_openapi.assert_called_once()
 
-    @patch("src.app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
     @patch("src.proxies.openapi_mcp_provider.FastMCP")
     @patch.object(OpenApiMcpProvider, "create_client")
     def test_create_proxy_returns_cached(

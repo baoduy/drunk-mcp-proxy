@@ -261,7 +261,7 @@ class TestMcpProxyProviderCreateSkillProxy:
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("src.app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
@@ -288,7 +288,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_mcp)
         assert result == mock_mcp
 
-    @patch("src.app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
@@ -315,7 +315,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls.assert_not_called()
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
-    @patch("src.app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")

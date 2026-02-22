@@ -41,7 +41,7 @@ class McpProxyConfig:
     def http_app(self, path: str = "/") -> "StarletteWithLifespan":
         """Return the underlying ASGI application for this MCP proxy."""
         return self.mcp_server.http_app(
-            path=path, transport=SERVER_TRANSPORT or "streamable-http"
+            path=path, transport=SERVER_TRANSPORT or "streamable-http" # type: ignore
         )  # type: ignore
 
 
@@ -62,7 +62,6 @@ class StaticMcpProvider(ABC):
         Returns:
             A list of Starlette Middleware instances.
         """
-        # from src.middleware.auth_header_middleware import AuthHeaderMiddleware
         return []
 
     @abstractmethod
@@ -94,7 +93,7 @@ class StaticMcpProvider(ABC):
         Returns:
             An Authentication provider instance for the provider.
         """
-        from src.app.auth_provider import GlobalAuthProvider
+        from app.auth_provider import GlobalAuthProvider
 
         return GlobalAuthProvider.get_auth_provider(provider_name)
 
@@ -136,7 +135,7 @@ class StaticMcpProvider(ABC):
 
             return AuthPassThrough()
 
-        from src.app.cache_provider import CacheProvider
+        from app.cache_provider import CacheProvider
 
         scope_value = self._scope_value(azure_config)
         auth = AzureOauth(

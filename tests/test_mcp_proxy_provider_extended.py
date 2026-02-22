@@ -15,7 +15,7 @@ from src.tools.spec_config import SpecConfig
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     def test_create_proxy_returns_cached_instance(
         self, mock_fastmcp_cls, mock_auth_provider
@@ -45,7 +45,7 @@ class TestMcpProxyProviderCreateProxy:
         # FastMCP should only be called once
         assert mock_fastmcp_cls.call_count == 1
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     @patch("src.proxies.mcp_proxy_provider.SERVER_NAME", "test-server")
     @patch("src.proxies.mcp_proxy_provider.SERVER_VERSION", "2.0.0")
@@ -69,7 +69,7 @@ class TestMcpProxyProviderCreateProxy:
         assert result == mock_root_mcp
         mock_fastmcp_cls.assert_not_called()
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     @patch("src.proxies.mcp_proxy_provider.SERVER_NAME", "test-server")
     @patch("src.proxies.mcp_proxy_provider.SERVER_VERSION", "2.0.0")
@@ -96,7 +96,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls.assert_called_once_with("test-server/api", version="2.0.0")
         assert result == mock_mcp
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     @patch("fastmcp.server.create_proxy")
     def test_create_proxy_calls_create_proxy_method(
@@ -178,7 +178,7 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         # Should return empty list for empty input
         assert result == []
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     @patch("src.proxies.mcp_proxy_provider.SERVER_NAME", "test-server")
     @patch("src.proxies.mcp_proxy_provider.SERVER_VERSION", "1.0.0")
@@ -205,7 +205,7 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         assert result[0].path == "/"
         assert result[0].mcp_server == mock_root
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     def test_create_mcp_proxies_configs_skips_none_spec_data(
         self, mock_fastmcp_cls, mock_auth_provider
@@ -234,7 +234,7 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         assert result[0].path == "/"
         # config1 should be skipped, so only config2 is processed
 
-    @patch("src.app.auth_provider.GlobalAuthProvider")
+    @patch("app.auth_provider.GlobalAuthProvider")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
     def test_create_mcp_proxies_configs_processes_multiple_configs(
         self, mock_fastmcp_cls, mock_auth_provider

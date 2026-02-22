@@ -73,8 +73,9 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   ```
 - **Quotes**: Prefer double quotes `"` for strings.
 - **Imports**:
-  - Use absolute imports based on the `src` directory structure (e.g., `from tools.env import ...`).
-  - **Important**: When patching in tests, ensure the patch path matches how the module is imported in the code under test.
+  - Use absolute imports based on the `src` directory structure **without the `src` prefix** (e.g., `from tools.env import ...` NOT `from src.tools.env import ...`).
+  - When working in the `src` folder, imports should be relative to `src/` as the root.
+  - **Important**: When patching in tests, ensure the patch path matches how the module is imported in the code under test (use the `src`-relative path without `src.` prefix).
   - Group imports: Standard library, Third-party, Local application.
   - Use `from __future__ import annotations` at the top of files.
 
