@@ -7,6 +7,7 @@ from mcp.server.auth.provider import AccessToken
 logger = logging.getLogger(__name__)
 
 class AuthPassThrough(httpx.Auth):
+    """Authentication provider that passes through a static bearer token from calling client."""
     def _get_token(self) -> "AccessToken | None":
         token = get_access_token()
         if token:
