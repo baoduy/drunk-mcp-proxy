@@ -17,7 +17,7 @@ provides a centralized, validated approach to managing authentication providers 
 2. **`src/proxies/auth_config_provider.py`** - Configuration provider and loader
     - `AuthConfigProvider` - Loads and manages authentication configurations
 
-3. **`data/auth.json`** - Configuration file with all available providers
+3. **`data/config.yaml`** - Configuration file with all available providers
 
 ## Features
 
@@ -50,14 +50,12 @@ The system automatically resolves environment variable references in configurati
 
 **Example:**
 
-```json
-{
-  "config": {
-    "client_id": "$AZURE_CLIENT_ID",
-    "client_secret": "$AZURE_CLIENT_SECRET",
-    "tenant_id": "${AZURE_TENANT_ID}"
-  }
-}
+```yaml
+auth:
+  config:
+    client_id: "$AZURE_CLIENT_ID"
+    client_secret: "$AZURE_CLIENT_SECRET"
+    tenant_id: "${AZURE_TENANT_ID}"
 ```
 
 When a provider is enabled, these variables are resolved by looking up the corresponding environment variables.
@@ -74,70 +72,56 @@ The system performs multi-level validation:
 
 ## Configuration File Structure
 
-### Example `auth.json`
+### Example `config.yaml`
 
-```json
-{
-  "version": "1.0",
-  "description": "MCP Authentication Providers Configuration",
-  "providers": {
-    "azure": {
-      "enabled": true,
-      "description": "Azure/Microsoft Entra ID authentication provider",
-      "class": "Azure",
-      "required_fields": [
-        "client_id",
-        "client_secret",
-        "tenant_id",
-        "token_url"
-      ],
-      "optional_fields": [
-        "issuer",
-        "scopes"
-      ],
-      "environment_variables": {
-        "client_id": "AZURE_CLIENT_ID",
-        "client_secret": "AZURE_CLIENT_SECRET",
-        "tenant_id": "AZURE_TENANT_ID"
-      },
-      "config": {
-        "client_id": "$AZURE_CLIENT_ID",
-        "client_secret": "$AZURE_CLIENT_SECRET",
-        "tenant_id": "$AZURE_TENANT_ID",
-        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-        "issuer": null,
-        "scopes": [
-          "api://$AZURE_CLIENT_ID/.default"
-        ]
-      }
-    },
-    "github": {
-      "enabled": false,
-      "description": "GitHub OAuth2 authentication provider",
-      "class": "GitHub",
-      "required_fields": [
-        "client_id",
-        "client_secret"
-      ],
-      "optional_fields": [
-        "scopes",
-        "redirect_uri"
-      ],
-      "environment_variables": {
-        "client_id": "GITHUB_CLIENT_ID",
-        "client_secret": "GITHUB_CLIENT_SECRET"
-      },
-      "config": {
-        "client_id": "$GITHUB_CLIENT_ID",
-        "client_secret": "$GITHUB_CLIENT_SECRET",
-        "scopes": [
-          "user:email"
-        ],
-        "redirect_uri": null
-      }
-    }
-  }
-}
+```yaml
+auth:
+  version: "1.0"
+  description: "MCP Authentication Providers Configuration"
+  providers:
+    azure:
+      enabled: true
+      description: "Azure/Microsoft Entra ID authentication provider"
+      class: "Azure"
+      required_fields:
+        - client_id
+        - client_secret
+        - tenant_id
+        - token_url
+      optional_fields:
+        - issuer
+        - scopes
+      environment_variables:
+        client_id: AZURE_CLIENT_ID
+        client_secret: AZURE_CLIENT_SECRET
+        tenant_id: AZURE_TENANT_ID
+      config:
+        client_id: "$AZURE_CLIENT_ID"
+        client_secret: "$AZURE_CLIENT_SECRET"
+        tenant_id: "$AZURE_TENANT_ID"
+        token_url: "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+        issuer: null
+        scopes:
+          - "api://$AZURE_CLIENT_ID/.default"
+    github:
+      enabled: false
+      description: "GitHub OAuth2 authentication provider"
+      class: "GitHub"
+      required_fields:
+        - client_id
+        - client_secret
+      optional_fields:
+        - scopes
+        - redirect_uri
+      environment_variables:
+        client_id: GITHUB_CLIENT_ID
+        client_secret: GITHUB_CLIENT_SECRET
+      config:
+        client_id: "$GITHUB_CLIENT_ID"
+        client_secret: "$GITHUB_CLIENT_SECRET"
+        scopes:
+          - "user:email"
+        redirect_uri: null
 ```
 
 ### Field Descriptions
@@ -180,7 +164,7 @@ if github_config:
 from src.tools.auth_config import AuthConfig
 
 # Load from file
-config = AuthConfig.load_from_file("data/auth.json")
+config = AuthConfig.load_from_file("data/config.yaml")
 
 # Access providers
 for name, provider in config.providers.items():
@@ -207,25 +191,27 @@ all_providers = auth_provider.list_available_providers()
 
 To add a new authentication provider:
 
-1. Add an entry to the `providers` object in `data/auth.json`:
+1. Add an entry to the `providers` object in `data/config.yaml`:
 
-```json
-{
-  "enabled": false,
-  "description": "Description of the provider",
-  "class": "ProviderClassName",
-  "required_fields": ["field1", "field2"],
-  "optional_fields": ["field3"],
-  "environment_variables": {
-    "field1": "ENV_VAR_NAME_1",
-    "field2": "ENV_VAR_NAME_2"
-  },
-  "config": {
-    "field1": "$ENV_VAR_NAME_1",
-    "field2": "$ENV_VAR_NAME_2",
-    "field3": null
-  }
-}
+```yaml
+auth:
+  providers:
+    provider_name:
+      enabled: false
+      description: "Description of the provider"
+      class: "ProviderClassName"
+      required_fields:
+        - field1
+        - field2
+      optional_fields:
+        - field3
+      environment_variables:
+        field1: ENV_VAR_NAME_1
+        field2: ENV_VAR_NAME_2
+      config:
+        field1: "$ENV_VAR_NAME_1"
+        field2: "$ENV_VAR_NAME_2"
+        field3: null
 ```
 
 2. Set `enabled: true` to activate the provider
@@ -253,13 +239,13 @@ The system provides detailed error messages for configuration issues:
 ### File Not Found
 
 ```
-FileNotFoundError: Authentication configuration file not found: /path/to/auth.json
+FileNotFoundError: Authentication configuration file not found: /path/to/config.yaml
 ```
 
-### Invalid JSON
+### Invalid YAML
 
 ```
-json.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+yaml.YAMLError: Expecting value: line 1 column 1
 ```
 
 ### Missing Required Fields
@@ -311,7 +297,7 @@ The authentication configuration system mirrors the design of `spec_config.py`:
 
 | Aspect          | spec_config.py      | auth_config.py     |
 |-----------------|---------------------|--------------------|
-| **Root file**   | config.json         | auth.json          |
+| **Root file**   | config.yaml         | config.yaml        |
 | **Root model**  | SpecConfig (list)   | AuthConfig (dict)  |
 | **Entry model** | SpecConfig          | AuthProviderConfig |
 | **Provider**    | ProxyConfigProvider | AuthConfigProvider |
