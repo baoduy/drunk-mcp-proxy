@@ -13,7 +13,7 @@ drunk-mcp-proxy can automatically convert OpenAPI 3.0 specifications into MCP to
 
 Configuration Loading:
 ┌──────────────┐         ┌──────────────────┐         ┌───────────────┐
-│ config.json  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
+│ config.yaml  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
 │              │         │ Provider         │         │ (OpenAPI)     │
 │ - spec_type: │         │                  │         │               │
 │   "openapi"  │         │ Filters by type  │         │ - spec_file   │
@@ -296,80 +296,75 @@ Step 5: Response to MCP Client
 
 ### Basic OpenAPI Service
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com"
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
 ```
 
 ### With Pass-Through Authentication
 
-```json
-{
-  "path": "/deepsea",
-  "spec_file": "openapi/deepsea.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "http://host.docker.internal:5000",
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+mcp:
+  - path: /deepsea
+    spec_file: openapi/deepsea.openapi.json
+    spec_type: openapi
+    base_url: http://host.docker.internal:5000
+    auth:
+      pass_through: true
 ```
 
 ### With Azure OAuth2
 
-```json
-{
-  "path": "/deepsea",
-  "spec_file": "openapi/deepsea.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "http://host.docker.internal:5000",
-  "auth": {
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["api://$AZURE_CLIENT_ID/.default"]
-    }
-  }
-}
+```yaml
+mcp:
+  - path: /deepsea
+    spec_file: openapi/deepsea.openapi.json
+    spec_type: openapi
+    base_url: http://host.docker.internal:5000
+    auth:
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        issuer: https://sts.windows.net/$AZURE_TENANT_ID/
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - api://$AZURE_CLIENT_ID/.default
 ```
 
 ### With Route Filters
 
-```json
-{
-  "path": "/deepsea",
-  "spec_file": "openapi/deepsea.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "http://host.docker.internal:5000",
-  "filters": {
-    "methods": ["GET", "POST", "PUT"],
-    "tags": ["CurrencyPairs", "Users"]
-  },
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+mcp:
+  - path: /deepsea
+    spec_file: openapi/deepsea.openapi.json
+    spec_type: openapi
+    base_url: http://host.docker.internal:5000
+    filters:
+      methods:
+        - GET
+        - POST
+        - PUT
+      tags:
+        - CurrencyPairs
+        - Users
+    auth:
+      pass_through: true
 ```
 
 ### With Static Token
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "auth_token": "Bearer sk-1234567890abcdef"
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      auth_token: Bearer sk-1234567890abcdef
 ```
 
 ## Filters
@@ -378,12 +373,12 @@ Step 5: Response to MCP Client
 
 Limit which HTTP methods are exposed as MCP tools:
 
-```json
-{
-  "filters": {
-    "methods": ["GET", "POST"]
-  }
-}
+```yaml
+mcp:
+  - filters:
+      methods:
+        - GET
+        - POST
 ```
 
 **Available methods**: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`
@@ -397,12 +392,13 @@ Limit which HTTP methods are exposed as MCP tools:
 
 Only include endpoints with specific tags:
 
-```json
-{
-  "filters": {
-    "tags": ["Users", "Projects", "Issues"]
-  }
-}
+```yaml
+mcp:
+  - filters:
+      tags:
+        - Users
+        - Projects
+        - Issues
 ```
 
 **How it works**:
@@ -414,13 +410,15 @@ Only include endpoints with specific tags:
 
 Use both method and tag filters:
 
-```json
-{
-  "filters": {
-    "methods": ["GET", "POST"],
-    "tags": ["Users", "Projects"]
-  }
-}
+```yaml
+mcp:
+  - filters:
+      methods:
+        - GET
+        - POST
+      tags:
+        - Users
+        - Projects
 ```
 
 **Result**: Only GET and POST endpoints with Users or Projects tags are exposed.
