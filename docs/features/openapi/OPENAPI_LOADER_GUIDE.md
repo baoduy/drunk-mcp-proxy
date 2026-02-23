@@ -358,8 +358,8 @@ INFO: OpenAPI server load process complete: 1 server(s) created
 
 | Feature      | StaticProxyLoader           | OpenApiMcpProxyLoader        |
 |--------------|-----------------------------|------------------------------|
-| Config Files | `*.mcp.json`                | `*.openapi.json`             |
-| Root Config  | `mcp.json` (optional)       | Not supported                |
+| Config Files | `*.mcp.yaml`                | `*.openapi.json`             |
+| Root Config  | `mcp.yaml` (optional)       | Not supported                |
 | Purpose      | Proxy to remote MCP servers | Build MCP from OpenAPI specs |
 | Creation     | Uses `create_proxy()`       | Uses `OpenAPIProvider`       |
 | Tools        | Proxied from remote MCP     | Generated from OpenAPI       |
