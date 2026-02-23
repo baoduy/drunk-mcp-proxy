@@ -30,7 +30,6 @@ from app.app_config_provider import AppConfigProvider
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from proxies import StaticProxiesProvider
-from proxies.static_mcp_provider import McpProxyConfig
 from tools.env import (
     CONFIG_DIR,
     LLM_ROUTE_PREFIX,
@@ -43,7 +42,7 @@ from tools.env import (
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    pass
+    from proxies.static_mcp_provider import McpProxyConfig
 
 # Initialize logging with server name from environment
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable
@@ -65,7 +64,7 @@ class MCPProxyServer:
     def __init__(self):
         """Initialize the MCP Proxy Server."""
         self.logger = logger
-        self.mcp_services: list[McpProxyConfig] = []
+        self.mcp_services: list["McpProxyConfig"] = []
         self.llm_services: list[tuple[str, LlmProxiesProvider]] = []
 
     # Server Management Methods
