@@ -152,7 +152,6 @@ services:
     env_file:
       - .env
     environment:
-      - FASTMCP_ENABLE_OPENAPI=${FASTMCP_ENABLE_OPENAPI:-true}
       - FASTMCP_HOST=0.0.0.0
       - FASTMCP_PORT=${FASTMCP_PORT:-9123}
       - FASTMCP_SERVER_NAME=${FASTMCP_SERVER_NAME:-mcp-proxy-server}
@@ -307,7 +306,6 @@ mcp:
 | `FASTMCP_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 | `FASTMCP_SERVER_NAME` | `mcp-proxy-server` | Server name |
 | `FASTMCP_SERVER_VERSION` | `1.0.0` | Server version |
-| `FASTMCP_ENABLE_OPENAPI` | `true` | Enable OpenAPI integration |
 
 ### Authentication
 
@@ -347,7 +345,6 @@ FASTMCP_PORT=9123
 FASTMCP_LOG_LEVEL=INFO
 FASTMCP_SERVER_NAME=mcp-proxy-server
 FASTMCP_SERVER_VERSION=1.0.0
-FASTMCP_ENABLE_OPENAPI=true
 
 # Authentication (JWT)
 FASTMCP_SERVER_AUTH=jwt

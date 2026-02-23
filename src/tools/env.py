@@ -29,9 +29,6 @@ Environment Variables:
         FASTMCP_HOST: Host to bind to (default: "0.0.0.0")
         FASTMCP_PORT: Port to listen on (default: 9123)
 
-    OpenAPI:
-        FASTMCP_ENABLE_OPENAPI: Enable OpenAPI schema endpoint (default: false)
-
     Authentication:
         FASTMCP_AUTH_ENABLED: Enable request header validation (default: false)
 
@@ -143,11 +140,6 @@ CORS_MAX_AGE = getEnvInt("FASTMCP_CORS_MAX_AGE", 3600)
 # PORT: Must be a valid port number (1-65535)
 HOST = getEnvString("FASTMCP_HOST", "0.0.0.0")
 PORT = getEnvInt("FASTMCP_PORT", 9123)
-
-# OpenAPI Configuration
-# =====================
-# Controls whether the OpenAPI schema endpoint is enabled
-OPENAPI_ENABLED = getEnvBool("FASTMCP_ENABLE_OPENAPI", False)
 
 # Authentication Configuration
 # =============================
