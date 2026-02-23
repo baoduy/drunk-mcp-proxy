@@ -22,7 +22,7 @@ from src.proxies.auth_config_provider import AuthConfigProvider
 # Initialize the provider
 auth_provider = AuthConfigProvider()
 
-# Load configuration (reads from data/auth.json)
+# Load configuration (reads from config.yaml)
 try:
     config = auth_provider.load_config()
 except Exception as e:
@@ -82,7 +82,7 @@ auth_provider = AuthConfigProvider()
 
 def setup_authentication(mcp: FastMCP) -> None:
     """
-    Configure FastMCP authentication based on auth.json settings.
+    Configure FastMCP authentication based on config.yaml settings.
     
     Args:
         mcp: FastMCP instance to configure
@@ -361,7 +361,7 @@ def setup_server_with_auth():
         try:
             config = auth_provider.load_config()
         except FileNotFoundError:
-            logger.warning("auth.json not found - running without authentication")
+            logger.warning("config.yaml not found - running without authentication")
             return mcp
         except ValueError as e:
             logger.error(f"Invalid authentication configuration: {e}")
@@ -405,7 +405,7 @@ class TestAuthenticationSetup(unittest.TestCase):
         }):
             provider = AuthConfigProvider()
             config = provider.load_config()
-            # Enable Azure in auth.json for testing
+            # Enable Azure in config.yaml for testing
             azure = provider.get_provider("azure")
             self.assertIsNotNone(azure)
 
