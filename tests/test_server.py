@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -153,8 +153,17 @@ async def test_async_run_happy_path(monkeypatch):
             self.config_dir = config_dir
             self.providers = ["provider1"]
 
+    # Mock AppConfigProvider to avoid loading the actual config file
+    mock_config_provider = Mock()
+    mock_config_provider.get_mcp_configs.return_value = []
+    mock_config_provider.get_llm_configs.return_value = []
+
+    mock_app_config_provider = Mock()
+    mock_app_config_provider.get_instance.return_value = mock_config_provider
+
     async_start = AsyncMock()
 
+    monkeypatch.setattr(server, "AppConfigProvider", mock_app_config_provider)
     monkeypatch.setattr(server, "StaticProxiesProvider", DummyMcpProvider)
     monkeypatch.setattr(server, "LlmProxiesProvider", DummyLlmProvider)
     monkeypatch.setattr(server.MCPProxyServer, "_async_start_server", async_start)
@@ -185,8 +194,17 @@ async def test_async_run_loads_llm_providers(monkeypatch):
             self.config_dir = config_dir
             self.providers = ["provider1"]
 
+    # Mock AppConfigProvider to avoid loading the actual config file
+    mock_config_provider = Mock()
+    mock_config_provider.get_mcp_configs.return_value = []
+    mock_config_provider.get_llm_configs.return_value = []
+
+    mock_app_config_provider = Mock()
+    mock_app_config_provider.get_instance.return_value = mock_config_provider
+
     async_start = AsyncMock()
 
+    monkeypatch.setattr(server, "AppConfigProvider", mock_app_config_provider)
     monkeypatch.setattr(server, "StaticProxiesProvider", DummyMcpProvider)
     monkeypatch.setattr(server, "LlmProxiesProvider", DummyLlmProvider)
     monkeypatch.setattr(server, "LLM_ROUTE_PREFIX", "/llm/v1")

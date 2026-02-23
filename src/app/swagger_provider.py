@@ -101,6 +101,14 @@ class SwaggerProvider:
             if mount_path:
                 # Add MCP endpoint documentation
                 schema["paths"][f"{mount_path}/"] = {
+                    "get": {
+                        "tags": ["Mcp-Servers"],
+                        "summary": f"Get {mount_path}",
+                        "description": f"Model Context Protocol server endpoint: {mount_path}",
+                        "responses": {
+                            "200": {"description": "MCP server response"}
+                        }
+                    },
                     "post": {
                         "tags": ["Mcp-Servers"],
                         "summary": mount_path,
