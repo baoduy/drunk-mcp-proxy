@@ -3,7 +3,7 @@
 ## Overview
 
 The MCP proxy supports 15 different authentication providers from the fastmcp library. The authentication system is
-configured via a single `data/auth.json` file that defines all available providers and their settings.
+configured via a single `data/config.yaml` file that defines all available providers and their settings.
 
 ## Quick Start: Enable Azure Authentication
 
@@ -16,44 +16,37 @@ export AZURE_TENANT_ID="your-azure-tenant-id"
 export AZURE_TOKEN_URL="https://login.microsoftonline.com/your-tenant-id/oauth2/v2.0/token"
 ```
 
-### 2. Update `data/auth.json`
+### 2. Update `data/config.yaml`
 
 Change the `azure` provider from disabled to enabled:
 
-```json
-{
-  "azure": {
-    "enabled": true,
-    "description": "Azure/Microsoft Entra ID authentication provider",
-    "class": "Azure",
-    "required_fields": [
-      "client_id",
-      "client_secret",
-      "tenant_id",
-      "token_url"
-    ],
-    "optional_fields": [
-      "issuer",
-      "scopes"
-    ],
-    "environment_variables": {
-      "client_id": "AZURE_CLIENT_ID",
-      "client_secret": "AZURE_CLIENT_SECRET",
-      "tenant_id": "AZURE_TENANT_ID",
-      "token_url": "AZURE_TOKEN_URL"
-    },
-    "config": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "token_url": "$AZURE_TOKEN_URL",
-      "issuer": null,
-      "scopes": [
-        "api://$AZURE_CLIENT_ID/.default"
-      ]
-    }
-  }
-}
+```yaml
+auth:
+  azure:
+    enabled: true
+    description: "Azure/Microsoft Entra ID authentication provider"
+    class: "Azure"
+    required_fields:
+      - client_id
+      - client_secret
+      - tenant_id
+      - token_url
+    optional_fields:
+      - issuer
+      - scopes
+    environment_variables:
+      client_id: AZURE_CLIENT_ID
+      client_secret: AZURE_CLIENT_SECRET
+      tenant_id: AZURE_TENANT_ID
+      token_url: AZURE_TOKEN_URL
+    config:
+      client_id: $AZURE_CLIENT_ID
+      client_secret: $AZURE_CLIENT_SECRET
+      tenant_id: $AZURE_TENANT_ID
+      token_url: $AZURE_TOKEN_URL
+      issuer: null
+      scopes:
+        - api://$AZURE_CLIENT_ID/.default
 ```
 
 ### 3. Load and Use the Configuration
@@ -80,23 +73,19 @@ export GITHUB_CLIENT_ID="your-github-app-id"
 export GITHUB_CLIENT_SECRET="your-github-app-secret"
 ```
 
-### 2. Update `data/auth.json`
+### 2. Update `data/config.yaml`
 
-```json
-{
-  "github": {
-    "enabled": true,
-    "class": "GitHub",
-    "config": {
-      "client_id": "$GITHUB_CLIENT_ID",
-      "client_secret": "$GITHUB_CLIENT_SECRET",
-      "scopes": [
-        "user:email"
-      ],
-      "redirect_uri": null
-    }
-  }
-}
+```yaml
+auth:
+  github:
+    enabled: true
+    class: "GitHub"
+    config:
+      client_id: $GITHUB_CLIENT_ID
+      client_secret: $GITHUB_CLIENT_SECRET
+      scopes:
+        - user:email
+      redirect_uri: null
 ```
 
 ### 3. Use in Your Application
@@ -111,7 +100,7 @@ if github:
 
 ## Available Providers
 
-All 15 providers are pre-configured in `data/auth.json`. Here's the complete list:
+All 15 providers are pre-configured in `data/config.yaml`. Here's the complete list:
 
 | Provider      | Status | Purpose                       |
 |---------------|--------|-------------------------------|
@@ -133,32 +122,26 @@ All 15 providers are pre-configured in `data/auth.json`. Here's the complete lis
 
 ## Configuration Structure
 
-Each provider in `auth.json` has this structure:
+Each provider in `config.yaml` has this structure:
 
-```json
-{
-  "provider_name": {
-    "enabled": false,
-    "description": "Description of the provider",
-    "class": "ProviderClassName",
-    "required_fields": [
-      "field1",
-      "field2"
-    ],
-    "optional_fields": [
-      "field3"
-    ],
-    "environment_variables": {
-      "field1": "ENV_VAR_NAME_1",
-      "field2": "ENV_VAR_NAME_2"
-    },
-    "config": {
-      "field1": "$ENV_VAR_NAME_1",
-      "field2": "$ENV_VAR_NAME_2",
-      "field3": null
-    }
-  }
-}
+```yaml
+auth:
+  provider_name:
+    enabled: false
+    description: "Description of the provider"
+    class: "ProviderClassName"
+    required_fields:
+      - field1
+      - field2
+    optional_fields:
+      - field3
+    environment_variables:
+      field1: ENV_VAR_NAME_1
+      field2: ENV_VAR_NAME_2
+    config:
+      field1: $ENV_VAR_NAME_1
+      field2: $ENV_VAR_NAME_2
+      field3: null
 ```
 
 ### Fields Explained
@@ -175,11 +158,9 @@ Each provider in `auth.json` has this structure:
 
 Values in the config are resolved at load time using `$VARIABLE_NAME` syntax:
 
-```json
-{
-  "client_id": "$AZURE_CLIENT_ID",
-  "token_url": "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
-}
+```yaml
+client_id: $AZURE_CLIENT_ID
+token_url: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
 ```
 
 Both `$VAR_NAME` and `${VAR_NAME}` work. The system raises an error if a referenced env var is not set when the provider
@@ -232,16 +213,16 @@ if azure_config:
 
 ### Enable a Provider
 
-Edit `data/auth.json` and change:
+Edit `data/config.yaml` and change:
 
-```json
-"enabled": false,
+```yaml
+enabled: false
 ```
 
 to:
 
-```json
-"enabled": true,
+```yaml
+enabled: true
 ```
 
 ### Set Environment Variables
@@ -261,17 +242,13 @@ Check what env vars you need in the `environment_variables` section of the provi
 
 Edit the `scopes` array in the provider config:
 
-```json
-{
-  "azure": {
-    "config": {
-      "scopes": [
-        "api://your-app-id/.default",
-        "https://management.azure.com/.default"
-      ]
-    }
-  }
-}
+```yaml
+auth:
+  azure:
+    config:
+      scopes:
+        - api://your-app-id/.default
+        - https://management.azure.com/.default
 ```
 
 ### Debug Configuration
@@ -287,7 +264,7 @@ Or load directly:
 ```python
 from src.tools.auth_config import AuthConfig
 
-config = AuthConfig.load_from_file("data/auth.json")
+config = AuthConfig.load_from_file("data/config.yaml")
 print(config.to_json(enabled_only=True))
 ```
 
@@ -321,7 +298,7 @@ Make sure the provider name matches exactly (case-sensitive) and check that `ena
 
 1. Choose a provider to enable
 2. Set the required environment variables
-3. Update `enabled: true` in `auth.json`
+3. Update `enabled: true` in `config.yaml`
 4. Load the configuration and test
 5. Integrate with your FastMCP server initialization
 
@@ -329,6 +306,6 @@ Make sure the provider name matches exactly (case-sensitive) and check that `ena
 
 - Full guide: [AUTH_CONFIG_GUIDE.md](../docs/AUTH_CONFIG_GUIDE.md)
 - Examples: [examples/auth_config_examples.py](../examples/auth_config_examples.py)
-- Configuration file: [data/auth.json](../data/auth.json)
+- Configuration file: [data/config.yaml](../data/config.yaml)
 - FastMCP docs: https://github.com/jlowin/fastmcp
 
