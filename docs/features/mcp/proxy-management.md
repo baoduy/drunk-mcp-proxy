@@ -13,7 +13,7 @@ drunk-mcp-proxy provides comprehensive management for proxying MCP (Model Contex
 
 Configuration Loading:
 ┌──────────────┐         ┌──────────────────┐         ┌───────────────┐
-│ config.json  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
+│ config.yaml  │────────>│ ProxyConfig      │────────>│ SpecConfig    │
 │              │         │ Provider         │         │ Instances     │
 │ - MCP specs  │         │                  │         │               │
 │ - Paths      │         │ Loads & validates│         │ Per-service   │
@@ -154,30 +154,27 @@ Step 6: Response to Client
 
 ### Basic Configuration
 
-**config.json**:
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  },
-  {
-    "path": "/stock",
-    "spec_file": "mcp/stock.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "tags": ["finance", "internal"]
-  },
-  {
-    "path": "/wiki",
-    "spec_file": "mcp/wiki.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "tags": ["documentation", "internal"]
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    base_url: null
+  - path: /stock
+    spec_file: mcp/stock.mcp.json
+    spec_type: mcp
+    base_url: null
+    tags:
+      - finance
+      - internal
+  - path: /wiki
+    spec_file: mcp/wiki.mcp.json
+    spec_type: mcp
+    base_url: null
+    tags:
+      - documentation
+      - internal
 ```
 
 ### MCP Specification Files
@@ -229,24 +226,20 @@ The Skills Directory Provider allows you to expose Markdown-based skill document
 
 Add the `skill_dir` field to your MCP configuration to enable the Skills Directory Provider:
 
-**config.json with skill_dir**:
-```json
-[
-  {
-    "path": "/",
-    "spec_type": "mcp",
-    "skill_dir": "skills",
-    "mcpServers": {
-      "memory": {
-        "enabled": true,
-        "timeout": 60,
-        "command": "npx",
-        "args": ["@modelcontextprotocol/server-memory"],
-        "transport": "stdio"
-      }
-    }
-  }
-]
+**config.yaml with skill_dir**:
+```yaml
+mcp:
+  - path: /
+    spec_type: mcp
+    skill_dir: skills
+    mcpServers:
+      memory:
+        enabled: true
+        timeout: 60
+        command: npx
+        args:
+          - "@modelcontextprotocol/server-memory"
+        transport: stdio
 ```
 
 ### Directory Structure
@@ -340,9 +333,9 @@ Each service gets its own FastMCP server instance:
 
 ### 5. Dynamic Configuration
 
-- JSON-based configuration with hot-reloading capability
+- YAML-based configuration with hot-reloading capability
 - Environment variable substitution (`$VAR_NAME`, `${VAR_NAME}`)
-- Schema validation against JSON schemas
+- Schema validation
 - No code changes required to add services
 
 ## Code Implementation
@@ -382,14 +375,11 @@ class McpProxyProvider(StaticMcpProvider):
 
 Simple configuration with one service at the root path:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp"
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
 ```
 
 Access via: `POST http://localhost:9123/mcp`
@@ -398,21 +388,20 @@ Access via: `POST http://localhost:9123/mcp`
 
 Multiple services with their own namespaces:
 
-```json
-[
-  {
-    "path": "/github",
-    "spec_file": "mcp/github.mcp.json",
-    "spec_type": "mcp",
-    "tags": ["version-control", "documentation"]
-  },
-  {
-    "path": "/database",
-    "spec_file": "mcp/database.mcp.json",
-    "spec_type": "mcp",
-    "tags": ["storage", "internal"]
-  }
-]
+```yaml
+mcp:
+  - path: /github
+    spec_file: mcp/github.mcp.json
+    spec_type: mcp
+    tags:
+      - version-control
+      - documentation
+  - path: /database
+    spec_file: mcp/database.mcp.json
+    spec_type: mcp
+    tags:
+      - storage
+      - internal
 ```
 
 Access via:
@@ -423,19 +412,14 @@ Access via:
 
 Combination of root-aggregated and namespaced services:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/common.mcp.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/specialized",
-    "spec_file": "mcp/specialized.mcp.json",
-    "spec_type": "mcp"
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/common.mcp.json
+    spec_type: mcp
+  - path: /specialized
+    spec_file: mcp/specialized.mcp.json
+    spec_type: mcp
 ```
 
 - Root services: `POST http://localhost:9123/mcp`
@@ -445,21 +429,18 @@ Combination of root-aggregated and namespaced services:
 
 Include markdown-based skills for domain knowledge:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_type": "mcp",
-    "skill_dir": "skills",
-    "mcpServers": {
-      "memory": {
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-memory"],
-        "transport": "stdio"
-      }
-    }
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_type: mcp
+    skill_dir: skills
+    mcpServers:
+      memory:
+        command: npx
+        args:
+          - "-y"
+          - "@modelcontextprotocol/server-memory"
+        transport: stdio
 ```
 
 ## Best Practices
@@ -495,19 +476,20 @@ Include markdown-based skills for domain knowledge:
    - Environment-specific values (URLs, ports)
    - Dynamic configuration
 
-2. **Use JSON files** for:
-   - Static configuration
-   - Service specifications
+2. **Use config files** for:
+   - Static configuration (config.yaml)
+   - Service specifications (MCP .json files)
    - Tool definitions
 
 ### Tagging
 
 Use tags to categorize services:
-```json
-{
-  "path": "/api",
-  "tags": ["external", "production", "finance"]
-}
+```yaml
+- path: /api
+  tags:
+    - external
+    - production
+    - finance
 ```
 
 Benefits:
