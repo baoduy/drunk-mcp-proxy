@@ -8,10 +8,10 @@
 - 593 lines of implementation
 - Full type hints and documentation
 
-✅ **Load an openapi.json file with the name convention similar to stock.mcp.json**
+✅ **Load an openapi.json file with the name convention similar to stock.mcp.yaml**
 
 - Naming: `{name}.openapi.json` (e.g., `petstore.openapi.json`)
-- Similar to: `stock.mcp.json` → namespace: `stock`
+- Similar to: `stock.mcp.yaml` → namespace: `stock`
 - Same pattern: `petstore.openapi.json` → namespace: `petstore`
 
 ✅ **Each openapi.json must follow the name.openapi.json convention**
@@ -132,9 +132,9 @@ src/
 data/
 ├── petstore.openapi.json                     ← NEW example
 ├── jsonplaceholder.openapi.json              ← NEW example
-├── stock.mcp.json                            ← Existing
-├── wiki.mcp.json                             ← Existing
-└── mcp.json                                  ← Existing
+├── stock.mcp.yaml                            ← Existing
+├── wiki.mcp.yaml                             ← Existing
+└── mcp.yaml                                  ← Existing
 
 Documentation/
 ├── OPENAPI_LOADER_GUIDE.md                   ← NEW
@@ -160,8 +160,8 @@ api.openapi.json                ✅ Loaded (namespace: api)
 
 ```
 openapi.json                    ❌ No namespace prefix
-config.json                     ❌ Wrong extension
-stock.mcp.json                  ❌ Not OpenAPI format
+config.yaml                     ❌ Wrong extension
+stock.mcp.yaml                  ❌ Not OpenAPI format
 api.json                        ❌ Missing .openapi
 ```
 
@@ -294,7 +294,7 @@ Verify: "Found 2 OpenAPI configuration file(s)"
 
 - StaticProxyLoader unchanged
 - Existing MCPProxyServer functionality preserved
-- Can coexist with .mcp.json files
+- Can coexist with .mcp.yaml files
 - Legacy function API provided
 
 ## Requirements Met: 100% ✅

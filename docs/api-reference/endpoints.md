@@ -370,7 +370,7 @@ Get a specific prompt with arguments.
 
 ## Authentication
 
-All MCP endpoints (except `/health`) can be protected with authentication. Authentication behavior depends on configuration in `data/auth.json`.
+All MCP endpoints (except `/health`) can be protected with authentication. Authentication behavior depends on configuration in `config.yaml`.
 
 ### With Authentication Enabled
 

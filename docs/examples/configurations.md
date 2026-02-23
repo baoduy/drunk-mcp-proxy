@@ -8,15 +8,13 @@ This document provides ready-to-use configuration examples for common deployment
 
 **Use case**: Simple proxy for one MCP backend
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/main.json",
-    "spec_type": "mcp",
-    "base_url": null
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/main.json
+    spec_type: mcp
+    base_url: null
 ```
 
 **mcp/main.json**:
@@ -35,61 +33,51 @@ This document provides ready-to-use configuration examples for common deployment
 
 **Use case**: Multiple backend services with isolated namespaces
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/aggregated.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/stock",
-    "spec_file": "mcp/stock.json",
-    "spec_type": "mcp",
-    "tags": ["finance"]
-  },
-  {
-    "path": "/wiki",
-    "spec_file": "mcp/wiki.json",
-    "spec_type": "mcp",
-    "tags": ["documentation"]
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/aggregated.json
+    spec_type: mcp
+  - path: /stock
+    spec_file: mcp/stock.json
+    spec_type: mcp
+    tags:
+      - finance
+  - path: /wiki
+    spec_file: mcp/wiki.json
+    spec_type: mcp
+    tags:
+      - documentation
 ```
 
 ### 3. OpenAPI Service
 
 **Use case**: Expose REST API as MCP tools
 
-```json
-[
-  {
-    "path": "/petstore",
-    "spec_file": "openapi/petstore.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://petstore3.swagger.io/api/v3"
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /petstore
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: https://petstore3.swagger.io/api/v3
 ```
 
 ### 4. Mixed MCP and OpenAPI
 
 **Use case**: Combine MCP and REST backends
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/core.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/api",
-    "spec_file": "openapi/api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com"
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/core.json
+    spec_type: mcp
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: https://api.example.com
 ```
 
 ## Authentication Configurations
@@ -98,28 +86,20 @@ This document provides ready-to-use configuration examples for common deployment
 
 **Use case**: Validate JWT tokens from Auth0, Azure AD, etc.
 
-**config.json**:
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/main.json",
-    "spec_type": "mcp"
-  }
-]
-```
+**config.yaml**:
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    jwks_uri: https://auth.example.com/.well-known/jwks.json
+    issuer: https://auth.example.com/
+    audience: mcp-proxy-api
+    algorithm: RS256
 
-**auth.json**:
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api",
-    "algorithm": "RS256"
-  }
-}
+mcp:
+  - path: /
+    spec_file: mcp/main.json
+    spec_type: mcp
 ```
 
 **.env**:
@@ -134,16 +114,14 @@ JWT_AUDIENCE=mcp-proxy-api
 
 **Use case**: Allow GitHub users to authenticate
 
-**auth.json**:
-```json
-{
-  "defaultProvider": "github",
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET",
-    "base_url": "$BASE_URL"
-  }
-}
+**config.yaml**:
+```yaml
+auth:
+  defaultProvider: github
+  github:
+    client_id: $GITHUB_CLIENT_ID
+    client_secret: $GITHUB_CLIENT_SECRET
+    base_url: $BASE_URL
 ```
 
 **.env**:
@@ -158,45 +136,37 @@ BASE_URL=https://your-proxy.example.com
 
 **Use case**: Forward client tokens to backend APIs
 
-**config.json**:
-```json
-[
-  {
-    "path": "/api",
-    "spec_file": "openapi/api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "auth": {
-      "pass_through": true
-    }
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      pass_through: true
 ```
 
 ### 8. Azure OAuth with Pass-Through Fallback
 
 **Use case**: Try pass-through, fall back to client credentials
 
-**config.json**:
-```json
-[
-  {
-    "path": "/api",
-    "spec_file": "openapi/api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "auth": {
-      "pass_through": true,
-      "azure": {
-        "client_id": "$AZURE_CLIENT_ID",
-        "client_secret": "$AZURE_CLIENT_SECRET",
-        "tenant_id": "$AZURE_TENANT_ID",
-        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-        "scopes": ["https://api.example.com/.default"]
-      }
-    }
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      pass_through: true
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - https://api.example.com/.default
 ```
 
 ## Advanced Configurations
@@ -205,20 +175,20 @@ BASE_URL=https://your-proxy.example.com
 
 **Use case**: Expose only specific endpoints from large OpenAPI spec
 
-**config.json**:
-```json
-[
-  {
-    "path": "/api",
-    "spec_file": "openapi/full-api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "filters": {
-      "methods": ["GET", "POST"],
-      "tags": ["users", "posts"]
-    }
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/full-api.yaml
+    spec_type: openapi
+    base_url: https://api.example.com
+    filters:
+      methods:
+        - GET
+        - POST
+      tags:
+        - users
+        - posts
 ```
 
 This exposes only GET/POST operations with tags "users" or "posts".
@@ -227,16 +197,13 @@ This exposes only GET/POST operations with tags "users" or "posts".
 
 **Use case**: Load MCP resources from directory structure
 
-**config.json**:
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/main.json",
-    "spec_type": "mcp",
-    "skill_dir": "skills"
-  }
-]
+**config.yaml**:
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/main.json
+    spec_type: mcp
+    skill_dir: skills
 ```
 
 **Directory structure**:
@@ -255,27 +222,22 @@ data/
 
 **Use case**: Support multiple authentication methods
 
-**auth.json**:
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "jwks_uri": "$JWT_JWKS_URI",
-    "issuer": "$JWT_ISSUER",
-    "audience": "$JWT_AUDIENCE"
-  },
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET",
-    "base_url": "$BASE_URL"
-  },
-  "inMemory": {
-    "users": {
-      "admin": "$ADMIN_PASSWORD",
-      "user": "$USER_PASSWORD"
-    }
-  }
-}
+**config.yaml**:
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    jwks_uri: $JWT_JWKS_URI
+    issuer: $JWT_ISSUER
+    audience: $JWT_AUDIENCE
+  github:
+    client_id: $GITHUB_CLIENT_ID
+    client_secret: $GITHUB_CLIENT_SECRET
+    base_url: $BASE_URL
+  inMemory:
+    users:
+      admin: $ADMIN_PASSWORD
+      user: $USER_PASSWORD
 ```
 
 ## Production Configurations
@@ -441,95 +403,79 @@ FASTMCP_RATE_LIMIT_ENABLED=false
 
 ### 16. Testing Configuration
 
-**config.json**:
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/test.json",
-    "spec_type": "mcp"
-  }
-]
-```
+**config.yaml**:
+```yaml
+auth:
+  defaultProvider: inMemory
+  inMemory:
+    users:
+      testuser: testpass
 
-**auth.json**:
-```json
-{
-  "defaultProvider": "inMemory",
-  "inMemory": {
-    "users": {
-      "testuser": "testpass"
-    }
-  }
-}
+mcp:
+  - path: /
+    spec_file: mcp/test.json
+    spec_type: mcp
 ```
 
 ## Complete Real-World Example
 
 ### 17. Enterprise Setup
 
-**config.json**:
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/core.json",
-    "spec_type": "mcp",
-    "skill_dir": "skills",
-    "tags": ["core", "public"]
-  },
-  {
-    "path": "/internal",
-    "spec_file": "mcp/internal.json",
-    "spec_type": "mcp",
-    "tags": ["internal"]
-  },
-  {
-    "path": "/trading",
-    "spec_file": "openapi/trading-api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://trading.example.com/api/v1",
-    "filters": {
-      "methods": ["GET", "POST"],
-      "tags": ["Orders", "Positions"]
-    },
-    "auth": {
-      "pass_through": true,
-      "azure": {
-        "client_id": "$TRADING_CLIENT_ID",
-        "client_secret": "$TRADING_CLIENT_SECRET",
-        "tenant_id": "$AZURE_TENANT_ID",
-        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-        "scopes": ["https://trading.example.com/.default"]
-      }
-    },
-    "tags": ["trading", "internal"]
-  },
-  {
-    "path": "/public-api",
-    "spec_file": "openapi/public-api.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "tags": ["public"]
-  }
-]
-```
+**config.yaml**:
+```yaml
+auth:
+  defaultProvider: azure
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: $AZURE_TENANT_ID
+  jwt:
+    jwks_uri: https://login.microsoftonline.com/$AZURE_TENANT_ID/discovery/keys
+    issuer: https://sts.windows.net/$AZURE_TENANT_ID/
+    audience: api://$AZURE_CLIENT_ID
 
-**auth.json**:
-```json
-{
-  "defaultProvider": "azure",
-  "azure": {
-    "client_id": "$AZURE_CLIENT_ID",
-    "client_secret": "$AZURE_CLIENT_SECRET",
-    "tenant_id": "$AZURE_TENANT_ID"
-  },
-  "jwt": {
-    "jwks_uri": "https://login.microsoftonline.com/$AZURE_TENANT_ID/discovery/keys",
-    "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-    "audience": "api://$AZURE_CLIENT_ID"
-  }
-}
+mcp:
+  - path: /
+    spec_file: mcp/core.json
+    spec_type: mcp
+    skill_dir: skills
+    tags:
+      - core
+      - public
+  - path: /internal
+    spec_file: mcp/internal.json
+    spec_type: mcp
+    tags:
+      - internal
+  - path: /trading
+    spec_file: openapi/trading-api.yaml
+    spec_type: openapi
+    base_url: https://trading.example.com/api/v1
+    filters:
+      methods:
+        - GET
+        - POST
+      tags:
+        - Orders
+        - Positions
+    auth:
+      pass_through: true
+      azure:
+        client_id: $TRADING_CLIENT_ID
+        client_secret: $TRADING_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - https://trading.example.com/.default
+    tags:
+      - trading
+      - internal
+  - path: /public-api
+    spec_file: openapi/public-api.yaml
+    spec_type: openapi
+    base_url: https://api.example.com
+    tags:
+      - public
 ```
 
 **.env**:

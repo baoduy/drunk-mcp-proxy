@@ -24,7 +24,7 @@ Pattern: {name}.openapi.json
 ### What Gets Ignored ❌
 
 - `openapi.json` → (no namespace prefix - ignored)
-- `config.json` → (wrong extension - ignored)
+- `config.yaml` → (main config file, not OpenAPI spec - ignored)
 - `api.json` → (missing `.openapi` - ignored)
 - `petstore-api.spec.json` → (wrong extension - ignored)
 - `openapi.yaml` → (wrong format - ignored)
@@ -96,11 +96,11 @@ Reason: No namespace prefix (empty name)
 
 ```
 Directory Contents:
-  - stock.mcp.json              ← StaticProxyLoader loads this
-  - wiki.mcp.json               ← StaticProxyLoader loads this
+  - stock.mcp.yaml              ← StaticProxyLoader loads this
+  - wiki.mcp.yaml               ← StaticProxyLoader loads this
   - petstore.openapi.json       ← OpenApiMcpProxyLoader loads this ✅
   - jsonplaceholder.openapi.json ← OpenApiMcpProxyLoader loads this ✅
-  - config.json                 ← Both loaders ignore this ❌
+  - config.yaml                 ← Both loaders ignore this ❌
   - api.json                    ← Both loaders ignore this ❌
 
 Result:
@@ -133,9 +133,9 @@ All OpenAPI files must be placed in the data directory:
 ```
 drunk-mcp-proxy/
 └── data/
-    ├── mcp.json                     (StaticProxyLoader)
-    ├── stock.mcp.json              (StaticProxyLoader)
-    ├── wiki.mcp.json               (StaticProxyLoader)
+    ├── mcp.yaml                     (StaticProxyLoader)
+    ├── stock.mcp.yaml              (StaticProxyLoader)
+    ├── wiki.mcp.yaml               (StaticProxyLoader)
     ├── petstore.openapi.json       ✅ OpenApiMcpProxyLoader
     ├── jsonplaceholder.openapi.json ✅ OpenApiMcpProxyLoader
     └── api.openapi.json            ✅ OpenApiMcpProxyLoader
@@ -212,11 +212,11 @@ if namespace is None:
 files = sorted(glob.glob(pattern))
 ```
 
-### Q: Can I have both `.mcp.json` and `.openapi.json` files?
+### Q: Can I have both `.mcp.yaml` and `.openapi.json` files?
 
 **A:** Yes! They are loaded by different loaders:
 
-- `StaticProxyLoader` loads `*.mcp.json` files
+- `StaticProxyLoader` loads `*.mcp.yaml` files
 - `OpenApiMcpProxyLoader` loads `*.openapi.json` files
 - Both are automatically mounted by `MCPProxyServer`
 

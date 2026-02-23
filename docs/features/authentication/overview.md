@@ -13,7 +13,7 @@ drunk-mcp-proxy provides a sophisticated multi-layer authentication system that 
 
 Layer 1: MCP Client Authentication (Proxy Level)
 ┌─────────────────────────────────────────────────────────────────────┐
-│ GlobalAuthProvider (Configured via auth.json)                        │
+│ GlobalAuthProvider (Configured via config.yaml)                      │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ Supported Providers:                                           │ │
 │  │  - JWT: Token validation via JWKS_URI                          │ │
@@ -25,16 +25,14 @@ Layer 1: MCP Client Authentication (Proxy Level)
 │  │  - Custom: Any FastMCP AuthProvider subclass                  │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
-│ Configuration: data/auth.json                                        │
-│  {                                                                   │
-│    "enabled": true,                                                  │
-│    "defaultProvider": "jwt",                                         │
-│    "jwt": {                                                          │
-│      "jwks_uri": "https://auth.example.com/.well-known/jwks.json",  │
-│      "issuer": "https://auth.example.com/",                          │
-│      "audience": "mcp-proxy-api"                                     │
-│    }                                                                 │
-│  }                                                                   │
+│ Configuration: config.yaml                                           │
+│  auth:                                                               │
+│    enabled: true                                                     │
+│    default_provider: jwt                                             │
+│    jwt:                                                              │
+│      jwks_uri: https://auth.example.com/.well-known/jwks.json       │
+│      issuer: https://auth.example.com/                               │
+│      audience: mcp-proxy-api                                         │
 │                                                                      │
 │ Result: AccessToken stored in MCP context                           │
 │  - Available via get_access_token()                                  │
@@ -43,37 +41,34 @@ Layer 1: MCP Client Authentication (Proxy Level)
 
 Layer 2: Backend Service Authentication (Service Level)
 ┌─────────────────────────────────────────────────────────────────────┐
-│ Per-Service Authentication (Configured in config.json)              │
+│ Per-Service Authentication (Configured in config.yaml)              │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ Option 1: Pass-Through Authentication                          │ │
-│  │  {                                                             │ │
-│  │    "auth": {                                                   │ │
-│  │      "pass_through": true                                      │ │
-│  │    }                                                           │ │
-│  │  }                                                             │ │
+│  │  services:                                                     │ │
+│  │    - path: /api                                                │ │
+│  │      auth:                                                     │ │
+│  │        pass_through: true                                      │ │
 │  │  → AuthPassThrough: Forwards MCP client token to backend      │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ Option 2: Azure OAuth2 Client Credentials                     │ │
-│  │  {                                                             │ │
-│  │    "auth": {                                                   │ │
-│  │      "azure": {                                                │ │
-│  │        "client_id": "$AZURE_CLIENT_ID",                        │ │
-│  │        "client_secret": "$AZURE_CLIENT_SECRET",                │ │
-│  │        "token_url": "https://login.../oauth2/v2.0/token",      │ │
-│  │        "scopes": ["api://.../.default"]                        │ │
-│  │      }                                                          │ │
-│  │    }                                                           │ │
-│  │  }                                                             │ │
+│  │  services:                                                     │ │
+│  │    - path: /api                                                │ │
+│  │      auth:                                                     │ │
+│  │        azure:                                                  │ │
+│  │          client_id: $AZURE_CLIENT_ID                           │ │
+│  │          client_secret: $AZURE_CLIENT_SECRET                   │ │
+│  │          token_url: https://login.../oauth2/v2.0/token         │ │
+│  │          scopes:                                               │ │
+│  │            - api://.../.default                                │ │
 │  │  → AzureOauth: Fetches service token via client credentials   │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ Option 3: Static API Token                                     │ │
-│  │  {                                                             │ │
-│  │    "auth": {                                                   │ │
-│  │      "auth_token": "Bearer sk-1234567890"                      │ │
-│  │    }                                                           │ │
-│  │  }                                                             │ │
+│  │  services:                                                     │ │
+│  │    - path: /api                                                │ │
+│  │      auth:                                                     │ │
+│  │        auth_token: "Bearer sk-1234567890"                      │ │
 │  │  → Static header added to all requests                        │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
@@ -280,54 +275,48 @@ class AuthPassThrough(httpx.Auth):
 ### Configuration Examples
 
 **Example 1: Pass-Through Only**
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+services:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      pass_through: true
 ```
 
 **Example 2: Pass-Through with Fallback to Azure OAuth**
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "pass_through": true,
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["api://example-api/.default"]
-    }
-  }
-}
+```yaml
+services:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      pass_through: true
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - api://example-api/.default
 ```
 *Note: When both are configured, pass-through takes precedence if available.*
 
-**Example 3: MCP Client Auth Configuration (auth.json)**
-```json
-{
-  "enabled": true,
-  "defaultProvider": "jwt",
-  "jwt": {
-    "base_url": null,
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api",
-    "algorithm": "RS256"
-  }
-}
+**Example 3: MCP Client Auth Configuration (config.yaml)**
+```yaml
+auth:
+  enabled: true
+  default_provider: jwt
+  jwt:
+    base_url: null
+    jwks_uri: https://auth.example.com/.well-known/jwks.json
+    issuer: https://auth.example.com/
+    audience: mcp-proxy-api
+    algorithm: RS256
 ```
 
-**Note**: The field name is `defaultProvider` (camelCase) in auth.json, unlike config.json which uses snake_case.
+**Note**: The field name is `default_provider` (snake_case) in config.yaml.
 
 ## Azure OAuth2 Client Credentials
 
@@ -385,23 +374,21 @@ Step 4: Add Token to Request
 
 ### Configuration
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["api://$AZURE_CLIENT_ID/.default"]
-    }
-  }
-}
+```yaml
+services:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        issuer: https://sts.windows.net/$AZURE_TENANT_ID/
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - api://$AZURE_CLIENT_ID/.default
 ```
 
 ### Environment Variables
@@ -422,18 +409,16 @@ These providers authenticate MCP clients connecting to the proxy.
 
 Token validation via JWKS (JSON Web Key Set):
 
-```json
-{
-  "enabled": true,
-  "defaultProvider": "jwt",
-  "jwt": {
-    "base_url": null,
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api",
-    "algorithm": "RS256"
-  }
-}
+```yaml
+auth:
+  enabled: true
+  default_provider: jwt
+  jwt:
+    base_url: null
+    jwks_uri: https://auth.example.com/.well-known/jwks.json
+    issuer: https://auth.example.com/
+    audience: mcp-proxy-api
+    algorithm: RS256
 ```
 
 **Environment Variables**:
@@ -510,52 +495,49 @@ These providers authenticate the proxy to backend services.
 
 Forwards user token from MCP client to backend:
 
-```json
-{
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+services:
+  - path: /api
+    auth:
+      pass_through: true
 ```
 
 #### 2. Azure OAuth2
 
 Client credentials flow for service-to-service auth:
 
-```json
-{
-  "auth": {
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["api://$AZURE_CLIENT_ID/.default"]
-    }
-  }
-}
+```yaml
+services:
+  - path: /api
+    auth:
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - api://$AZURE_CLIENT_ID/.default
 ```
 
 #### 3. Static Token
 
 API key or bearer token:
 
-```json
-{
-  "auth": {
-    "auth_token": "Bearer sk-1234567890abcdef"
-  }
-}
+```yaml
+services:
+  - path: /api
+    auth:
+      auth_token: "Bearer sk-1234567890abcdef"
 ```
 
 #### 4. No Authentication
 
 Public APIs:
 
-```json
-{
-  "auth": null
-}
+```yaml
+services:
+  - path: /api
+    auth: null
 ```
 
 ## Authentication Decision Matrix
@@ -606,7 +588,7 @@ Public APIs:
 ### Configuration Management
 
 1. **Use environment variables for secrets**: `$AZURE_CLIENT_SECRET`
-2. **Use JSON files for non-sensitive config**: Service URLs, scopes
+2. **Use YAML files for non-sensitive config**: Service URLs, scopes
 3. **Validate configuration on startup**: Catch errors early
 4. **Document authentication requirements**: Help users configure correctly
 
@@ -627,7 +609,7 @@ Public APIs:
 **Solutions**:
 1. Verify MCP client auth is configured (Layer 1)
 2. Check that client sends Authorization header
-3. Confirm `pass_through: true` in config.json
+3. Confirm `pass_through: true` in config.yaml
 4. Check logs for "No access token available"
 
 **Problem**: Backend rejects token
@@ -672,7 +654,7 @@ Public APIs:
 **Problem**: Invalid auth configuration
 
 **Solutions**:
-1. Validate JSON syntax
+1. Validate YAML syntax
 2. Check required fields are present
 3. Verify environment variables are set
 4. Review error messages in logs

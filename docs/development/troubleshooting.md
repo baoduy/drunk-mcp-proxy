@@ -22,21 +22,24 @@ Common issues and solutions for drunk-mcp-proxy.
    kill -9 <PID>
    ```
 
-2. **Missing configuration files**
+2. **Missing configuration file**
    ```bash
-   # Error: FileNotFoundError: config.json
+   # Error: FileNotFoundError: config.yaml
    
-   # Check files exist
-   ls -la data/config.json data/auth.json
+   # Check file exists
+   ls -la data/config.yaml
    
-   # Create from samples
-   cp data/config.json.sample data/config.json
+   # Create from sample
+   cp data/config.yaml.sample data/config.yaml
    ```
 
-3. **Invalid JSON configuration**
+3. **Invalid YAML configuration**
    ```bash
-   # Validate JSON
-   cat data/config.json | python -m json.tool
+   # Validate YAML syntax
+   yamllint data/config.yaml
+   
+   # Or validate with Python
+   python -c "import yaml; yaml.safe_load(open('data/config.yaml'))"
    
    # Check schema validation
    # Server logs will show validation errors
@@ -123,12 +126,10 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 2. **Use correct syntax**
-   ```json
-   {
-     "client_id": "$AZURE_CLIENT_ID",      // Correct
-     "tenant_id": "${AZURE_TENANT_ID}",    // Also correct
-     "value": "$$NOT_SUBSTITUTED"           // $$ escapes $
-   }
+   ```yaml
+   client_id: $AZURE_CLIENT_ID        # Correct
+   tenant_id: ${AZURE_TENANT_ID}      # Also correct
+   value: $$NOT_SUBSTITUTED           # $$ escapes $
    ```
 
 3. **Check logs for substitution errors**
@@ -170,15 +171,12 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 4. **Enable auth debug logging**
-   ```python
-   # In auth.json
-   {
-     "defaultProvider": "jwt",
-     "jwt": {
-       "debug": true,  // Enable debug mode
-       ...
-     }
-   }
+   ```yaml
+   # In config.yaml
+   auth:
+     defaultProvider: jwt
+     jwt:
+       debug: true  # Enable debug mode
    ```
 
 ### OAuth Flow Failing
@@ -205,10 +203,9 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 3. **Check scopes**
-   ```json
-   {
-     "scopes": ["https://api.example.com/.default"]  // Must match API
-   }
+   ```yaml
+   scopes:
+     - https://api.example.com/.default  # Must match API
    ```
 
 ### Pass-Through Auth Not Working
@@ -227,13 +224,10 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 2. **Enable pass_through in config**
-   ```json
-   {
-     "path": "/api",
-     "auth": {
-       "pass_through": true  // Must be set
-     }
-   }
+   ```yaml
+   path: /api
+   auth:
+     pass_through: true  # Must be set
    ```
 
 3. **Check MCP context**
@@ -315,7 +309,7 @@ Common issues and solutions for drunk-mcp-proxy.
 2. **Verify spec file**
    ```bash
    # Check MCP spec is valid
-   cat data/mcp/service.json | python -m json.tool
+   yamllint data/mcp/service.yaml
    ```
 
 3. **Check namespacing**
@@ -385,21 +379,18 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 2. **Check base_url**
-   ```json
-   {
-     "spec_type": "openapi",
-     "base_url": "https://api.example.com"  // Must be set for OpenAPI
-   }
+   ```yaml
+   spec_type: openapi
+   base_url: https://api.example.com  # Must be set for OpenAPI
    ```
 
 3. **Check filters**
-   ```json
-   {
-     "filters": {
-       "methods": ["GET"],  // Maybe too restrictive?
-       "tags": ["users"]    // Check tags exist in spec
-     }
-   }
+   ```yaml
+   filters:
+     methods:
+       - GET  # Maybe too restrictive?
+     tags:
+       - users  # Check tags exist in spec
    ```
 
 4. **Enable debug logging**
@@ -421,13 +412,11 @@ Common issues and solutions for drunk-mcp-proxy.
    ```
 
 2. **Verify authentication**
-   ```json
-   {
-     "auth": {
-       "pass_through": true,  // or
-       "azure": { ... }       // Ensure correct auth configured
-     }
-   }
+   ```yaml
+   auth:
+     pass_through: true  # or
+     azure:              # Ensure correct auth configured
+       # ... azure config
    ```
 
 3. **Check parameter mapping**

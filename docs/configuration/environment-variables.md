@@ -17,7 +17,7 @@ Configuration is loaded in this order (later sources override earlier):
 1. Default values (hardcoded)
 2. `.env` file (if present)
 3. Environment variables
-4. Configuration files (`config.json`, `auth.json`)
+4. Configuration file (`config.yaml`)
 
 ## Configuration Variables
 
@@ -25,8 +25,8 @@ Configuration is loaded in this order (later sources override earlier):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FASTMCP_CONFIG_DIR` | `data` | Directory containing `config.json` and spec files |
-| `FASTMCP_SCHEMA_DIR` | `schemas` | Directory containing JSON schema files for validation |
+| `FASTMCP_CONFIG_DIR` | `data` | Directory containing `config.yaml` and spec files |
+| `FASTMCP_SCHEMA_DIR` | `schemas` | Directory containing schema files for validation |
 
 **Example:**
 ```bash
@@ -316,15 +316,15 @@ environment:
 
 ## Variable Substitution in Config Files
 
-Environment variables can be used in `config.json` and `auth.json`:
+Environment variables can be used in `config.yaml`:
 
-```json
-{
-  "client_id": "$AZURE_CLIENT_ID",
-  "client_secret": "$AZURE_CLIENT_SECRET",
-  "tenant_id": "${AZURE_TENANT_ID}",
-  "token_url": "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
-}
+```yaml
+auth:
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: ${AZURE_TENANT_ID}
+    token_url: "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
 ```
 
 Syntax:

@@ -32,21 +32,18 @@ Auth0 is a cloud-based identity platform providing OAuth 2.0 and OpenID Connect.
 
 ### Configuration Fields
 
-```json
-{
-  "auth0": {
-    "domain": "https://your-tenant.auth0.com",
-    "client_id": "$AUTH0_CLIENT_ID",
-    "client_secret": "$AUTH0_CLIENT_SECRET",
-    "audience": "your-api-identifier",
-    "scopes": [
-      "openid",
-      "profile",
-      "email"
-    ],
-    "grant_type": "client_credentials"
-  }
-}
+```yaml
+auth:
+  auth0:
+    domain: "https://your-tenant.auth0.com"
+    client_id: "$AUTH0_CLIENT_ID"
+    client_secret: "$AUTH0_CLIENT_SECRET"
+    audience: "your-api-identifier"
+    scopes:
+      - openid
+      - profile
+      - email
+    grant_type: "client_credentials"
 ```
 
 ### Environment Variables
@@ -81,16 +78,14 @@ Amazon Web Services (AWS) Cognito provides cloud-based user authentication and a
 
 ### Configuration Fields
 
-```json
-{
-  "aws": {
-    "access_key_id": "$AWS_ACCESS_KEY_ID",
-    "secret_access_key": "$AWS_SECRET_ACCESS_KEY",
-    "region": "$AWS_REGION",
-    "session_token": null,
-    "role_arn": null
-  }
-}
+```yaml
+auth:
+  aws:
+    access_key_id: "$AWS_ACCESS_KEY_ID"
+    secret_access_key: "$AWS_SECRET_ACCESS_KEY"
+    region: "$AWS_REGION"
+    session_token: null
+    role_arn: null
 ```
 
 ### Environment Variables
@@ -125,19 +120,16 @@ Microsoft Azure / Microsoft Entra ID provides enterprise cloud-based authenticat
 
 ### Configuration Fields
 
-```json
-{
-  "azure": {
-    "client_id": "$AZURE_CLIENT_ID",
-    "client_secret": "$AZURE_CLIENT_SECRET",
-    "tenant_id": "$AZURE_TENANT_ID",
-    "token_url": null,
-    "issuer": null,
-    "scopes": [
-      "api://your-app-id/read"
-    ]
-  }
-}
+```yaml
+auth:
+  azure:
+    client_id: "$AZURE_CLIENT_ID"
+    client_secret: "$AZURE_CLIENT_SECRET"
+    tenant_id: "$AZURE_TENANT_ID"
+    token_url: null
+    issuer: null
+    scopes:
+      - "api://your-app-id/read"
 ```
 
 ### Environment Variables
@@ -175,13 +167,11 @@ Simple debug authentication for testing and development purposes.
 
 ### Configuration Fields
 
-```json
-{
-  "debug": {
-    "user_id": "debug-user",
-    "username": "debug"
-  }
-}
+```yaml
+auth:
+  debug:
+    user_id: "debug-user"
+    username: "debug"
 ```
 
 ### Environment Variables
@@ -210,17 +200,14 @@ Descope provides authentication and authorization with support for Dynamic Clien
 
 ### Configuration Fields
 
-```json
-{
-  "descope": {
-    "project_id": "$DESCOPE_PROJECT_ID",
-    "public_key": "$DESCOPE_PUBLIC_KEY",
-    "scopes": [
-      "openid",
-      "profile"
-    ]
-  }
-}
+```yaml
+auth:
+  descope:
+    project_id: "$DESCOPE_PROJECT_ID"
+    public_key: "$DESCOPE_PUBLIC_KEY"
+    scopes:
+      - openid
+      - profile
 ```
 
 ### Environment Variables
@@ -255,19 +242,16 @@ Discord provides OAuth 2.0 authentication for Discord users.
 
 ### Configuration Fields
 
-```json
-{
-  "discord": {
-    "client_id": "$DISCORD_CLIENT_ID",
-    "client_secret": "$DISCORD_CLIENT_SECRET",
-    "bot_token": "$DISCORD_BOT_TOKEN",
-    "scopes": [
-      "identify",
-      "email"
-    ],
-    "redirect_uri": "http://localhost:8000/auth/callback"
-  }
-}
+```yaml
+auth:
+  discord:
+    client_id: "$DISCORD_CLIENT_ID"
+    client_secret: "$DISCORD_CLIENT_SECRET"
+    bot_token: "$DISCORD_BOT_TOKEN"
+    scopes:
+      - identify
+      - email
+    redirect_uri: "http://localhost:8000/auth/callback"
 ```
 
 ### Environment Variables
@@ -309,17 +293,14 @@ GitHub provides OAuth 2.0 authentication for GitHub users.
 
 ### Configuration Fields
 
-```json
-{
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET",
-    "scopes": [
-      "user:email"
-    ],
-    "redirect_uri": "http://localhost:8000/auth/callback"
-  }
-}
+```yaml
+auth:
+  github:
+    client_id: "$GITHUB_CLIENT_ID"
+    client_secret: "$GITHUB_CLIENT_SECRET"
+    scopes:
+      - "user:email"
+    redirect_uri: "http://localhost:8000/auth/callback"
 ```
 
 ### Environment Variables
@@ -359,20 +340,17 @@ Google provides OAuth 2.0 and OpenID Connect for Google accounts.
 
 ### Configuration Fields
 
-```json
-{
-  "google": {
-    "client_id": "$GOOGLE_CLIENT_ID",
-    "client_secret": "$GOOGLE_CLIENT_SECRET",
-    "project_id": "$GOOGLE_PROJECT_ID",
-    "scopes": [
-      "openid",
-      "email",
-      "profile"
-    ],
-    "redirect_uri": "http://localhost:8000/auth/callback"
-  }
-}
+```yaml
+auth:
+  google:
+    client_id: "$GOOGLE_CLIENT_ID"
+    client_secret: "$GOOGLE_CLIENT_SECRET"
+    project_id: "$GOOGLE_PROJECT_ID"
+    scopes:
+      - openid
+      - email
+      - profile
+    redirect_uri: "http://localhost:8000/auth/callback"
 ```
 
 ### Environment Variables
@@ -414,15 +392,12 @@ Simple in-memory user store for testing and development.
 
 ### Configuration Fields
 
-```json
-{
-  "in_memory": {
-    "users": {
-      "user1": "password1",
-      "user2": "password2"
-    }
-  }
-}
+```yaml
+auth:
+  in_memory:
+    users:
+      user1: "password1"
+      user2: "password2"
 ```
 
 ### Environment Variables
@@ -431,7 +406,7 @@ Simple in-memory user store for testing and development.
 
 ### Setup Instructions
 
-1. Define users and passwords in auth.json
+1. Define users and passwords in config.yaml
 2. No external service required
 3. Completely local, no network calls
 
@@ -452,14 +427,12 @@ RFC 7662 Token Introspection for validating opaque OAuth tokens.
 
 ### Configuration Fields
 
-```json
-{
-  "introspection": {
-    "introspection_url": "$TOKEN_INTROSPECTION_URL",
-    "client_id": "$TOKEN_INTROSPECTION_CLIENT_ID",
-    "client_secret": "$TOKEN_INTROSPECTION_CLIENT_SECRET"
-  }
-}
+```yaml
+auth:
+  introspection:
+    introspection_url: "$TOKEN_INTROSPECTION_URL"
+    client_id: "$TOKEN_INTROSPECTION_CLIENT_ID"
+    client_secret: "$TOKEN_INTROSPECTION_CLIENT_SECRET"
 ```
 
 ### Environment Variables
@@ -500,15 +473,13 @@ Direct JWT verification using shared secret or public key.
 
 ### Configuration Fields
 
-```json
-{
-  "jwt": {
-    "secret_key": "$JWT_SECRET_KEY",
-    "algorithm": "HS256",
-    "issuer": null,
-    "audience": null
-  }
-}
+```yaml
+auth:
+  jwt:
+    secret_key: "$JWT_SECRET_KEY"
+    algorithm: "HS256"
+    issuer: null
+    audience: null
 ```
 
 ### Environment Variables
@@ -546,16 +517,14 @@ Oracle Cloud Infrastructure (OCI) authentication using API signing.
 
 ### Configuration Fields
 
-```json
-{
-  "oci": {
-    "user_ocid": "$OCI_USER_OCID",
-    "tenancy_ocid": "$OCI_TENANCY_OCID",
-    "api_key": "$OCI_API_KEY",
-    "fingerprint": "$OCI_FINGERPRINT",
-    "region": "us-phoenix-1"
-  }
-}
+```yaml
+auth:
+  oci:
+    user_ocid: "$OCI_USER_OCID"
+    tenancy_ocid: "$OCI_TENANCY_OCID"
+    api_key: "$OCI_API_KEY"
+    fingerprint: "$OCI_FINGERPRINT"
+    region: "us-phoenix-1"
 ```
 
 ### Environment Variables
@@ -605,19 +574,16 @@ Scalekit provides enterprise SSO and SAML/OIDC authentication.
 
 ### Configuration Fields
 
-```json
-{
-  "scalekit": {
-    "client_id": "$SCALEKIT_CLIENT_ID",
-    "client_secret": "$SCALEKIT_CLIENT_SECRET",
-    "environment_url": "$SCALEKIT_ENVIRONMENT_URL",
-    "scopes": [
-      "openid",
-      "profile",
-      "email"
-    ]
-  }
-}
+```yaml
+auth:
+  scalekit:
+    client_id: "$SCALEKIT_CLIENT_ID"
+    client_secret: "$SCALEKIT_CLIENT_SECRET"
+    environment_url: "$SCALEKIT_ENVIRONMENT_URL"
+    scopes:
+      - openid
+      - profile
+      - email
 ```
 
 ### Environment Variables
@@ -658,18 +624,15 @@ Supabase provides open-source PostgreSQL-based backend with built-in authenticat
 
 ### Configuration Fields
 
-```json
-{
-  "supabase": {
-    "project_url": "$SUPABASE_PROJECT_URL",
-    "api_key": "$SUPABASE_API_KEY",
-    "scopes": [
-      "openid",
-      "profile",
-      "email"
-    ]
-  }
-}
+```yaml
+auth:
+  supabase:
+    project_url: "$SUPABASE_PROJECT_URL"
+    api_key: "$SUPABASE_API_KEY"
+    scopes:
+      - openid
+      - profile
+      - email
 ```
 
 ### Environment Variables
@@ -709,19 +672,16 @@ WorkOS provides enterprise SSO (Single Sign-On) with support for SAML, OAuth, an
 
 ### Configuration Fields
 
-```json
-{
-  "workos": {
-    "api_key": "$WORKOS_API_KEY",
-    "client_id": "$WORKOS_CLIENT_ID",
-    "organization_id": "$WORKOS_ORGANIZATION_ID",
-    "scopes": [
-      "openid",
-      "profile",
-      "email"
-    ]
-  }
-}
+```yaml
+auth:
+  workos:
+    api_key: "$WORKOS_API_KEY"
+    client_id: "$WORKOS_CLIENT_ID"
+    organization_id: "$WORKOS_ORGANIZATION_ID"
+    scopes:
+      - openid
+      - profile
+      - email
 ```
 
 ### Environment Variables
@@ -767,7 +727,7 @@ echo ".env" >> .gitignore
 
 ```bash
 # Never commit secrets to git
-echo "data/auth.json" >> .gitignore
+echo "data/config.yaml" >> .gitignore
 
 # Encrypt sensitive config in production
 # Use secrets manager (AWS Secrets Manager, Vault, etc.)
@@ -775,26 +735,20 @@ echo "data/auth.json" >> .gitignore
 
 ### 3. Development vs Production
 
-```json
-// Development
-{
-  "debug": {
-    ...
-  },
-  "azure": {
-    ...
-  }
-}
+```yaml
+# Development
+auth:
+  debug:
+    # ... debug config
+  azure:
+    # ... azure config
 
-// Production (debug removed)
-{
-  "azure": {
-    ...
-  },
-  "github": {
-    ...
-  }
-}
+# Production (debug removed)
+auth:
+  azure:
+    # ... azure config
+  github:
+    # ... github config
 ```
 
 ### 4. Testing
