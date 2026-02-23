@@ -11,13 +11,9 @@ from fastmcp.utilities.openapi import HTTPRoute
 
 if TYPE_CHECKING:
     from fastmcp.server.providers.openapi import MCPType
-    from httpx import Auth
-else:
-    # Import for runtime use
-    from fastmcp.server.providers.openapi import MCPType
 
-from proxies.static_mcp_provider import StaticMcpProvider,McpProxyConfig
-from tools import SpecConfig
+from proxies.static_mcp_provider import StaticMcpProvider, McpProxyConfig
+from tools import McpConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
 
@@ -25,7 +21,7 @@ from tools.logging_config import setup_logging
 class OpenApiMcpProvider(StaticMcpProvider):
     """Provider class for creating FastMCP instances from McpProxyConfig."""
 
-    def __init__(self, config: SpecConfig) -> None:
+    def __init__(self, config: McpConfig) -> None:
         self.mcp: FastMCP | None = None
         self.config = config
         self.logger = setup_logging(__name__)
@@ -46,16 +42,7 @@ class OpenApiMcpProvider(StaticMcpProvider):
         """Return an appropriate HTTP client for the configured service."""
         if not self.config.base_url:
             raise ValueError("base_url is required for OpenAPI clients without Azure auth")
-
-        auth: Auth | None = None
-        headers: dict[str, str] = {}
-        if self.config.auth and self.config.auth.azure:
-            auth = self._create_client_auth(self.config.auth.azure)
-        else:
-            if self.config.auth is not None and self.config.auth.auth_token is not None:
-                headers["Authorization"] = self.config.auth.auth_token
-
-        return httpx.AsyncClient(base_url=self.config.base_url, auth=auth, headers=headers)
+        return httpx.AsyncClient(base_url=self.config.base_url, auth=self._create_client_auth())
 
     def create_proxy(self) -> FastMCP:
         """
@@ -63,11 +50,6 @@ class OpenApiMcpProvider(StaticMcpProvider):
         """
         if self.mcp is not None:
             return self.mcp
-
-        self.logger.info("Creating proxy for config: %s", self.config.path)
-        azure_cfg = self.config.auth.azure if self.config.auth else None
-        if not self.config.base_url and azure_cfg is None:
-            raise ValueError("base_url is required for OpenAPI proxies without Azure auth")
 
         client = self.create_client()
 
@@ -80,13 +62,13 @@ class OpenApiMcpProvider(StaticMcpProvider):
             tags=self.config.tags
         )
         
-        self.mcp.auth = super()._get_global_auth_provider()
+        self.mcp.auth = super()._get_app_auth_provider()
         self._create_skill_proxy(self.mcp)
         
         return self.mcp
 
     @staticmethod
-    def create_mcp_proxies_configs(configs: list[SpecConfig]) -> list[McpProxyConfig]:
+    def create_mcp_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
         mcp_proxy_configs: list[McpProxyConfig] = []
         for config in configs:
             if config.spec_data is None:

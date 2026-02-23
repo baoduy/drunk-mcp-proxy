@@ -7,14 +7,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from tools.auth_config import AuthProviderType
-from tools.spec_config import AzureAuthConfig
-from tools import SpecConfig
-from auth_providers import AzureOauth
+from app.app_config_provider import AppConfigProvider
 from dataclasses import dataclass
 from tools.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
+    from tools import McpConfig
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
     from fastmcp import FastMCP
@@ -39,7 +37,7 @@ class McpProxyConfig:
     mcp_server: FastMCP
 
     def http_app(self, path: str = "/") -> "StarletteWithLifespan":
-        """Return the underlying ASGI application for this MCP proxy."""
+        """Return the underlying Web application for this MCP proxy."""
         return self.mcp_server.http_app(
             path=path, transport=SERVER_TRANSPORT or "streamable-http" # type: ignore
         )  # type: ignore
@@ -48,11 +46,11 @@ class McpProxyConfig:
 class StaticMcpProvider(ABC):
     """Abstract base class for MCP provider implementations."""
 
-    def __init__(self, config: SpecConfig) -> None:
+    def __init__(self, config: McpConfig) -> None:
         """Initialize the StaticMcpProvider.
 
         Args:
-            config: The SpecConfig instance for this provider.
+            config: The McpConfig instance for this provider.
         """
         self.config = config
 
@@ -85,17 +83,14 @@ class StaticMcpProvider(ABC):
 
         return McpProxyConfig(path=self.config.path, mcp_server=service)
 
-    def _get_global_auth_provider(
-        self, provider_name: AuthProviderType | None = None
-    ) -> AuthProvider | None:
+    def _get_app_auth_provider(self) -> "AuthProvider | None":
         """Create and return an authentication handler.
 
         Returns:
             An Authentication provider instance for the provider.
         """
-        from app.auth_provider import GlobalAuthProvider
-
-        return GlobalAuthProvider.get_auth_provider(provider_name)
+        provider_Name = self.config.auth.auth_provider if self.config.auth else None
+        return AppConfigProvider.get_instance().get_fast_mcp_auth_provider(provider_Name)
 
     def _create_skill_proxy(self, mcp: FastMCP):
         if self.config.skill_dir is None:
@@ -123,27 +118,8 @@ class StaticMcpProvider(ABC):
         #                self.config.path, len(subdirs), [d.name for d in subdirs])
         mcp.add_provider(provider)
 
-    @staticmethod
-    def _scope_value(config: AzureAuthConfig) -> str | None:
-        if not config.scopes:
-            return None
-        return " ".join(config.scopes)
+    def _create_client_auth(self) -> "Auth | None":
+        pass_through = self.config.auth.pass_through if self.config.auth else False
+        provider_Name = self.config.auth.auth_provider if self.config.auth else None
 
-    def _create_client_auth(self, azure_config: AzureAuthConfig) -> "Auth":
-        if self.config.auth and self.config.auth.pass_through:
-            from auth_providers import AuthPassThrough
-
-            return AuthPassThrough()
-
-        from app.cache_provider import CacheProvider
-
-        scope_value = self._scope_value(azure_config)
-        auth = AzureOauth(
-            client_id=azure_config.client_id,
-            client_secret=azure_config.client_secret,
-            token_url=azure_config.token_url,
-            scope=scope_value,
-            token_storage=CacheProvider.get_oauth_store(),
-        )
-
-        return auth
+        return AppConfigProvider.get_instance().get_client_auth_handler(provider_Name,pass_through)

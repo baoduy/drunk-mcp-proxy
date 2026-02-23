@@ -26,7 +26,7 @@ Supported Transports:
 
 from typing import TYPE_CHECKING
 from proxies.llm_proxies_provider import LlmProxiesProvider
-
+from app.app_config_provider import AppConfigProvider
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from proxies import StaticProxiesProvider
@@ -189,11 +189,12 @@ class MCPProxyServer:
         self._log_startup_configuration()
         print("=" * 50)
 
-        provider = StaticProxiesProvider(config_dir=CONFIG_DIR)
+        config_provider = AppConfigProvider.get_instance()
+        provider = StaticProxiesProvider(config_provider.get_mcp_configs())
         self.mcp_services = provider.get_config_services()
         self.logger.info("Total MCP servers loaded: %d", len(self.mcp_services))
 
-        llmProvider = LlmProxiesProvider(config_dir=CONFIG_DIR)
+        llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
         self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
         self.logger.info("LLM Proxies Provider loaded with %d providers", len(llmProvider.providers))
 

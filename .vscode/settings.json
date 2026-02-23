@@ -13,5 +13,13 @@
   "terminal.integrated.shellIntegration.enabled": true,
   "editor.defaultFormatter": "ms-python.vscode-pylance",
   "python.analysis.extraPaths": ["${workspaceFolder}/src"],
-  "python.analysis.autoSearchPaths": false
+  "python.analysis.autoSearchPaths": false,
+  "cSpell.words": [
+    "fastmcp",
+    "openrouter",
+    "pycache",
+    "streamable",
+    "supabase",
+    "venv"
+  ]
 }

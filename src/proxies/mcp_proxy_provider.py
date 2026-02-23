@@ -4,16 +4,15 @@ This module provides a class for creating FastMCP instances from MCP configurati
 """
 from __future__ import annotations
 from fastmcp import FastMCP
-
+from tools import McpConfig
 from proxies.static_mcp_provider import StaticMcpProvider, McpProxyConfig
-from tools import SpecConfig
 from tools.env import SERVER_NAME, SERVER_VERSION
 from tools.logging_config import setup_logging
 
 class McpProxyProvider(StaticMcpProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
 
-    def __init__(self, config: SpecConfig, root_mcp:FastMCP|None=None) -> None:
+    def __init__(self, config: McpConfig, root_mcp:FastMCP|None=None) -> None:
         super().__init__(config)
         self.root_mcp = root_mcp
         self.mcp: FastMCP | None = None
@@ -43,22 +42,22 @@ class McpProxyProvider(StaticMcpProvider):
             f"{SERVER_NAME}{self.config.path}",
             version=SERVER_VERSION
         )
-        self.mcp.auth = super()._get_global_auth_provider()
+        self.mcp.auth = self._get_app_auth_provider()
         self._create_proxy(self.mcp)
         self._create_skill_proxy(self.mcp)
 
         return self.mcp
 
     @staticmethod
-    def create_mcp_proxies_configs(configs: list[SpecConfig]) -> list[McpProxyConfig]:
+    def create_mcp_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
         """
-        Create MCP proxy configurations from a list of SpecConfig instances.
+        Create MCP proxy configurations from a list of McpConfig instances.
         
         This method handles the special case of root MCP ("/") which serves as
         the main MCP server, and creates individual FastMCP instances for other paths.
         
         Args:
-            configs: List of MCP SpecConfig instances
+            configs: List of MCP McpConfig instances
             
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
