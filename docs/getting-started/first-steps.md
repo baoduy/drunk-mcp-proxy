@@ -31,17 +31,14 @@ Let's start by configuring a simple MCP service.
 
 ### Step 1: Understand the Configuration File
 
-The proxy uses `data/config.json` to define which services to proxy. Here's the simplest configuration:
+The proxy uses `data/config.yaml` to define which services to proxy. Here's the simplest configuration:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    base_url: null
 ```
 
 **Configuration Fields Explained**:
@@ -52,18 +49,17 @@ The proxy uses `data/config.json` to define which services to proxy. Here's the 
 
 ### Step 2: Create Your First MCP Service Configuration
 
-Let's add a simple memory MCP server. Create or edit `data/config.json`:
+Let's add a simple memory MCP server. Create or edit `data/config.yaml`:
 
-```json
-[
-  {
-    "path": "/memory",
-    "spec_file": "mcp/memory.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "tags": ["utility", "storage"]
-  }
-]
+```yaml
+mcp:
+  - path: /memory
+    spec_file: mcp/memory.mcp.json
+    spec_type: mcp
+    base_url: null
+    tags:
+      - utility
+      - storage
 ```
 
 ### Step 3: Create the MCP Specification
@@ -175,20 +171,16 @@ Now let's secure your proxy with JWT authentication.
 
 ### Step 1: Configure Global Authentication
 
-Create `data/auth.json`:
+Add authentication configuration to `data/config.yaml`:
 
-```json
-{
-  "enabled": true,
-  "defaultProvider": "jwt",
-  "jwt": {
-    "base_url": null,
-    "jwks_uri": "https://your-auth-provider.com/.well-known/jwks.json",
-    "issuer": "https://your-auth-provider.com/",
-    "audience": "mcp-proxy-api",
-    "algorithm": "RS256"
-  }
-}
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    base_url: null
+    jwks_uri: https://your-auth-provider.com/.well-known/jwks.json
+    issuer: https://your-auth-provider.com/
+    audience: mcp-proxy-api
 ```
 
 **Note**: Replace the URLs with your actual authentication provider endpoints.
@@ -246,26 +238,21 @@ Let's add a real-world REST API to demonstrate OpenAPI integration.
 
 ### Step 1: Add OpenAPI Service Configuration
 
-Update `data/config.json`:
+Update `data/config.yaml`:
 
-```json
-[
-  {
-    "path": "/memory",
-    "spec_file": "mcp/memory.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  },
-  {
-    "path": "/weather",
-    "spec_file": "openapi/weather.openapi.json",
-    "spec_type": "openapi",
-    "base_url": "https://api.openweathermap.org/data/2.5",
-    "auth": {
-      "auth_token": "Bearer YOUR_API_KEY"
-    }
-  }
-]
+```yaml
+mcp:
+  - path: /memory
+    spec_file: mcp/memory.mcp.json
+    spec_type: mcp
+    base_url: null
+  
+  - path: /weather
+    spec_file: openapi/weather.openapi.json
+    spec_type: openapi
+    base_url: https://api.openweathermap.org/data/2.5
+    auth:
+      auth_token: Bearer YOUR_API_KEY
 ```
 
 ### Step 2: Create OpenAPI Specification
@@ -327,7 +314,7 @@ curl -X POST http://localhost:9123/weather/mcp \
 
 ### 1. Add More Services
 
-Expand your `config.json` to include multiple services:
+Expand your `config.yaml` to include multiple services:
 - Internal MCP servers for documentation, databases, etc.
 - External OpenAPI services (GitHub, Jira, Confluence, etc.)
 - Mix of authenticated and unauthenticated services
@@ -336,53 +323,51 @@ Expand your `config.json` to include multiple services:
 
 Use pass-through authentication to forward user tokens:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      pass_through: true
 ```
 
 Or use Azure OAuth for service-to-service authentication:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["api://example-api/.default"]
-    }
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    auth:
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        scopes:
+          - api://example-api/.default
 ```
 
 ### 3. Filter OpenAPI Endpoints
 
 Reduce tool clutter by filtering OpenAPI endpoints:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.openapi.json",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "filters": {
-    "methods": ["GET", "POST"],
-    "tags": ["Users", "Projects"]
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.openapi.json
+    spec_type: openapi
+    base_url: https://api.example.com
+    filters:
+      methods:
+        - GET
+        - POST
+      tags:
+        - Users
+        - Projects
 ```
 
 ### 4. Enable CORS for Web Clients
@@ -416,13 +401,13 @@ curl http://localhost:9123/health
 
 Add markdown-based skills to provide LLMs with domain knowledge:
 
-```json
-{
-  "path": "/",
-  "spec_type": "mcp",
-  "skill_dir": "skills",
-  "mcpServers": { ... }
-}
+```yaml
+mcp:
+  - path: /
+    spec_type: mcp
+    skill_dir: skills
+    mcp_servers:
+      # ... your MCP servers configuration
 ```
 
 Create skills in `data/skills/`:
@@ -447,7 +432,7 @@ docker-compose logs mcp-proxy
 
 **Common issues**:
 - Port 9123 already in use: Change `FASTMCP_PORT` in `.env`
-- Invalid JSON in config files: Validate with `jq`
+- Invalid YAML in config files: Validate with `yamllint` or online YAML validator
 - Missing environment variables: Check `.env` file
 
 ### Authentication Failures
@@ -477,4 +462,4 @@ docker-compose logs mcp-proxy
 
 - **GitHub Issues**: [https://github.com/baoduy/drunk-mcp-proxy/issues](https://github.com/baoduy/drunk-mcp-proxy/issues)
 - **Documentation**: Check the `docs/` directory for detailed guides
-- **Examples**: Review `data/config.json` for working configurations
+- **Examples**: Review `data/config.yaml` for working configurations
