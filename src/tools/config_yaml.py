@@ -177,7 +177,7 @@ class McpConfig(ConfigBaseModel):
             if not self.spec_file:
                 raise ValueError("spec_file is required for OpenAPI spec type")
         else:  # SpecType.MCP
-            if not self.spec_file and (not self.mcp_servers or len(self.mcp_servers) == 0):
+            if not self.spec_file and not self.mcp_servers:
                 raise ValueError("For MCP spec type, either spec_file or mcp_servers must be provided.")
         
     def load_spec_data(self):

@@ -193,7 +193,7 @@ mcp:
             temp_file = f.name
 
         try:
-            with pytest.raises(ValueError, match="either spec_file or mcp_servers must be provided"):
+            with pytest.raises(ValueError, match="For MCP spec type, either spec_file or mcp_servers must be provided"):
                 ConfigYaml.load_from_file(temp_file)
         finally:
             os.unlink(temp_file)
