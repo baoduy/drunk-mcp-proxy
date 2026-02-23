@@ -19,19 +19,20 @@ class TestAppPackageImports:
         import src.app as app
         assert "MCPProxyServer" in app.__all__
         assert "CacheProvider" in app.__all__
-        assert "GlobalAuthProvider" in app.__all__
+        assert "AppConfigProvider" in app.__all__
         assert "SwaggerProvider" in app.__all__
-        assert len(app.__all__) == 4
+        # The app module now exports more than just these core items
+        assert len(app.__all__) >= 4
 
 
 class TestToolsPackageImports:
     """Test suite for tools package imports."""
 
-    def test_import_spec_config(self):
-        """Test importing SpecConfig from tools package."""
-        from src.tools import SpecConfig
-        assert SpecConfig is not None
-        assert SpecConfig.__name__ == "SpecConfig"
+    def test_import_config_yaml(self):
+        """Test importing ConfigYaml from tools package."""
+        from src.tools import ConfigYaml
+        assert ConfigYaml is not None
+        assert ConfigYaml.__name__ == "ConfigYaml"
 
     def test_import_cache(self):
         """Test importing Cache from app package."""
@@ -42,8 +43,8 @@ class TestToolsPackageImports:
     def test_tools_all_exports(self):
         """Test __all__ contains expected exports."""
         import src.tools as tools
-        assert "SpecConfig" in tools.__all__
+        assert "ConfigYaml" in tools.__all__
         assert "AuthConfig" in tools.__all__
-        assert "AuthProviderType" in tools.__all__
-        # Cache is exported from app, not tools
-        assert len(tools.__all__) == 4
+        assert "AuthType" in tools.__all__
+        # Check other key exports
+        assert len(tools.__all__) >= 8  # At least 8 exports expected

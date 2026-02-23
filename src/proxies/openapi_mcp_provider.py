@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 from fastmcp import FastMCP
 import httpx
 from fastmcp.utilities.openapi import HTTPRoute
+from fastmcp.server.providers.openapi import MCPType
 
 if TYPE_CHECKING:
-    from fastmcp.server.providers.openapi import MCPType
+    pass
 
 from proxies.static_mcp_provider import StaticMcpProvider, McpProxyConfig
 from tools import McpConfig

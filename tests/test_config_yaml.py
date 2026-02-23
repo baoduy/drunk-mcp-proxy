@@ -134,7 +134,8 @@ class TestMcpConfig:
 
     def test_mcp_config_required_fields(self) -> None:
         """Test McpConfig with required fields."""
-        config = McpConfig(path="/api")
+        mcp_servers = {"test-server": {"enabled": True}}
+        config = McpConfig(path="/api", mcp_servers=mcp_servers)
         assert config.path == "/api"
         assert config.spec_type == "mcp"
         assert config.spec_file is None
@@ -158,6 +159,8 @@ class TestMcpConfig:
         config = McpConfig(
             path="/deepsea",
             spec_type="openapi",
+            spec_file="openapi/deepsea.openapi.json",
+            base_url="http://localhost:5000",
             filters=filters,
         )
         assert config.filters is not None
@@ -166,10 +169,12 @@ class TestMcpConfig:
 
     def test_mcp_config_with_skill_dir(self) -> None:
         """Test McpConfig with skill directory."""
+        mcp_servers = {"test-server": {"enabled": True}}
         config = McpConfig(
             path="/",
             spec_type="mcp",
             skill_dir="skills",
+            mcp_servers=mcp_servers,
         )
         assert config.skill_dir == "skills"
 
@@ -197,6 +202,8 @@ class TestMcpConfig:
         config = McpConfig(
             path="/deepsea",
             spec_type="openapi",
+            spec_file="openapi/deepsea.openapi.json",
+            base_url="http://localhost:5000",
             auth=auth,
         )
         assert config.auth is not None
@@ -207,15 +214,15 @@ class TestAuthConfig:
     """Tests for AuthConfig model."""
 
     @patch.dict(os.environ, {"API_KEY": "test-key"})
-    def test_auth_config_with_bearer(self) -> None:
-        """Test AuthConfig with Bearer authentication."""
+    def test_auth_config_with_basic(self) -> None:
+        """Test AuthConfig with Basic authentication."""
         config = AuthConfig(
-            defaultProvider="bearer",
-            bearer=BearerAuthConfig(token="$API_KEY"),
+            defaultProvider="basic",
+            basic=BearerAuthConfig(token="$API_KEY"),
         )
-        assert config.default_provider == "bearer"
-        assert config.bearer is not None
-        assert config.bearer.token == "test-key"
+        assert config.default_provider == "basic"
+        assert config.basic is not None
+        assert config.basic.token == "test-key"
 
     @patch.dict(os.environ, {"TENANT_ID": "abc123"})
     def test_auth_config_with_jwt(self) -> None:
@@ -255,7 +262,7 @@ class TestConfigYamlLoading:
             config = ConfigYaml.load_from_file(config_file)
 
             assert config.auth is not None
-            assert config.auth.default_provider == "bearer"
+            assert config.auth.default_provider == "basic"
             assert config.llm is not None
             assert len(config.llm) == 2
             assert config.mcp is not None
@@ -321,6 +328,9 @@ class TestConfigYamlParsing:
 mcp:
   - path: /
     spec_type: mcp
+    mcpServers:
+      test-server:
+        enabled: true
 """
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
@@ -408,12 +418,25 @@ mcp:
             os.unlink(temp_file)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    def test_parse_config_with_complete_structure(self) -> None:
+    @patch("src.tools.config_yaml.CONFIG_DIR", "/tmp")
+    def test_parse_config_with_complete_structure(self, monkeypatch) -> None:
         """Test parsing configuration with complete auth, llm, and mcp sections."""
+        # Create a temporary spec file
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        openapi_dir = os.path.join(temp_dir, "openapi")
+        os.makedirs(openapi_dir, exist_ok=True)
+        spec_file_path = os.path.join(openapi_dir, "api.json")
+        with open(spec_file_path, "w") as f:
+            f.write('{"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}')
+        
+        # Patch CONFIG_DIR to use temp directory
+        monkeypatch.setattr("src.tools.config_yaml.CONFIG_DIR", temp_dir)
+        
         yaml_content = """
 auth:
-  defaultProvider: bearer
-  bearer:
+  defaultProvider: basic
+  basic:
     base_url: null
     token: null
 
@@ -449,7 +472,7 @@ mcp:
 
             # Verify auth section
             assert config.auth is not None
-            assert config.auth.default_provider == "bearer"
+            assert config.auth.default_provider == "basic"
 
             # Verify llm section
             assert config.llm is not None
@@ -471,17 +494,19 @@ mcp:
             assert mcp.auth.pass_through is True
         finally:
             os.unlink(temp_file)
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 class TestConfigYamlEnvVarResolution:
     """Tests for environment variable resolution in ConfigYaml."""
 
-    def test_env_var_missing_bearer_token(self) -> None:
+    def test_env_var_missing_basic_token(self) -> None:
         """Test that missing environment variable raises error."""
         yaml_content = """
 auth:
-  defaultProvider: bearer
-  bearer:
+  defaultProvider: basic
+  basic:
     token: $MISSING_API_KEY
 """
         with tempfile.NamedTemporaryFile(

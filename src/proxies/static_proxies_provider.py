@@ -6,12 +6,14 @@ configurations using McpConfig from the CONFIG_DIR/config.json file.
 """
 
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from app.app_config_provider import AppConfigProvider
-from .static_mcp_provider import McpProxyConfig
-from .mcp_proxy_provider import McpProxyProvider
 from tools.logging_config import setup_logging
 from tools import SpecType,McpConfig
+
+if TYPE_CHECKING:
+    from .static_mcp_provider import McpProxyConfig
+    from .mcp_proxy_provider import McpProxyProvider
 
 
 class StaticProxiesProvider:
@@ -47,7 +49,7 @@ class StaticProxiesProvider:
         """ Get all configurations of a specific type. """
         return [config for config in self.configs if config.spec_type == spec_type]
 
-    def _get_mcp_services(self) -> list[McpProxyConfig]:
+    def _get_mcp_services(self) -> list["McpProxyConfig"]:
         """
         Set up MCP services based on loaded MCP configurations.
         
@@ -58,13 +60,15 @@ class StaticProxiesProvider:
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
+        from .mcp_proxy_provider import McpProxyProvider
+        
         mcp_configs = self.mcp_configs
         if len(mcp_configs) == 0:
             self.logger.warning("No MCP configurations found in config file")
             return []
         return McpProxyProvider.create_mcp_proxies_configs(mcp_configs)
 
-    def _get_openapi_services(self) -> list[McpProxyConfig]:
+    def _get_openapi_services(self) -> list["McpProxyConfig"]:
         """
         Set up MCP services based on loaded MCP configurations.
         
@@ -83,7 +87,7 @@ class StaticProxiesProvider:
         from .openapi_mcp_provider import OpenApiMcpProvider
         return OpenApiMcpProvider.create_mcp_proxies_configs(openapi_configs)
         
-    def get_config_services(self) -> list[McpProxyConfig]:
+    def get_config_services(self) -> list["McpProxyConfig"]:
         """
         Set up MCP services based on loaded MCP configurations.
         

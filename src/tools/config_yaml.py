@@ -137,7 +137,7 @@ class McpConfig(ConfigBaseModel):
     skill_dir: Optional[str] = Field(default=None)
     filters: Optional[McpFilters] = Field(default=None)
     auth: Optional[McpAuthConfig] = Field(default=None)
-    mcp_servers: Optional[dict[str, Any]] = Field(default=None)
+    mcp_servers: Optional[dict[str, Any]] = Field(default=None, alias="mcpServers")
     tags: Optional[set[str]] = Field(default=None)
     spec_data: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
@@ -173,11 +173,11 @@ class McpConfig(ConfigBaseModel):
         """Validate that required fields are present based on spec_type."""
         if self.spec_type == SpecType.OPENAPI:
             if not self.base_url:
-                raise ValueError("base_url is required for MCP spec type")
+                raise ValueError("base_url is required for OpenAPI spec type")
             if not self.spec_file:
-                raise ValueError("For MCP spec type, either spec_file or mcp_servers must be provided.")
+                raise ValueError("spec_file is required for OpenAPI spec type")
         else:  # SpecType.MCP
-            if not self.mcp_servers or self.mcp_servers.__len__() == 0:
+            if not self.spec_file and (not self.mcp_servers or len(self.mcp_servers) == 0):
                 raise ValueError("For MCP spec type, either spec_file or mcp_servers must be provided.")
         
     def load_spec_data(self):

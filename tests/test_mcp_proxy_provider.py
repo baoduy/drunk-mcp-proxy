@@ -13,7 +13,7 @@ import pytest
 
 from src.proxies.mcp_proxy_provider import McpProxyProvider
 from src.proxies.static_mcp_provider import StaticMcpProvider
-from src.tools.spec_config import SpecConfig
+from src.tools.config_yaml import McpConfig
 
 
 class TestMcpProxyProviderInit:
@@ -21,7 +21,7 @@ class TestMcpProxyProviderInit:
 
     def test_init_with_config(self):
         """Test initialization with SpecConfig."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         provider = McpProxyProvider(mock_config)
 
@@ -32,7 +32,7 @@ class TestMcpProxyProviderInit:
 
     def test_init_with_root_mcp(self):
         """Test initialization with root_mcp parameter."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_root_mcp = Mock()
 
@@ -48,7 +48,7 @@ class TestMcpProxyProviderCreateSkillProxy:
 
     def test_create_skill_proxy_with_none_skill_dir(self):
         """Test that _create_skill_proxy returns early when skill_dir is None."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = None
         mock_config.path = "/test"
 
@@ -64,7 +64,7 @@ class TestMcpProxyProviderCreateSkillProxy:
     @patch("src.tools.env.CONFIG_DIR", "/test/config")
     def test_create_skill_proxy_with_nonexistent_directory(self):
         """Test that _create_skill_proxy returns early when skill_dir doesn't exist."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "nonexistent_skills"
         mock_config.path = "/test"
 
@@ -86,7 +86,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_path_instance.iterdir.return_value = []  # Empty directory
         mock_path_cls.return_value = mock_path_instance
 
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "skills"
         mock_config.path = "/test"
 
@@ -131,7 +131,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_provider = Mock()
         mock_skills_provider_cls.return_value = mock_provider
 
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "skills"
         mock_config.path = "/test"
 
@@ -182,7 +182,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_provider = Mock()
         mock_skills_provider_cls.return_value = mock_provider
 
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "skills"
         mock_config.path = "/test"
 
@@ -237,7 +237,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_provider = Mock()
         mock_skills_provider_cls.return_value = mock_provider
 
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "skills"
         mock_config.path = "/test"
 
@@ -261,7 +261,7 @@ class TestMcpProxyProviderCreateSkillProxy:
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
@@ -270,16 +270,21 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls,
         mock_create_skill_proxy,
         mock_create_proxy,
-        mock_get_auth,
+        mock_get_app_config,
     ):
         """Test that create_proxy calls _create_skill_proxy."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.auth = None  # Add auth attribute
 
-        mock_mcp = Mock()
+        mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
         mock_fastmcp_cls.return_value = mock_mcp
-        mock_get_auth.return_value = None
+        
+        # Mock AppConfigProvider
+        mock_app_config = Mock()
+        mock_app_config.get_fast_mcp_auth_provider.return_value = None
+        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
         result = provider.create_proxy()
@@ -288,7 +293,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_mcp)
         assert result == mock_mcp
 
-    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
@@ -297,15 +302,20 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls,
         mock_create_skill_proxy,
         mock_create_proxy,
-        mock_get_auth,
+        mock_get_app_config,
     ):
         """Test that create_proxy uses root_mcp when path is '/'."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.path = "/"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.auth = None  # Add auth attribute
 
-        mock_root_mcp = Mock()
-        mock_get_auth.return_value = None
+        mock_root_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
+        
+        # Mock AppConfigProvider
+        mock_app_config = Mock()
+        mock_app_config.get_fast_mcp_auth_provider.return_value = None
+        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config, root_mcp=mock_root_mcp)
         result = provider.create_proxy()
@@ -315,7 +325,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls.assert_not_called()
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
-    @patch("app.auth_provider.GlobalAuthProvider.get_auth_provider")
+    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
     @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")
@@ -324,16 +334,21 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls,
         mock_create_skill_proxy,
         mock_create_proxy,
-        mock_get_auth,
+        mock_get_app_config,
     ):
         """Test that create_proxy returns cached mcp on subsequent calls."""
-        mock_config = Mock(spec=SpecConfig)
+        mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.auth = None  # Add auth attribute
 
-        mock_mcp = Mock()
+        mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
         mock_fastmcp_cls.return_value = mock_mcp
-        mock_get_auth.return_value = None
+        
+        # Mock AppConfigProvider
+        mock_app_config = Mock()
+        mock_app_config.get_fast_mcp_auth_provider.return_value = None
+        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
 
@@ -347,33 +362,35 @@ class TestMcpProxyProviderCreateProxy:
         assert mock_create_skill_proxy.call_count == 1
 
 
-class TestSpecConfigSkillDirField:
-    """Test suite for skill_dir field in SpecConfig."""
+class TestMcpConfigSkillDirField:
+    """Test suite for skill_dir field in McpConfig."""
 
-    def test_spec_config_with_skill_dir(self):
-        """Test that SpecConfig accepts skill_dir field."""
-        config = SpecConfig.model_validate(
+    def test_mcp_config_with_skill_dir(self):
+        """Test that McpConfig accepts skill_dir field."""
+        config = McpConfig.model_validate(
             {
                 "path": "/test",
-                "spec_file": "test.json",
                 "spec_type": "mcp",
                 "skill_dir": "skills",
+                "mcpServers": {
+                    "test-server": {"enabled": True}
+                }
             }
         )
 
         assert config.skill_dir == "skills"
 
-    def test_spec_config_skill_dir_defaults_to_none(self):
+    def test_mcp_config_skill_dir_defaults_to_none(self):
         """Test that skill_dir defaults to None when not specified."""
-        config = SpecConfig.model_validate(
-            {"path": "/test", "spec_file": "test.json", "spec_type": "mcp"}
+        config = McpConfig.model_validate(
+            {"path": "/test", "spec_type": "mcp", "mcpServers": {"test-server": {"enabled": True}}}
         )
 
         assert config.skill_dir is None
 
-    def test_spec_config_with_mcp_servers_and_skill_dir(self):
-        """Test SpecConfig with both mcpServers and skill_dir."""
-        config = SpecConfig.model_validate(
+    def test_mcp_config_with_mcp_servers_and_skill_dir(self):
+        """Test McpConfig with both mcpServers and skill_dir."""
+        config = McpConfig.model_validate(
             {
                 "path": "/",
                 "spec_type": "mcp",
