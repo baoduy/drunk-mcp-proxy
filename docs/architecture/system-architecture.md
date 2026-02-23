@@ -117,7 +117,7 @@ Clients send:
 - **SkillsDirectoryProvider**: Loads skill-based resources
 
 **Configuration:**
-- **ProxyConfigProvider**: Loads `config.json`
+- **ProxyConfigProvider**: Loads `config.yaml`
 - **SpecConfig**: Per-service configuration model
 - **Environment Resolution**: `$VAR` substitution
 
@@ -222,7 +222,7 @@ app.add_middleware(RateLimitMiddleware, ...)
 
 ```
 1. Load environment variables (.env, ENV)
-2. Load configuration files (config.json, auth.json)
+2. Load configuration file (config.yaml)
 3. Create GlobalAuthProvider (if auth enabled)
 4. Create ProxyConfigProvider
 5. For each service config:
