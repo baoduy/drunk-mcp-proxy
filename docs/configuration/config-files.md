@@ -1,152 +1,158 @@
 # Configuration Files
 
-Complete reference for all configuration files used by drunk-mcp-proxy.
+Complete reference for configuration used by drunk-mcp-proxy.
 
-## Configuration Files Overview
+## Configuration Overview
 
-drunk-mcp-proxy uses JSON configuration files stored in the `data/` directory (configurable via `FASTMCP_CONFIG_DIR`):
+drunk-mcp-proxy uses a unified YAML configuration file stored in the `data/` directory (configurable via `FASTMCP_CONFIG_DIR`):
 
 | File | Purpose | Required |
 |------|---------|----------|
-| `config.json` | MCP and OpenAPI service definitions | Yes |
-| `auth.json` | Client authentication configuration | No |
-| `llm.json` | LLM provider configurations | No |
+| `config.yaml` | Unified configuration for authentication, LLM providers, and MCP/OpenAPI services | Yes |
 
-## config.json - Service Configuration
+> **Note**: The configuration was migrated from multiple JSON files (`config.json`, `auth.json`, `llm.json`) to a single `config.yaml` file for better maintainability and clarity.
 
-This is the main configuration file that defines which MCP and OpenAPI services to proxy.
+## config.yaml - Unified Configuration
+
+This is the main configuration file that defines:
+1. **Authentication** - How clients authenticate to the proxy
+2. **LLM Providers** - LLM services for routing requests
+3. **MCP/OpenAPI Services** - Which backend services to proxy
 
 ### Structure
 
-An array of service configuration objects:
+```yaml
+# Authentication configuration (optional)
+auth:
+  defaultProvider: basic
+  basic:
+    token: $API_KEY
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  },
-  {
-    "path": "/api",
-    "spec_file": "openapi/petstore.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com"
-  }
-]
+# LLM providers (optional)
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+
+# MCP and OpenAPI services
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+
+  - path: /api
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
 ```
 
 ### Field Reference
 
-#### Required Fields
+#### MCP Service Fields
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `path` | string | Mount path for the service | `"/"`, `"/stock"`, `"/api"` |
-| `spec_type` | enum | Type of specification | `"mcp"` or `"openapi"` |
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| `enabled` | boolean | No | Enable/disable this service | `true` (default) |
+| `path` | string | Yes | Mount path for the service | `/`, `/stock`, `/api` |
+| `spec_type` | enum | Yes | Type of specification | `mcp` or `openapi` |
+| `spec_file` | string | Conditional | Path to spec file (relative to config dir) | `mcp/stock.json` |
+| `base_url` | string | For OpenAPI | Base URL of the backend API | `https://api.example.com` |
+| `mcp_servers` | object | If no spec_file | Inline MCP server configuration (MCP only) | See below |
+| `skill_dir` | string | No | Skills directory (MCP only) | `skills` |
+| `filters` | object | No | Filter OpenAPI operations | See [Filters](#filters) |
+| `auth` | object | No | Backend authentication config | See [Backend Auth](#backend-authentication) |
+| `tags` | array | No | Categorization tags | `["finance", "public"]` |
 
-#### Conditional Fields
+#### Authentication Fields
 
-| Field | Type | Required When | Description |
-|-------|------|---------------|-------------|
-| `spec_file` | string | Unless `mcpServers` provided | Path to specification file (relative to config dir) |
-| `base_url` | string | For OpenAPI services | Base URL of the backend API |
-| `mcpServers` | object | If no `spec_file` | Inline MCP server configuration (MCP only) |
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| `defaultProvider` | enum | Yes | Default auth provider to use | `basic`, `jwt`, `azure` |
+| `basic` | object | If using basic | Bearer token configuration | See below |
+| `jwt` | object | If using JWT | JWT validation configuration | See below |
 
-#### Optional Fields
+#### LLM Provider Fields
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `tags` | array | Categorization tags | `["finance", "public"]` |
-| `filters` | object | Filter OpenAPI operations | See [Filters](#filters) below |
-| `auth` | object | Backend authentication config | See [Backend Auth](#backend-authentication) below |
-| `skill_dir` | string | Skills directory (MCP only) | `"skills"` |
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| `enabled` | boolean | Yes | Enable/disable this provider | `true` |
+| `provider` | string | Yes | Provider name | `openai`, `openrouter` |
+| `base_url` | string | Yes | Provider API base URL | `https://api.openai.com/v1` |
+| `api_key` | string | No | API key (supports env vars) | `$OPENAI_API_KEY` |
 
 ### MCP Service Configuration
 
 #### Basic MCP Service
 
-```json
-{
-  "path": "/",
-  "spec_file": "mcp/mcp.json",
-  "spec_type": "mcp",
-  "base_url": null
-}
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
 ```
 
 #### MCP with Skills Directory
 
-```json
-{
-  "path": "/",
-  "spec_file": "mcp/mcp.json",
-  "spec_type": "mcp",
-  "base_url": null,
-  "skill_dir": "skills"
-}
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    skill_dir: skills
 ```
 
 The `skill_dir` points to a directory (relative to config dir) containing subdirectories with skill resources. Each subdirectory is registered with FastMCP's SkillsDirectoryProvider.
 
 #### MCP with Inline Servers
 
-```json
-{
-  "path": "/stock",
-  "spec_type": "mcp",
-  "mcpServers": {
-    "stock-api": {
-      "url": "https://mcp-stock.example.com/mcp",
-      "transport": "http"
-    },
-    "stock-cache": {
-      "command": "node",
-      "args": ["stock-cache-server.js"],
-      "transport": "stdio"
-    }
-  }
-}
+```yaml
+mcp:
+  - path: /stock
+    spec_type: mcp
+    mcp_servers:
+      stock-api:
+        url: "https://mcp-stock.example.com/mcp"
+        transport: http
+      stock-cache:
+        command: node
+        args: ["stock-cache-server.js"]
+        transport: stdio
 ```
 
 ### OpenAPI Service Configuration
 
 #### Basic OpenAPI Service
 
-```json
-{
-  "path": "/petstore",
-  "spec_file": "openapi/petstore.yaml",
-  "spec_type": "openapi",
-  "base_url": "https://petstore3.swagger.io/api/v3"
-}
+```yaml
+mcp:
+  - path: /petstore
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: "https://petstore3.swagger.io/api/v3"
 ```
 
 #### OpenAPI with Filters
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.yaml",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "filters": {
-    "methods": ["GET", "POST", "PUT"],
-    "tags": ["users", "posts", "comments"]
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
+    filters:
+      methods: ["GET", "POST", "PUT"]
+      tags: ["users", "posts", "comments"]
 ```
 
 #### Filters
 
 Filter OpenAPI operations to expose only specific endpoints:
 
-```json
-"filters": {
-  "methods": ["GET", "POST"],     // Only these HTTP methods
-  "tags": ["users", "posts"]      // Only operations with these tags
-}
+```yaml
+filters:
+  methods: ["GET", "POST"]  # Only these HTTP methods
+  tags: ["users", "posts"]  # Only operations with these tags
 ```
 
 Both filters are optional and work together (AND logic).
@@ -159,127 +165,128 @@ Configure how the proxy authenticates to backend services (separate from clientâ
 
 Forward client token to backend:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.yaml",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "pass_through": true
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
+    auth:
+      pass_through: true
 ```
 
 #### Azure OAuth Client Credentials
 
 Use client credentials flow for backend:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.yaml",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["https://api.example.com/.default"],
-      "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/"
-    }
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
+    auth:
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+        scopes: ["https://api.example.com/.default"]
+        issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
 ```
 
 #### Combined: Pass-Through with Azure Fallback
 
 Try pass-through first, fall back to Azure client credentials:
 
-```json
-{
-  "path": "/api",
-  "spec_file": "openapi/api.yaml",
-  "spec_type": "openapi",
-  "base_url": "https://api.example.com",
-  "auth": {
-    "pass_through": true,
-    "azure": {
-      "client_id": "$AZURE_CLIENT_ID",
-      "client_secret": "$AZURE_CLIENT_SECRET",
-      "tenant_id": "$AZURE_TENANT_ID",
-      "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "scopes": ["https://api.example.com/.default"]
-    }
-  }
-}
+```yaml
+mcp:
+  - path: /api
+    spec_file: openapi/api.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
+    auth:
+      pass_through: true
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+        scopes: ["https://api.example.com/.default"]
 ```
 
 ### Complete Example
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "skill_dir": "skills",
-    "tags": ["primary", "public"]
-  },
-  {
-    "path": "/stock",
-    "spec_file": "mcp/stock.mcp.json",
-    "spec_type": "mcp",
-    "base_url": null,
-    "tags": ["finance", "internal"]
-  },
-  {
-    "path": "/deepsea",
-    "spec_file": "openapi/deepsea.openapi.json",
-    "spec_type": "openapi",
-    "base_url": "http://host.docker.internal:5000",
-    "filters": {
-      "methods": ["GET", "POST", "PUT"],
-      "tags": ["CurrencyPairs", "Trading"]
-    },
-    "auth": {
-      "pass_through": true,
-      "azure": {
-        "client_id": "$AZURE_CLIENT_ID",
-        "client_secret": "$AZURE_CLIENT_SECRET",
-        "tenant_id": "$AZURE_TENANT_ID",
-        "token_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-        "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-        "scopes": ["api://$AZURE_CLIENT_ID/.default"]
-      }
-    },
-    "tags": ["finance", "trading", "internal"]
-  }
-]
+```yaml
+# Complete configuration with authentication, LLM, and multiple services
+auth:
+  defaultProvider: azure
+  basic:
+    token: $API_KEY
+  jwt:
+    jwks_uri: "https://login.microsoftonline.com/$AZURE_TENANT_ID/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+    audience: "api://$AZURE_CLIENT_ID"
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: $AZURE_TENANT_ID
+
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    skill_dir: skills
+    tags: ["primary", "public"]
+
+  - path: /stock
+    spec_file: mcp/stock.mcp.json
+    spec_type: mcp
+    tags: ["finance", "internal"]
+
+  - path: /deepsea
+    spec_file: openapi/deepsea.openapi.json
+    spec_type: openapi
+    base_url: "http://host.docker.internal:5000"
+    filters:
+      methods: ["GET", "POST", "PUT"]
+      tags: ["CurrencyPairs", "Trading"]
+    auth:
+      pass_through: true
+      azure:
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        token_url: "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+        issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+        scopes: ["api://$AZURE_CLIENT_ID/.default"]
+    tags: ["finance", "trading", "internal"]
 ```
 
-## auth.json - Client Authentication
+## Authentication Configuration
 
-Configures how MCP clients authenticate to the proxy (not backend auth).
+Configure how MCP clients authenticate to the proxy (clientâ†’proxy auth).
 
 ### Structure
 
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api"
-  }
-}
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    jwks_uri: "https://auth.example.com/.well-known/jwks.json"
+    issuer: "https://auth.example.com/"
+    audience: "mcp-proxy-api"
 ```
 
 ### Supported Providers
 
+- `basic` - Bearer token (API key) authentication
 - `auth0` - Auth0 authentication
 - `aws` - AWS Cognito
 - `azure` - Azure AD/Entra ID
@@ -288,7 +295,7 @@ Configures how MCP clients authenticate to the proxy (not backend auth).
 - `discord` - Discord OAuth
 - `github` - GitHub OAuth
 - `google` - Google OAuth
-- `inMemory` - In-memory users (dev/testing)
+- `in_memory` - In-memory users (dev/testing)
 - `introspection` - Token introspection
 - `jwt` - JWT validation
 - `oci` - Oracle Cloud
@@ -301,50 +308,94 @@ Configures how MCP clients authenticate to the proxy (not backend auth).
 
 #### JWT Provider
 
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "jwks_uri": "https://login.microsoftonline.com/common/discovery/keys",
-    "issuer": "https://sts.windows.net/$AZURE_TENANT_ID/",
-    "audience": "api://your-client-id",
-    "algorithm": "RS256"
-  }
-}
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    jwks_uri: "https://login.microsoftonline.com/common/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+    audience: "api://your-client-id"
+    algorithm: "RS256"
 ```
 
 #### GitHub OAuth
 
-```json
-{
-  "defaultProvider": "github",
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET",
-    "base_url": "https://your-proxy.example.com"
-  }
-}
+```yaml
+auth:
+  defaultProvider: github
+  github:
+    client_id: $GITHUB_CLIENT_ID
+    client_secret: $GITHUB_CLIENT_SECRET
+    base_url: "https://your-proxy.example.com"
 ```
 
 #### In-Memory (Development)
 
-```json
-{
-  "defaultProvider": "inMemory",
-  "inMemory": {
-    "users": {
-      "testuser": "password123",
-      "admin": "admin123"
-    }
-  }
-}
+```yaml
+auth:
+  defaultProvider: in_memory
+  in_memory:
+    users:
+      testuser: password123
+      admin: admin123
 ```
 
-See `data/auth_example.json` for all provider configurations.
+See `data/config.yaml` for more provider configurations.
+
+## LLM Provider Configuration
+
+Configure LLM providers that the proxy can route requests to.
+
+### Structure
+
+```yaml
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+
+  - enabled: false
+    provider: openrouter
+    base_url: "https://openrouter.ai/v1"
+    api_key: $OPENROUTER_API_KEY
+```
+
+### Example Configurations
+
+#### OpenAI Provider
+
+```yaml
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+```
+
+#### Multiple Providers
+
+```yaml
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+
+  - enabled: true
+    provider: anthropic
+    base_url: "https://api.anthropic.com/v1"
+    api_key: $ANTHROPIC_API_KEY
+
+  - enabled: false
+    provider: openrouter
+    base_url: "https://openrouter.ai/v1"
+    api_key: $OPENROUTER_API_KEY
+```
 
 ## Environment Variable Resolution
 
-Both `config.json` and `auth.json` support environment variable substitution:
+The configuration file supports environment variable substitution:
 
 ### Syntax
 
@@ -353,13 +404,22 @@ Both `config.json` and `auth.json` support environment variable substitution:
 
 ### Examples
 
-```json
-{
-  "client_id": "$AZURE_CLIENT_ID",
-  "tenant_id": "${AZURE_TENANT_ID}",
-  "token_url": "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token",
-  "base_url": "$API_BASE_URL"
-}
+```yaml
+auth:
+  basic:
+    token: $API_KEY
+  jwt:
+    jwks_uri: "https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+
+llm:
+  - provider: openai
+    api_key: $OPENAI_API_KEY
+    base_url: $API_BASE_URL
+
+mcp:
+  - path: /api
+    base_url: "https://api.example.com/${API_VERSION}"
 ```
 
 Variables are resolved at startup from:
@@ -369,12 +429,19 @@ Variables are resolved at startup from:
 
 ## Configuration Validation
 
-All configurations are validated against JSON schemas in the `schemas/` directory:
+Configuration is validated automatically at startup using Pydantic models. Invalid configurations will prevent the server from starting.
 
-- `schemas/mcp.schema.json` - MCP configuration schema
-- `schemas/auth.schema.json` - Auth configuration schema
+### Manual Validation
 
-Validation happens automatically at startup. Invalid configurations will prevent the server from starting.
+You can validate your YAML configuration manually:
+
+```bash
+# Using Python
+python -c "from tools import ConfigYaml; ConfigYaml.load_from_file('data/config.yaml')"
+
+# Using yamllint (if installed)
+yamllint data/config.yaml
+```
 
 ## Best Practices
 

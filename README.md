@@ -43,50 +43,46 @@ Create a `data/` directory with the required configuration files:
 mkdir -p data/mcp data/openapi data/skills
 ```
 
-#### `data/config.json` - Service Configuration
+#### `data/config.yaml` - Unified Configuration
 
-Define your MCP and OpenAPI services:
+Define authentication, LLM providers, and MCP/OpenAPI services in a single file:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_type": "mcp",
-    "skill_dir": "skills",
-    "mcpServers": {
-      "my-server": {
-        "enabled": true,
-        "command": "npx",
-        "args": ["@playwright/mcp@0.0.64"],
-        "transport": "stdio"
-      }
-    }
-  },
-  {
-    "path": "/api",
-    "spec_file": "openapi/petstore.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com"
-  }
-]
-```
+```yaml
+# Authentication configuration (optional)
+auth:
+  defaultProvider: basic
+  basic:
+    base_url: null
+    token: $API_KEY
+  jwt:
+    base_url: null
+    jwks_uri: "https://login.microsoftonline.com/common/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+    audience: "api://your-client-id"
 
-#### `data/auth.json` - Authentication Configuration
+# LLM provider configuration (optional)
+llm:
+  - enabled: true
+    provider: openai
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
 
-Configure authentication providers (optional):
+# MCP and OpenAPI service configuration
+mcp:
+  - path: /
+    spec_type: mcp
+    skill_dir: skills
+    mcp_servers:
+      my-server:
+        enabled: true
+        command: npx
+        args: ["@playwright/mcp@0.0.64"]
+        transport: stdio
 
-```json
-{
-  "defaultProvider": "bearer",
-  "bearer": {
-    "token": "$API_KEY"
-  },
-  "azure": {
-    "clientId": "$AZURE_CLIENT_ID",
-    "clientSecret": "$AZURE_CLIENT_SECRET",
-    "tenantId": "$AZURE_TENANT_ID"
-  }
-}
+  - path: /api
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
 ```
 
 > **Note**: 
@@ -205,10 +201,8 @@ The server will start on `http://0.0.0.0:9123` by default.
 
 ```text
 data/
-├── config.json       # Main service configuration
-├── auth.json         # Authentication provider configuration
-├── llm.json          # LLM proxy configuration (optional)
-├── mcp/              # MCP server specifications
+├── config.yaml       # Unified configuration (auth, LLM, and MCP/OpenAPI services)
+├── mcp/              # MCP server specifications (optional, for external spec files)
 │   ├── stock.mcp.json
 │   └── wiki.mcp.json
 ├── openapi/          # OpenAPI specifications
@@ -216,43 +210,30 @@ data/
 └── skills/           # Skill directories (optional)
 ```
 
-### Service Configuration (`config.json`)
+### Configuration (`config.yaml`)
 
-Configure MCP and OpenAPI services:
+The proxy uses a unified YAML configuration file to define authentication, LLM providers, and MCP/OpenAPI services:
 
-```json
-[
-  {
-    "path": "/stock",
-    "spec_file": "mcp/stock.mcp.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/api",
-    "spec_file": "openapi/petstore.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "filters": {
-      "methods": ["GET", "POST"],
-      "tags": ["public"]
-    }
-  }
-]
-```
+```yaml
+# Authentication configuration
+auth:
+  defaultProvider: basic
+  basic:
+    token: $API_KEY
 
-### Authentication Configuration (`auth.json`)
+# MCP service configuration
+mcp:
+  - path: /stock
+    spec_file: mcp/stock.mcp.json
+    spec_type: mcp
 
-Configure authentication providers:
-
-```json
-{
-  "defaultProvider": "azure",
-  "azure": {
-    "clientId": "$AZURE_CLIENT_ID",
-    "clientSecret": "$AZURE_CLIENT_SECRET",
-    "tenantId": "$AZURE_TENANT_ID"
-  }
-}
+  - path: /api
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: "https://api.example.com"
+    filters:
+      methods: ["GET", "POST"]
+      tags: ["public"]
 ```
 
 ### Environment Variables
@@ -351,28 +332,24 @@ drunk-mcp-proxy supports 14+ authentication providers:
 
 The simplest option for API key authentication, commonly used by API proxies and gateways:
 
-```json
-{
-  "defaultProvider": "bearer",
-  "bearer": {
-    "token": "$API_KEY"
-  }
-}
+```yaml
+auth:
+  defaultProvider: basic
+  basic:
+    token: $API_KEY
 ```
 
 Set the `API_KEY` environment variable in your `.env` file.
 
 ### OAuth 2.0 Authentication (Azure AD Example)
 
-```json
-{
-  "defaultProvider": "azure",
-  "azure": {
-    "clientId": "$AZURE_CLIENT_ID",
-    "clientSecret": "$AZURE_CLIENT_SECRET",
-    "tenantId": "$AZURE_TENANT_ID"
-  }
-}
+```yaml
+auth:
+  defaultProvider: azure
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: $AZURE_TENANT_ID
 ```
 
 See [Authentication Guide](docs/features/authentication/overview.md) for details.
