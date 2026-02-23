@@ -16,9 +16,9 @@ Perfect for new users looking to get up and running quickly.
 
 Everything you need to know about configuring drunk-mcp-proxy.
 
-- [**Configuration Files**](configuration/config-files.md) - Complete config.json reference
+- [**Configuration Files**](configuration/config-files.md) - Complete config.yaml reference
 - [**Environment Variables**](configuration/environment-variables.md) - All environment variables explained
-- [**Schema Validation**](configuration/schema-validation.md) - JSON schema validation details
+- [**Schema Validation**](configuration/schema-validation.md) - Configuration validation details
 
 ### Features
 

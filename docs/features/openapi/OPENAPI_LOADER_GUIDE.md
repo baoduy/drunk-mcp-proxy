@@ -27,7 +27,7 @@ Files must follow the naming pattern: `{name}.openapi.json`
 ### Invalid Examples
 
 - `openapi.json` → Ignored (no root OpenAPI config)
-- `config.json` → Ignored (wrong extension)
+- `config.yaml` → Ignored (main config file, not OpenAPI spec)
 - `.openapi.json` → Ignored (no name prefix)
 
 ## OpenAPI Specification Requirements

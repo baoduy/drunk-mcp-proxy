@@ -24,7 +24,7 @@ Pattern: {name}.openapi.json
 ### What Gets Ignored ❌
 
 - `openapi.json` → (no namespace prefix - ignored)
-- `config.json` → (wrong extension - ignored)
+- `config.yaml` → (main config file, not OpenAPI spec - ignored)
 - `api.json` → (missing `.openapi` - ignored)
 - `petstore-api.spec.json` → (wrong extension - ignored)
 - `openapi.yaml` → (wrong format - ignored)

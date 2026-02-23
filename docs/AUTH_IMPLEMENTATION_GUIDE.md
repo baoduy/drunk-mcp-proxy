@@ -548,7 +548,7 @@ if provider.is_provider_configured("azure"):
 
 ### Issue: None values in provider config
 
-**Solution:** This is normal - optional fields are set to `null` in auth.json. Check for None in your code.
+**Solution:** This is normal - optional fields may be omitted or set to `null` in config.yaml. Check for None in your code.
 
 ```python
 redirect_uri = azure.get("redirect_uri")  # May be None
