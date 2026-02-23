@@ -28,16 +28,13 @@ git clone https://github.com/baoduy/drunk-mcp-proxy.git
 cd drunk-mcp-proxy
 ```
 
-2. **Configure services in `data/config.json`:**
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  }
-]
+2. **Configure services in `data/config.yaml`:**
+```yaml
+mcp:
+  - path: "/"
+    spec_file: "mcp/mcp.json"
+    spec_type: "mcp"
+    base_url: null
 ```
 
 3. **Create `.env` file (optional):**
@@ -259,8 +256,7 @@ docker run -d \
 ```
 
 **Required files:**
-- `data/config.json` - Main service configuration
-- `data/auth.json` - Authentication configuration (optional)
+- `data/config.yaml` - Main configuration file (auth, llm, mcp sections)
 - `data/mcp/*.mcp.json` - MCP service specifications
 - `data/openapi/*.openapi.json` - OpenAPI specifications
 
@@ -270,38 +266,32 @@ docker run -d \
 
 ### Configuration Example
 
-**data/config.json:**
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  },
-  {
-    "path": "/api",
-    "spec_file": "openapi/api.openapi.json",
-    "spec_type": "openapi",
-    "base_url": "https://api.example.com",
-    "auth": {
-      "pass_through": true
-    }
-  }
-]
-```
+**data/config.yaml:**
+```yaml
+auth:
+  enabled: true
+  defaultProvider: jwt
+  jwt:
+    jwks_uri: "https://auth.example.com/.well-known/jwks.json"
+    issuer: "https://auth.example.com/"
+    audience: "mcp-proxy-api"
 
-**data/auth.json:**
-```json
-{
-  "enabled": true,
-  "defaultProvider": "jwt",
-  "jwt": {
-    "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
-    "issuer": "https://auth.example.com/",
-    "audience": "mcp-proxy-api"
-  }
-}
+llm:
+  provider: openai
+  api_key: "${OPENAI_API_KEY}"
+  model: "gpt-4"
+
+mcp:
+  - path: "/"
+    spec_file: "mcp/mcp.json"
+    spec_type: "mcp"
+    base_url: null
+  - path: "/api"
+    spec_file: "openapi/api.openapi.json"
+    spec_type: "openapi"
+    base_url: "https://api.example.com"
+    auth:
+      pass_through: true
 ```
 
 ## Environment Variables
@@ -886,14 +876,11 @@ kind: ConfigMap
 metadata:
   name: mcp-proxy-config
 data:
-  config.json: |
-    [
-      {
-        "path": "/",
-        "spec_file": "mcp/mcp.json",
-        "spec_type": "mcp"
-      }
-    ]
+  config.yaml: |
+    mcp:
+      - path: "/"
+        spec_file: "mcp/mcp.json"
+        spec_type: "mcp"
 ---
 apiVersion: v1
 kind: Secret
@@ -933,7 +920,7 @@ docker-compose logs mcp-proxy
 
 **Common issues:**
 - Port already in use: Change `FASTMCP_PORT`
-- Invalid configuration: Validate JSON with `jq`
+- Invalid configuration: Validate YAML syntax
 - Missing environment variables: Check `.env` file
 - Permission issues: Check volume permissions
 
@@ -961,8 +948,8 @@ docker inspect mcp-proxy | jq '.[0].Mounts'
 # Check file permissions
 docker exec mcp-proxy ls -la /drunk-proxy/data
 
-# Validate JSON
-docker exec mcp-proxy cat /drunk-proxy/data/config.json | jq .
+# View configuration
+docker exec mcp-proxy cat /drunk-proxy/data/config.yaml
 ```
 
 ### Network Issues

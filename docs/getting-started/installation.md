@@ -38,10 +38,8 @@ cd drunk-mcp-proxy
 
 **Step 2: Review configuration**
 
-The repository includes sample configuration files in the `data/` directory:
-- `data/config.json` - Service proxy configurations
-- `data/auth.json` - Authentication configurations (optional)
-- `data/llm.json` - LLM provider configurations (optional)
+The repository includes a sample configuration file in the `data/` directory:
+- `data/config.yaml` - Service proxy, authentication, and LLM provider configurations
 
 **Step 3: Start the services**
 
@@ -78,8 +76,8 @@ docker build -t drunk-mcp-proxy:latest .
 
 ```bash
 mkdir -p ./data
-# Copy sample configurations
-cp data/*.json ./data/
+# Copy sample configuration
+cp data/config.yaml ./data/
 ```
 
 **Step 3: Run the container**
@@ -165,17 +163,14 @@ python src/main.py
 
 ### Basic Configuration
 
-1. **Edit `data/config.json`** to configure your MCP and OpenAPI services:
+1. **Edit `data/config.yaml`** to configure your MCP and OpenAPI services:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  }
-]
+```yaml
+proxies:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    base_url: null
 ```
 
 2. **Set environment variables** (optional):
@@ -188,16 +183,14 @@ export FASTMCP_LOG_LEVEL=INFO
 
 3. **Configure authentication** (optional):
 
-Edit `data/auth.json`:
+Edit `data/config.yaml`:
 
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "secret": "your-secret-key",
-    "algorithm": "HS256"
-  }
-}
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    secret: your-secret-key
+    algorithm: HS256
 ```
 
 ### Verify Installation
