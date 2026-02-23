@@ -1,30 +1,33 @@
 from __future__ import annotations
 import json
-import os
+from app.app_config_provider import AppConfigProvider
 from typing import TYPE_CHECKING, Any
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase
 from fastapi.responses import JSONResponse, StreamingResponse
-from httpx import Auth
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
 from tools.env import SERVER_NAME, SERVER_VERSION
-from tools.llm_config import LlmConfig, LlmProviderConfig
-from tools.logging_config import setup_logging
-from fastmcp.server.dependencies import get_access_token
+from tools import setup_logging,LlmConfig
+
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     
 logger = setup_logging("LlmProxiesProvider")
 
-class LlmModel(BaseModel):
+class ModelBase(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+    
+class LlmModel(ModelBase):
     id: str
     provider: str
 
-class ProviderModel(BaseModel):
+class ProviderModel(ModelBase):
     name: str
     slug: str
 
@@ -49,7 +52,7 @@ class FastAuthMiddleware(HTTPBase):
     
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
-    def __init__(self,providers: list[LlmProviderConfig]):
+    def __init__(self,providers: list[LlmConfig]) -> None:
         self.providers = providers
         self._clients: dict[str, AsyncOpenAI] = {}
 
@@ -83,18 +86,11 @@ class LlmProxiesProvider:
     
     def __init__(
         self,
-        config_dir: str | None = None,
-        providers: list[LlmProviderConfig] | None = None
+        providers: list[LlmConfig]
     ) -> None:
-        if providers is not None:
-            self.providers = providers
-        elif config_dir is not None:
-            self.providers = self._load_providers(os.path.join(config_dir, "llm.json"))
-        else:
-            raise ValueError("Either config_dir or providers must be provided")
-        
-        if not self.providers:
+        if not providers or len(providers) == 0:
             raise ValueError("LLM proxy requires at least one provider configuration")
+        self.providers = providers
 
         from app.cache_provider import CacheProvider
         self.cache = CacheProvider.get_cache_store()
@@ -109,8 +105,7 @@ class LlmProxiesProvider:
             auth = None
             dependencies = []
             
-            from app.auth_provider import GlobalAuthProvider
-            auth = GlobalAuthProvider.get_auth_provider()
+            auth = AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
             if auth:
                 dependencies = [Depends(FastAuthMiddleware(auth_provider=auth))]
            
@@ -160,17 +155,6 @@ class LlmProxiesProvider:
 
             self._fastapi_app = app
         return self._fastapi_app
-
-    @staticmethod
-    def _load_providers(config_path: str) -> list[LlmProviderConfig]:
-        config = LlmConfig.load_from_file(config_path)
-        providers: list[LlmProviderConfig] = []
-        for entry in config.providers:
-            if isinstance(entry, LlmProviderConfig):
-                providers.append(entry)
-            else:
-                providers.append(LlmProviderConfig.model_validate(entry))
-        return [p for p in providers if p.enabled]
 
     @staticmethod
     def _parse_model_id(model_id: str) -> tuple[str, str]:
@@ -243,7 +227,7 @@ class LlmProxiesProvider:
             model['id'] = f"{provider}/{model.get('id', '')}"
         return models
     
-    async def _get_models_by_provider(self, provider_name: str) -> list[dict[str, Any]]:
+    async def _get_models_by_provider(self, provider_name: str) -> list[LlmModel]:
         # Check cache first
         cache_key = f"models_{provider_name}"
         cached_models = await self.cache.get(cache_key)
@@ -260,30 +244,27 @@ class LlmProxiesProvider:
         
         # Cache the models list with TTL
         await self.cache.set(cache_key, models)
-        return models
+        return [LlmModel(**model) for model in models]
     
-    async def _get_all_models(self) -> list[dict[str, Any]]:
+    async def _get_all_models(self) -> list[LlmModel]:
         # Fetch models from all providers and aggregate them
-        all_models: list[dict[str, Any]] = []
+        all_models: list[LlmModel] = []
         for provider in self.providers:
             models = await self._get_models_by_provider(provider.provider)
             all_models.extend(models)
         return all_models
     
-    async def _fetch_all_models(self) -> list[LlmModel]:
+    async def _fetch_all_models(self) -> dict[str, Any]:
         """Fetch all models from all providers and return as LlmModel instances."""
         models = await self._get_all_models()
-        return [LlmModel(id=model.get("id"), provider=model.get("provider")) for model in models]
+        return {"data": models}
     
     async def _get_models_endpoint(self,request: Request) -> dict[str, Any]:
         # For simplicity, we return a static list of models for each provider.
         # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
-        if provider is None:
-            models = await self._fetch_all_models()
-            return {"data": [model.model_dump() for model in models]}
-        models_data = await self._get_models_by_provider(provider)
-        return {"data": models_data}
+        models =await self._get_models_by_provider(provider) if provider else await self._fetch_all_models()
+        return {"data": models}
 
     def _get_providers_endpoint(self) -> dict[str, Any]:
         providers_list = [ProviderModel(name=p.provider, slug=p.provider) for p in self.providers]

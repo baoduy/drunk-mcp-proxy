@@ -10,27 +10,23 @@ instead of hardcoding them in the configuration file.
 
 ## Configuration Example
 
-In your `data/config.json`:
+In your `config.yaml`:
 
-```json
-{
-  "name": "deepsea",
-  "specFile": "openapi/deepsea.openapi.json",
-  "specType": "openapi",
-  "baseUrl": "http://host.docker.internal:5000",
-  "auth": {
-    "azure": {
-      "baseUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token",
-      "clientId": "$AZURE_CLIENT_ID",
-      "clientSecret": "$AZURE_CLIENT_SECRET",
-      "tenantId": "$AZURE_TENANT_ID",
-      "issuer": "https://login.microsoftonline.com/$AZURE_TENANT_ID/v2.0",
-      "scope": [
-        "api://$AZURE_CLIENT_ID/.default"
-      ]
-    }
-  }
-}
+```yaml
+mcp:
+  - name: deepsea
+    spec_file: openapi/deepsea.openapi.json
+    spec_type: openapi
+    base_url: http://host.docker.internal:5000
+    auth:
+      azure:
+        base_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
+        client_id: $AZURE_CLIENT_ID
+        client_secret: $AZURE_CLIENT_SECRET
+        tenant_id: $AZURE_TENANT_ID
+        issuer: https://login.microsoftonline.com/$AZURE_TENANT_ID/v2.0
+        scope:
+          - api://$AZURE_CLIENT_ID/.default
 ```
 
 ## Environment Variables Setup
@@ -53,7 +49,7 @@ AZURE_TENANT_ID=your-tenant-id
 
 ## How It Works
 
-1. **Loading**: When the configuration file is loaded, Pydantic parses the JSON
+1. **Loading**: When the configuration file is loaded, Pydantic parses the YAML
 2. **Validation**: The `AzureAuthConfig` model validates the schema
 3. **Resolution**: The `@model_validator` in `AzureAuthConfig` automatically resolves all environment variable
    references
@@ -61,9 +57,9 @@ AZURE_TENANT_ID=your-tenant-id
 
 ### Resolution Process
 
-```python
-# Input from config.json
-"clientId": "$AZURE_CLIENT_ID"
+```yaml
+# Input from config.yaml
+client_id: $AZURE_CLIENT_ID
 
 # After resolution (automatic)
 auth_config.client_id = "my-actual-client-id"
@@ -73,32 +69,33 @@ auth_config.client_id = "my-actual-client-id"
 
 ### Format 1: Simple Reference
 
-```json
-"clientId": "$AZURE_CLIENT_ID"
+```yaml
+client_id: $AZURE_CLIENT_ID
 ```
 
 Resolves to the value of the `AZURE_CLIENT_ID` environment variable.
 
 ### Format 2: With Braces
 
-```json
-"clientId": "${AZURE_CLIENT_ID}"
+```yaml
+client_id: ${AZURE_CLIENT_ID}
 ```
 
 Same as above, alternative syntax with braces.
 
 ### Format 3: Within URLs
 
-```json
-"baseUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+```yaml
+base_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
 ```
 
 Resolves to: `https://login.microsoftonline.com/my-tenant-id/oauth2/v2.0/token`
 
 ### Format 4: Multiple References
 
-```json
-"scope": ["api://$AZURE_CLIENT_ID/.default"]
+```yaml
+scope:
+  - api://$AZURE_CLIENT_ID/.default
 ```
 
 Supports lists and multiple references in the same value.
@@ -116,10 +113,10 @@ Please set: export AZURE_CLIENT_ID=<value>
 
 All fields in the Azure authentication configuration support environment variable resolution:
 
-- `baseUrl`: Token endpoint URL
-- `clientId`: OAuth client ID
-- `clientSecret`: OAuth client secret
-- `tenantId`: Azure tenant ID
+- `base_url`: Token endpoint URL
+- `client_id`: OAuth client ID
+- `client_secret`: OAuth client secret
+- `tenant_id`: Azure tenant ID
 - `issuer`: Issuer URL (optional)
 - `scope` (or `scopes`): List of OAuth scopes
 
@@ -140,11 +137,11 @@ All fields in the Azure authentication configuration support environment variabl
 3. **`src/proxies/openapi_mcp_provider.py`**
     - Updated `create_auth()` method documentation to note automatic resolution
 
-### JSON vs Python Naming
+### YAML Configuration Naming
 
-- **JSON config**: Uses camelCase (e.g., `"clientId"`, `"tenantId"`)
+- **YAML config**: Uses snake_case (e.g., `client_id`, `tenant_id`)
 - **Python code**: Uses snake_case (e.g., `client_id`, `tenant_id`)
-- Environment variable resolution works with the resolved snake_case names
+- Environment variable resolution works with snake_case names
 
 ## Security Best Practices
 
@@ -175,15 +172,15 @@ from src.tools.spec_config import SpecConfig
 
 config_data = {
     "name": "test",
-    "specFile": "test.json",
-    "specType": "openapi",
-    "baseUrl": "http://localhost",
+    "spec_file": "test.json",
+    "spec_type": "openapi",
+    "base_url": "http://localhost",
     "auth": {
         "azure": {
-            "baseUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/token",
-            "clientId": "$AZURE_CLIENT_ID",
-            "clientSecret": "$AZURE_CLIENT_SECRET",
-            "tenantId": "$AZURE_TENANT_ID",
+            "base_url": "https://login.microsoftonline.com/$AZURE_TENANT_ID/token",
+            "client_id": "$AZURE_CLIENT_ID",
+            "client_secret": "$AZURE_CLIENT_SECRET",
+            "tenant_id": "$AZURE_TENANT_ID",
             "scope": ["api://$AZURE_CLIENT_ID/.default"]
         }
     }
@@ -213,12 +210,12 @@ VARIABLE_NAME=value
 print(spec.auth.azure.client_id)  # Make sure this matches your Azure app registration
 ```
 
-### Empty baseUrl
+### Empty base_url
 
-If `baseUrl` is empty in the config, it means the URL generation is incomplete. For Azure:
+If `base_url` is empty in the config, it means the URL generation is incomplete. For Azure:
 
-```json
-"baseUrl": "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token"
+```yaml
+base_url: https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token
 ```
 
 ## Related Configuration

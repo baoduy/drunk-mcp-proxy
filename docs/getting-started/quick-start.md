@@ -54,23 +54,20 @@ You should see a list of available MCP tools from your configured services.
 The default setup:
 
 1. **Started the proxy server** on port 9123
-2. **Loaded configuration** from `data/config.json`
+2. **Loaded configuration** from `data/config.yaml`
 3. **Configured sample services** (if using default config)
 4. **Enabled health check** at `/health`
 
 ## Your First Configuration
 
-The default `data/config.json` includes example services. Let's understand it:
+The default `data/config.yaml` includes example services. Let's understand it:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp",
-    "base_url": null
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+    base_url: null
 ```
 
 **What this means:**
@@ -83,26 +80,19 @@ The default `data/config.json` includes example services. Let's understand it:
 
 ### Option A: Add More MCP Services
 
-Edit `data/config.json`:
+Edit `data/config.yaml`:
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/stock",
-    "spec_file": "mcp/stock.mcp.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/wiki",
-    "spec_file": "mcp/wiki.mcp.json",
-    "spec_type": "mcp"
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+  - path: /stock
+    spec_file: mcp/stock.mcp.json
+    spec_type: mcp
+  - path: /wiki
+    spec_file: mcp/wiki.mcp.json
+    spec_type: mcp
 ```
 
 Restart the service:
@@ -112,34 +102,29 @@ docker-compose restart
 
 ### Option B: Add an OpenAPI Service
 
-```json
-[
-  {
-    "path": "/",
-    "spec_file": "mcp/mcp.json",
-    "spec_type": "mcp"
-  },
-  {
-    "path": "/petstore",
-    "spec_file": "openapi/petstore.yaml",
-    "spec_type": "openapi",
-    "base_url": "https://petstore3.swagger.io/api/v3"
-  }
-]
+```yaml
+mcp:
+  - path: /
+    spec_file: mcp/mcp.json
+    spec_type: mcp
+  - path: /petstore
+    spec_file: openapi/petstore.yaml
+    spec_type: openapi
+    base_url: "https://petstore3.swagger.io/api/v3"
 ```
 
 ### Option C: Enable Authentication
 
-Create or edit `data/auth.json`:
+Edit the `auth` section in `data/config.yaml`:
 
-```json
-{
-  "defaultProvider": "jwt",
-  "jwt": {
-    "secret": "your-secret-key-here",
-    "algorithm": "HS256"
-  }
-}
+```yaml
+auth:
+  defaultProvider: jwt
+  jwt:
+    base_url: null
+    jwks_uri: "https://login.microsoftonline.com/common/discovery/keys"
+    issuer: "https://sts.windows.net/YOUR_TENANT_ID/"
+    audience: "api://your-api-id"
 ```
 
 Enable auth in `.env` or docker-compose.yml:
@@ -248,10 +233,10 @@ docker-compose up -d --build
 
 ```bash
 # Check config file exists
-ls -la data/config.json
+ls -la data/config.yaml
 
-# Validate JSON
-cat data/config.json | python -m json.tool
+# Validate YAML
+python -c "import yaml; yaml.safe_load(open('data/config.yaml'))"
 
 # Check container has access
 docker-compose exec mcp-proxy ls -la /mcp_proxy/data/

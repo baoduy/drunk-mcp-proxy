@@ -8,45 +8,38 @@ or wrapper structures.
 
 ## Architecture
 
-### 1. Configuration File (data/auth.json)
+### 1. Configuration File (config.yaml)
 
-**Structure:** Flat JSON object with provider names as keys
+**Structure:** YAML configuration with auth section containing provider configurations
 
-```json
-{
-  "provider_name": {
-    "field1": "value1 or $ENV_VAR",
-    "field2": "value2 or ${ENV_VAR}",
-    ...
-  }
-}
+```yaml
+auth:
+  provider_name:
+    field1: value1 or $ENV_VAR
+    field2: value2 or ${ENV_VAR}
 ```
 
 **Features:**
 
-- Each provider is a top-level key
+- Each provider is a key under the `auth:` section
 - Configuration values support environment variable resolution using `$VAR_NAME` or `${VAR_NAME}` syntax
 - All providers are optional - if not in the config, they're not used
 - No metadata fields like `enabled`, `required_fields`, `optional_fields`, etc.
 
 **Example:**
 
-```json
-{
-  "azure": {
-    "client_id": "$AZURE_CLIENT_ID",
-    "client_secret": "$AZURE_CLIENT_SECRET",
-    "tenant_id": "$AZURE_TENANT_ID",
-    "scopes": []
-  },
-  "github": {
-    "client_id": "$GITHUB_CLIENT_ID",
-    "client_secret": "$GITHUB_CLIENT_SECRET",
-    "scopes": [
-      "user:email"
-    ]
-  }
-}
+```yaml
+auth:
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: $AZURE_TENANT_ID
+    scopes: []
+  github:
+    client_id: $GITHUB_CLIENT_ID
+    client_secret: $GITHUB_CLIENT_SECRET
+    scopes:
+      - user:email
 ```
 
 ### 2. AuthConfig Class (src/tools/auth_config.py)
@@ -64,7 +57,7 @@ or wrapper structures.
 
 ```python
 # Load from file
-config = AuthConfig.load_from_file("data/auth.json")
+config = AuthConfig.load_from_file("config.yaml")
 
 # Check if provider is configured
 if config.is_provider_configured("azure"):
@@ -135,185 +128,179 @@ if azure:
 
 ### Auth0
 
-```json
-{
-  "domain": "https://your-tenant.auth0.com",
-  "client_id": "$AUTH0_CLIENT_ID",
-  "client_secret": "$AUTH0_CLIENT_SECRET",
-  "audience": "your-api-identifier",
-  "scopes": [
-    "openid",
-    "profile",
-    "email"
-  ],
-  "grant_type": "client_credentials"
-}
+```yaml
+auth:
+  auth0:
+    domain: https://your-tenant.auth0.com
+    client_id: $AUTH0_CLIENT_ID
+    client_secret: $AUTH0_CLIENT_SECRET
+    audience: your-api-identifier
+    scopes:
+      - openid
+      - profile
+      - email
+    grant_type: client_credentials
 ```
 
 ### Azure (Microsoft Entra)
 
-```json
-{
-  "client_id": "$AZURE_CLIENT_ID",
-  "client_secret": "$AZURE_CLIENT_SECRET",
-  "tenant_id": "$AZURE_TENANT_ID",
-  "token_url": null,
-  "issuer": null,
-  "scopes": [
-    "api://your-app-id/read"
-  ]
-}
+```yaml
+auth:
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
+    tenant_id: $AZURE_TENANT_ID
+    token_url: null
+    issuer: null
+    scopes:
+      - api://your-app-id/read
 ```
 
 ### AWS Cognito
 
-```json
-{
-  "access_key_id": "$AWS_ACCESS_KEY_ID",
-  "secret_access_key": "$AWS_SECRET_ACCESS_KEY",
-  "region": "$AWS_REGION",
-  "session_token": null,
-  "role_arn": null
-}
+```yaml
+auth:
+  aws:
+    access_key_id: $AWS_ACCESS_KEY_ID
+    secret_access_key: $AWS_SECRET_ACCESS_KEY
+    region: $AWS_REGION
+    session_token: null
+    role_arn: null
 ```
 
 ### GitHub
 
-```json
-{
-  "client_id": "$GITHUB_CLIENT_ID",
-  "client_secret": "$GITHUB_CLIENT_SECRET",
-  "scopes": [
-    "user:email"
-  ],
-  "redirect_uri": "http://localhost:8000/auth/callback"
-}
+```yaml
+auth:
+  github:
+    client_id: $GITHUB_CLIENT_ID
+    client_secret: $GITHUB_CLIENT_SECRET
+    scopes:
+      - user:email
+    redirect_uri: http://localhost:8000/auth/callback
 ```
 
 ### Google
 
-```json
-{
-  "client_id": "$GOOGLE_CLIENT_ID",
-  "client_secret": "$GOOGLE_CLIENT_SECRET",
-  "project_id": "$GOOGLE_PROJECT_ID",
-  "scopes": [
-    "openid",
-    "email",
-    "profile"
-  ],
-  "redirect_uri": null
-}
+```yaml
+auth:
+  google:
+    client_id: $GOOGLE_CLIENT_ID
+    client_secret: $GOOGLE_CLIENT_SECRET
+    project_id: $GOOGLE_PROJECT_ID
+    scopes:
+      - openid
+      - email
+      - profile
+    redirect_uri: null
 ```
 
 ### Discord
 
-```json
-{
-  "client_id": "$DISCORD_CLIENT_ID",
-  "client_secret": "$DISCORD_CLIENT_SECRET",
-  "bot_token": "$DISCORD_BOT_TOKEN",
-  "scopes": [
-    "identify",
-    "email"
-  ],
-  "redirect_uri": null
-}
+```yaml
+auth:
+  discord:
+    client_id: $DISCORD_CLIENT_ID
+    client_secret: $DISCORD_CLIENT_SECRET
+    bot_token: $DISCORD_BOT_TOKEN
+    scopes:
+      - identify
+      - email
+    redirect_uri: null
 ```
 
 ### JWT
 
-```json
-{
-  "secret_key": "$JWT_SECRET_KEY",
-  "algorithm": "HS256",
-  "issuer": null,
-  "audience": null
-}
+```yaml
+auth:
+  jwt:
+    secret_key: $JWT_SECRET_KEY
+    algorithm: HS256
+    issuer: null
+    audience: null
 ```
 
 ### Introspection (OAuth 2.0 Token Introspection)
 
-```json
-{
-  "introspection_url": "$TOKEN_INTROSPECTION_URL",
-  "client_id": "$TOKEN_INTROSPECTION_CLIENT_ID",
-  "client_secret": "$TOKEN_INTROSPECTION_CLIENT_SECRET"
-}
+```yaml
+auth:
+  introspection:
+    introspection_url: $TOKEN_INTROSPECTION_URL
+    client_id: $TOKEN_INTROSPECTION_CLIENT_ID
+    client_secret: $TOKEN_INTROSPECTION_CLIENT_SECRET
 ```
 
 ### Descope
 
-```json
-{
-  "project_id": "$DESCOPE_PROJECT_ID",
-  "public_key": "$DESCOPE_PUBLIC_KEY",
-  "scopes": []
-}
+```yaml
+auth:
+  descope:
+    project_id: $DESCOPE_PROJECT_ID
+    public_key: $DESCOPE_PUBLIC_KEY
+    scopes: []
 ```
 
 ### Scalekit
 
-```json
-{
-  "client_id": "$SCALEKIT_CLIENT_ID",
-  "client_secret": "$SCALEKIT_CLIENT_SECRET",
-  "environment_url": "$SCALEKIT_ENVIRONMENT_URL",
-  "scopes": []
-}
+```yaml
+auth:
+  scalekit:
+    client_id: $SCALEKIT_CLIENT_ID
+    client_secret: $SCALEKIT_CLIENT_SECRET
+    environment_url: $SCALEKIT_ENVIRONMENT_URL
+    scopes: []
 ```
 
 ### Supabase
 
-```json
-{
-  "project_url": "$SUPABASE_PROJECT_URL",
-  "api_key": "$SUPABASE_API_KEY",
-  "scopes": []
-}
+```yaml
+auth:
+  supabase:
+    project_url: $SUPABASE_PROJECT_URL
+    api_key: $SUPABASE_API_KEY
+    scopes: []
 ```
 
 ### OCI (Oracle Cloud Identity)
 
-```json
-{
-  "user_ocid": "$OCI_USER_OCID",
-  "tenancy_ocid": "$OCI_TENANCY_OCID",
-  "api_key": "$OCI_API_KEY",
-  "fingerprint": "$OCI_FINGERPRINT",
-  "region": "us-phoenix-1"
-}
+```yaml
+auth:
+  oci:
+    user_ocid: $OCI_USER_OCID
+    tenancy_ocid: $OCI_TENANCY_OCID
+    api_key: $OCI_API_KEY
+    fingerprint: $OCI_FINGERPRINT
+    region: us-phoenix-1
 ```
 
 ### WorkOS
 
-```json
-{
-  "api_key": "$WORKOS_API_KEY",
-  "client_id": "$WORKOS_CLIENT_ID",
-  "organization_id": null,
-  "scopes": []
-}
+```yaml
+auth:
+  workos:
+    api_key: $WORKOS_API_KEY
+    client_id: $WORKOS_CLIENT_ID
+    organization_id: null
+    scopes: []
 ```
 
 ### Debug
 
-```json
-{
-  "user_id": "debug-user",
-  "username": "debug"
-}
+```yaml
+auth:
+  debug:
+    user_id: debug-user
+    username: debug
 ```
 
 ### In-Memory
 
-```json
-{
-  "users": {
-    "user1": "password1",
-    "user2": "password2"
-  }
-}
+```yaml
+auth:
+  in_memory:
+    users:
+      user1: password1
+      user2: password2
 ```
 
 ## Environment Variable Resolution
@@ -323,16 +310,14 @@ Configuration values can reference environment variables using two syntaxes:
 1. **Simple format:** `$VAR_NAME`
 2. **Braced format:** `${VAR_NAME}`
 
-**Example in auth.json:**
+**Example in config.yaml:**
 
-```json
-{
-  "azure": {
-    "client_id": "$AZURE_CLIENT_ID",
-    "client_secret": "${AZURE_CLIENT_SECRET}",
-    "issuer": "https://login.microsoftonline.com/${TENANT_ID}/v2.0"
-  }
-}
+```yaml
+auth:
+  azure:
+    client_id: $AZURE_CLIENT_ID
+    client_secret: ${AZURE_CLIENT_SECRET}
+    issuer: https://login.microsoftonline.com/${TENANT_ID}/v2.0
 ```
 
 **Environment Setup:**
@@ -346,7 +331,7 @@ export TENANT_ID="your-tenant-id"
 The environment variables are resolved automatically when loading the configuration:
 
 ```python
-config = AuthConfig.load_from_file("data/auth.json")
+config = AuthConfig.load_from_file("config.yaml")
 azure = config.get_provider("azure")
 print(azure["client_id"])  # Prints actual value, not "$AZURE_CLIENT_ID"
 ```
@@ -457,12 +442,10 @@ If you had the old format with `enabled`, `required_fields`, etc.:
 
 **New Format:**
 
-```json
-{
-  "azure": {
-    "client_id": "$AZURE_CLIENT_ID"
-  }
-}
+```yaml
+auth:
+  azure:
+    client_id: $AZURE_CLIENT_ID
 ```
 
 1. Remove `providers` wrapper
@@ -475,11 +458,11 @@ If you had the old format with `enabled`, `required_fields`, etc.:
 
 ### FileNotFoundError
 
-Raised when `data/auth.json` doesn't exist.
+Raised when `config.yaml` doesn't exist.
 
 ```python
 try:
-    config = AuthConfig.load_from_file("data/auth.json")
+    config = AuthConfig.load_from_file("config.yaml")
 except FileNotFoundError:
     print("Auth config file not found")
 ```
@@ -490,21 +473,21 @@ Raised when environment variables referenced in config are not set.
 
 ```python
 try:
-    config = AuthConfig.load_from_file("data/auth.json")
+    config = AuthConfig.load_from_file("config.yaml")
 except ValueError as e:
     print(f"Failed to resolve env vars: {e}")
     # Error message will indicate which variable is missing
 ```
 
-### JSON Decode Error
+### YAML Parse Error
 
-Raised when auth.json contains invalid JSON.
+Raised when config.yaml contains invalid YAML.
 
 ```python
 try:
-    config = AuthConfig.load_from_file("data/auth.json")
-except json.JSONDecodeError:
-    print("Auth config file contains invalid JSON")
+    config = AuthConfig.load_from_file("config.yaml")
+except yaml.YAMLError:
+    print("Auth config file contains invalid YAML")
 ```
 
 ## Testing
@@ -532,7 +515,7 @@ print(provider.is_provider_configured("github"))
 
 ## Files Involved
 
-- `data/auth.json` - Configuration file with all providers
+- `config.yaml` - Configuration file with all providers (under `auth:` section)
 - `src/tools/auth_config.py` - AuthConfig and AuthProviderType
 - `src/proxies/auth_config_provider.py` - AuthConfigProvider
 - `src/tools/env_resolver.py` - Environment variable resolution
@@ -565,7 +548,7 @@ if provider.is_provider_configured("azure"):
 
 ### Issue: None values in provider config
 
-**Solution:** This is normal - optional fields are set to `null` in auth.json. Check for None in your code.
+**Solution:** This is normal - optional fields may be omitted or set to `null` in config.yaml. Check for None in your code.
 
 ```python
 redirect_uri = azure.get("redirect_uri")  # May be None

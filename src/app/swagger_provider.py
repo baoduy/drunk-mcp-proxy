@@ -103,7 +103,7 @@ class SwaggerProvider:
                 schema["paths"][f"{mount_path}/"] = {
                     "get": {
                         "tags": ["Mcp-Servers"],
-                        "summary": mount_path,
+                        "summary": f"Get {mount_path}",
                         "description": f"Model Context Protocol server endpoint: {mount_path}",
                         "responses": {
                             "200": {"description": "MCP server response"}

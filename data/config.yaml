@@ -1,0 +1,135 @@
+# ============================================================================
+# AUTHENTICATION CONFIGURATION
+# ============================================================================
+# Configure how requests to the proxy are authenticated.
+# Supported methods:
+#   "basic": Token-based auth - the token is passed through to the backend service
+#   "jwt": JWT validation - proxy validates the JWT using JWKS URI and issuer,
+#          then passes the validated token to the backend service
+#
+auth:
+  # Which authentication provider to use by default (basic or jwt)
+  defaultProvider: basic
+
+  # Basic authentication provider
+  basic:
+    base_url: null # Optional: base URL for the backend service
+    token: $API_KEY # API token (can use environment variable)
+
+  # JWT authentication provider (validates JWT tokens from requests)
+  jwt:
+    base_url: null # Optional: base URL for the backend service
+    jwks_uri:
+      "https://login.microsoftonline.com/common/discovery/keys"
+      # URI to fetch JSON Web Key Set for token validation
+    issuer:
+      "https://sts.windows.net/$AZURE_TENANT_ID/"
+      # Expected issuer claim in JWT tokens
+    audience:
+      "api://24d0c6c2-0786-4029-beca-1e98342bf5fb"
+      # Expected audience claim in JWT tokens
+
+# ============================================================================
+# LANGUAGE MODEL (LLM) CONFIGURATION
+# ============================================================================
+# Configure LLM providers that the proxy can route requests to.
+# Multiple providers can be configured; they'll be made available as endpoints.
+#
+llm:
+  # Example: OpenRouter LLM provider (disabled)
+  - enabled: false # Set to true to enable this provider
+    provider: openrouter # Provider name
+    base_url:
+      "https://openrouter.ai/v1"
+      # API base URL for this provider
+    api_key: $OPENROUTER_API_KEY # API key (can use environment variable)
+
+  # Example: OpenAI LLM provider (enabled)
+  - enabled: true # Set to true to enable this provider
+    provider: openai # Provider name
+    base_url:
+      "https://api.openai.com/v1"
+      # API base URL for this provider
+    api_key: $OPENAI_API_KEY # API key (can use environment variable)
+
+# ============================================================================
+# MODEL CONTEXT PROTOCOL (MCP) CONFIGURATION
+# ============================================================================
+# Configure MCP servers that provide tools and resources to the proxy.
+# Each entry can be either:
+#   - An OpenAPI spec file: spec_type="openapi"
+#   - MCP servers via command or HTTP: spec_type="mcp"
+#   - Skills directory: skill_dir with mcp_servers
+#
+mcp:
+  # ========== Example 1: OpenAPI-based MCP server ==========
+  - path: /deepsea # URL path where this service is available
+    spec_file:
+      openapi/deepsea.openapi.json
+      # Path to OpenAPI specification file
+    spec_type: openapi # Type of specification (openapi or mcp)
+    base_url:
+      "http://host.docker.internal:5000"
+      # Backend service URL
+    filters: # Filter which operations to expose
+      methods: # Only expose these HTTP methods
+        - GET
+        - POST
+        - PUT
+      tags: # Only expose operations with these tags
+        - CurrencyPairs
+    auth: # How to handle authentication
+      pass_through: true # Pass auth headers through to backend
+
+  # ========== Example 2: MCP servers with skills directory ==========
+  - path: / # Root path for these services
+    spec_type: mcp # Using Model Context Protocol
+    skill_dir: skills # Directory containing skill subdirectories
+    mcp_servers: # Define MCP servers
+      server-memory: # Server name
+        enabled: true # Enable this server
+        timeout: 60 # Request timeout in seconds
+        command: npx # Command to start the server
+        args: # Command arguments
+          - "@playwright/mcp@0.0.64" # Package and version
+        transport: stdio # Communication transport (stdio or http)
+
+  # ========== Example 3: Multiple MCP servers on same path ==========
+  - path: /stock # All servers below available under /stock
+    spec_type: mcp # Using Model Context Protocol
+    mcp_servers: # Multiple servers can be configured
+      tradingview: # Server 1: TradingView data
+        enabled: true # Enable this server
+        timeout: 60 # Request timeout in seconds
+        command: uvx # Use uv to run the package
+        args: # Command arguments
+          - tradingview-mcp
+        transport: stdio # Communication transport (stdio or http)
+
+      alphavantage: # Server 2: Alpha Vantage stock data
+        enabled: true # Enable this server
+        timeout: 60 # Request timeout in seconds
+        command: uvx # Use uv to run the package
+        args: # Command arguments
+          - av-mcp
+          - "${ALPHAVANTAGE_API_KEY}" # Pass API key as argument
+        transport: stdio # Communication transport (stdio or http)
+
+      yahoo-finance: # Server 3: Yahoo Finance data
+        enabled: true # Enable this server
+        timeout: 60 # Request timeout in seconds
+        command: uvx # Use uv to run the package
+        args: # Command arguments
+          - yahoo-finance-server
+        transport: stdio # Communication transport (stdio or http)
+
+  # ========== Example 4: HTTP-based MCP server ==========
+  - path: /wiki # URL path for this service
+    spec_type: mcp # Using Model Context Protocol
+    base_url: null # Backend service URL (not used for HTTP transport)
+    mcp_servers: # Define MCP servers
+      deepwiki: # Server name
+        url:
+          "https://mcp.deepwiki.com/mcp"
+          # HTTP endpoint for the MCP server
+        transport: http # Communication transport (http instead of stdio)

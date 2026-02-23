@@ -1,0 +1,29 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "**/.*",
+        "**/__pycache__",
+        "**/node_modules",
+        "**/.venv"
+    ],
+    "extraPaths": [
+        "src"
+    ],
+    "pythonVersion": "3.10",
+    "typeCheckingMode": "strict",
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "reportUnusedImport": "warning",
+    "reportUnusedClass": "warning",
+    "reportUnusedFunction": "warning",
+    "reportUnusedVariable": "warning",
+    "reportDuplicateImport": "warning",
+    "reportOptionalMemberAccess": "error",
+    "reportOptionalSubscript": "error",
+    "reportPrivateImportUsage": "warning",
+    "reportUnboundVariable": "error",
+    "reportUndefinedVariable": "error"
+}

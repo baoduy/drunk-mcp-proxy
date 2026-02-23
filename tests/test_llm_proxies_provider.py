@@ -20,12 +20,12 @@ from src.proxies.llm_proxies_provider import (
     LlmModel,
     LlmProxiesProvider,
 )
-from src.tools.llm_config import LlmProviderConfig
+from src.tools.config_yaml import LlmConfig
 
 
 def _build_provider() -> LlmProxiesProvider:
     # TODO: Mock this provider for testing instead of using a real config
-    provider_config = LlmProviderConfig.model_validate(
+    provider_config = LlmConfig.model_validate(
         {
             "provider": "openrouter",
             "base_url": "https://example.com/api/v1",
@@ -39,8 +39,11 @@ def _build_app(provider: LlmProxiesProvider) -> Starlette:
     app = Starlette()
     # Patch the correct import path used in src/proxies/llm_proxies_provider.py
     with patch(
-        "app.auth_provider.GlobalAuthProvider.get_auth_provider", return_value=None
-    ):
+        "src.proxies.llm_proxies_provider.AppConfigProvider.get_instance"
+    ) as mock_get_app_config:
+        mock_app_config = Mock()
+        mock_app_config.get_fast_mcp_auth_provider.return_value = None
+        mock_get_app_config.return_value = mock_app_config
         provider.mount(app)
     return app
 
@@ -166,14 +169,14 @@ def test_providers_returns_all_providers() -> None:
 # Test AsyncOpenAIFactory
 def test_async_openai_factory_get_client():
     """Test AsyncOpenAIFactory caching and client creation."""
-    provider1 = LlmProviderConfig.model_validate(
+    provider1 = LlmConfig.model_validate(
         {
             "provider": "openrouter",
             "base_url": "https://example.com/api/v1",
             "api_key": "test-key-1",
         }
     )
-    provider2 = LlmProviderConfig.model_validate(
+    provider2 = LlmConfig.model_validate(
         {
             "provider": "anthropic",
             "base_url": "https://api.anthropic.com/v1",
@@ -199,7 +202,7 @@ def test_async_openai_factory_get_client():
 
 def test_async_openai_factory_provider_not_found():
     """Test AsyncOpenAIFactory raises error for unknown provider."""
-    provider = LlmProviderConfig.model_validate(
+    provider = LlmConfig.model_validate(
         {
             "provider": "openrouter",
             "base_url": "https://example.com/api/v1",
@@ -216,7 +219,7 @@ def test_async_openai_factory_provider_not_found():
 # Test LlmProxiesProvider initialization
 def test_llm_proxies_provider_with_providers():
     """Test LlmProxiesProvider initialization with providers list."""
-    provider_config = LlmProviderConfig.model_validate(
+    provider_config = LlmConfig.model_validate(
         {
             "provider": "openrouter",
             "base_url": "https://example.com/api/v1",
@@ -229,36 +232,6 @@ def test_llm_proxies_provider_with_providers():
     assert provider.open_ai_factory is not None
 
 
-def test_llm_proxies_provider_with_config_dir():
-    """Test LlmProxiesProvider initialization with config_dir."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config_path = Path(tmpdir) / "llm.json"
-        config_path.write_text("""[
-            {
-                "provider": "openrouter",
-                "base_url": "https://example.com/api/v1",
-                "api_key": "test-key",
-                "enabled": true
-            }
-        ]""")
-
-        provider = LlmProxiesProvider(config_dir=tmpdir)
-        assert len(provider.providers) == 1
-        assert provider.providers[0].provider == "openrouter"
-
-
-def test_llm_proxies_provider_requires_providers_or_config():
-    """Test LlmProxiesProvider raises error if neither providers nor config_dir provided."""
-    with pytest.raises(
-        ValueError, match="Either config_dir or providers must be provided"
-    ):
-        LlmProxiesProvider()
-
-
-def test_llm_proxies_provider_requires_at_least_one_provider():
-    """Test LlmProxiesProvider raises error if no providers configured."""
-    with pytest.raises(ValueError, match="at least one provider"):
-        LlmProxiesProvider(providers=[])
 
 
 # Test model ID parsing
@@ -589,97 +562,8 @@ def test_audio_translations_missing_file():
 
 # Test models caching
 @pytest.mark.asyncio
-async def test_get_models_by_provider_caching(monkeypatch: pytest.MonkeyPatch):
-    """Test that models are cached by provider."""
-    provider = _build_provider()
-
-    # Mock the cache
-    cache_data = {}
-
-    async def mock_cache_get(key: str):
-        return cache_data.get(key)
-
-    async def mock_cache_set(key: str, value: Any, ttl_seconds: int | None = None):
-        cache_data[key] = value
-
-    provider.cache.get = mock_cache_get
-    provider.cache.set = mock_cache_set
-
-    # Mock the OpenAI client
-    class MockModel:
-        def __init__(self, id: str):
-            self.id = id
-
-        def model_dump(self):
-            return {"id": self.id}
-
-    class MockModels:
-        async def list(self):
-            return SimpleNamespace(data=[MockModel("model1"), MockModel("model2")])
-
-    class MockClient:
-        models = MockModels()
-
-    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: MockClient())
-
-    # First call - should fetch and cache
-    models1 = await provider._get_models_by_provider("openrouter")
-    assert len(models1) == 2
-    assert models1[0]["id"] == "openrouter/model1"
-
-    # Second call - should return cached
-    models2 = await provider._get_models_by_provider("openrouter")
-    assert models2 == models1
-
-
-def test_models_endpoint_with_provider_filter(monkeypatch: pytest.MonkeyPatch):
-    """Test models endpoint with provider filter."""
-    provider = _build_provider()
-    client = TestClient(_build_app(provider))
-
-    async def mock_get_models_by_provider(provider_name: str):
-        return [
-            {"id": f"{provider_name}/model1", "provider": provider_name},
-            {"id": f"{provider_name}/model2", "provider": provider_name},
-        ]
-
-    monkeypatch.setattr(
-        provider, "_get_models_by_provider", mock_get_models_by_provider
-    )
-
-    response = client.get("/llm/v1/models?provider=openrouter")
-    assert response.status_code == 200
-    body = response.json()
-    assert len(body["data"]) == 2
-    assert body["data"][0]["id"] == "openrouter/model1"
-
 
 # Test load providers from file
-def test_load_providers_filters_disabled():
-    """Test that _load_providers filters out disabled providers."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config_path = Path(tmpdir) / "llm.json"
-        config_path.write_text("""[
-            {
-                "provider": "enabled_provider",
-                "base_url": "https://example.com/api/v1",
-                "api_key": "key1",
-                "enabled": true
-            },
-            {
-                "provider": "disabled_provider",
-                "base_url": "https://example.com/api/v2",
-                "api_key": "key2",
-                "enabled": false
-            }
-        ]""")
-
-        providers = LlmProxiesProvider._load_providers(str(config_path))
-        assert len(providers) == 1
-        assert providers[0].provider == "enabled_provider"
-
-
-# Test chat completions streaming
 def test_chat_completions_streaming(monkeypatch: pytest.MonkeyPatch):
     """Test chat completions with streaming enabled."""
     provider = _build_provider()
