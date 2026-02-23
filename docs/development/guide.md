@@ -71,8 +71,7 @@ drunk-mcp-proxy/
 │   └── tools/                 # Utilities
 ├── tests/                     # Test suite
 ├── data/                      # Configuration files
-│   ├── config.json           # Service configs
-│   ├── auth.json             # Auth configs
+│   ├── config.yaml           # Service and auth configs
 │   └── mcp/                  # MCP spec files
 ├── schemas/                   # JSON schemas
 ├── docs/                      # Documentation
@@ -212,13 +211,13 @@ pyright src
 3. Register in `app/auth_provider.py`
 4. Add tests
 5. Update auth documentation
-6. Add example config to `data/auth_example.json`
+6. Add example config to `data/config.yaml`
 
 ### Adding a New Configuration Option
 
 1. Add field to model in `tools/spec_config.py` or `tools/auth_config.py`
 2. Add environment variable in `tools/env.py`
-3. Update JSON schema in `schemas/`
+3. Update YAML schema in `schemas/`
 4. Add documentation
 5. Add tests
 
