@@ -292,12 +292,14 @@ class LlmProxiesProvider:
             error_msg = str(e)
             logger.error(f"Error calling embeddings for provider '{provider_name}': {error_msg}")
             if "Missing required" in error_msg or "does not support" in error_msg:
+                # Return a generic client-facing error message to avoid exposing internal details.
                 return JSONResponse(
-                    content={"error": {"message": error_msg}}, 
+                    content={"error": {"message": "Invalid embeddings request: missing or unsupported parameter."}},
                     status_code=400
                 )
+            # For unexpected errors, return a generic internal error message without exposing error details.
             return JSONResponse(
-                content={"error": {"message": error_msg}}, 
+                content={"error": {"message": "An internal error occurred while processing the embeddings request."}},
                 status_code=500
             )
     
