@@ -84,6 +84,9 @@ class LlmProxiesProvider:
     }
     _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
     
+    # Keywords that indicate user-actionable errors that should be preserved
+    _USER_ACTIONABLE_ERROR_KEYWORDS = ("Missing required", "is required", "does not support")
+    
     def __init__(
         self,
         providers: list[LlmConfig]
@@ -98,16 +101,21 @@ class LlmProxiesProvider:
         self._fastapi_app: FastAPI | None = None
 
     @staticmethod
+    def _is_user_actionable_error(error: Exception) -> bool:
+        """Check if error contains user-actionable information that should be preserved."""
+        error_str = str(error)
+        return any(keyword in error_str for keyword in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
+
+    @staticmethod
     def _sanitize_error_message(error: Exception) -> str:
         """Sanitize error messages to prevent information exposure.
         
         Returns a generic error message while preserving user-actionable information.
         Sensitive information like API keys, paths, and internal details are removed.
         """
-        error_str = str(error)
         # Preserve certain user-actionable error patterns
-        if any(keyword in error_str for keyword in ["Missing required", "is required", "does not support"]):
-            return error_str
+        if LlmProxiesProvider._is_user_actionable_error(error):
+            return str(error)
         # Return generic message for all other errors to prevent information exposure
         return "An error occurred while processing the request"
 
@@ -306,7 +314,7 @@ class LlmProxiesProvider:
             sanitized_msg = self._sanitize_error_message(e)
             logger.error(f"Error calling embeddings for provider '{provider_name}': {type(e).__name__}")
             # Check if this is a user-actionable error
-            if any(keyword in str(e) for keyword in ["Missing required", "does not support"]):
+            if self._is_user_actionable_error(e):
                 return JSONResponse(
                     content={"error": {"message": sanitized_msg}}, 
                     status_code=400
@@ -473,7 +481,7 @@ class LlmProxiesProvider:
             sanitized_msg = self._sanitize_error_message(e)
             logger.error(f"Error calling chat completions for provider '{provider_name}': {type(e).__name__}")
             # Check if this is a user-actionable error
-            if any(keyword in str(e) for keyword in ["Missing required", "is required", "does not support"]):
+            if self._is_user_actionable_error(e):
                 return JSONResponse(
                     content={"error": {"message": sanitized_msg}}, 
                     status_code=400
