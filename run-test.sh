@@ -1,20 +1,18 @@
 #!/bin/bash
 
 # Script to run all unit tests with code coverage for drunk-mcp-proxy
-# Usage: ./scripts/tests.sh [pytest options]
+# Usage: ./test.sh [pytest options]
 # Examples:
-#   ./scripts/tests.sh              # Run all tests with coverage
-#   ./scripts/tests.sh -v           # Run with verbose output
-#   ./scripts/tests.sh --cov        # Show coverage report in terminal
-#   ./scripts/tests.sh --html       # Generate HTML coverage report
-#   ./scripts/tests.sh -k test_auth # Run specific test
+#   ./test.sh              # Run all tests with coverage
+#   ./test.sh -v           # Run with verbose output
+#   ./test.sh --cov        # Show coverage report in terminal
+#   ./test.sh --html       # Generate HTML coverage report
+#   ./test.sh -k test_auth # Run specific test
 
 set -e
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Get the project root directory (parent of scripts)
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Get the project root directory (where this script is located)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Change to project root
 cd "$PROJECT_ROOT"
@@ -129,13 +127,13 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
 
     echo ""
     echo "💡 View summary: coverage report"
-    echo "💡 Generate HTML report: ./scripts/tests.sh --html"
+    echo "💡 Generate HTML report: ./test.sh --html"
 else
     echo "❌ Some tests failed (exit code: $TEST_EXIT_CODE)"
-    echo "💡 Run with -v for verbose output: ./scripts/tests.sh -v"
-    echo "💡 Run specific test: ./scripts/tests.sh -k test_name"
-    echo "💡 Generate coverage report: ./scripts/tests.sh --cov"
-    echo "💡 Generate HTML coverage: ./scripts/tests.sh --html"
+    echo "💡 Run with -v for verbose output: ./test.sh -v"
+    echo "💡 Run specific test: ./test.sh -k test_name"
+    echo "💡 Generate coverage report: ./test.sh --cov"
+    echo "💡 Generate HTML coverage: ./test.sh --html"
 fi
 
 exit $TEST_EXIT_CODE

@@ -3,9 +3,8 @@
 
 set -e
 
-# Get the project root directory (parent of scripts folder)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# Get the project root directory (where this script is located)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Change to project root
 cd "$PROJECT_ROOT"
@@ -107,7 +106,7 @@ case "$ACTION" in
 
     *)
         echo "${YELLOW}Usage:${NC}"
-        echo "  bash scripts/docker-dev.sh [COMMAND] [PORT]"
+        echo "  bash docker-dev.sh [COMMAND] [PORT]"
         echo ""
         echo "${YELLOW}Commands:${NC}"
         echo "  up       - Build and start container (default)"
@@ -119,10 +118,10 @@ case "$ACTION" in
         echo "  ps       - Alias for status"
         echo ""
         echo "${YELLOW}Examples:${NC}"
-        echo "  bash scripts/docker-dev.sh up"
-        echo "  bash scripts/docker-dev.sh down"
-        echo "  bash scripts/docker-dev.sh logs"
-        echo "  bash scripts/docker-dev.sh restart"
+        echo "  bash docker-dev.sh up"
+        echo "  bash docker-dev.sh down"
+        echo "  bash docker-dev.sh logs"
+        echo "  bash docker-dev.sh restart"
         exit 1
         ;;
 esac

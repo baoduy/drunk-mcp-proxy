@@ -120,17 +120,17 @@ LOG_LEVEL = getEnvString("FASTMCP_LOG_LEVEL", "INFO").upper()
 # These values identify the server in logs and health checks
 SERVER_NAME = getEnvString("FASTMCP_SERVER_NAME", "mcp-proxy-server")
 SERVER_VERSION = getEnvString("FASTMCP_SERVER_VERSION", "1.0.0")
-SERVER_TRANSPORT = getEnvString("FASTMCP_SERVER_TRANSPORT", "http")
+SERVER_TRANSPORT = getEnvString("FASTMCP_SERVER_TRANSPORT", "streamable-http")
 
 # CORS Configuration
 # ==================
 # Cross-Origin Resource Sharing settings for web clients
 # All values are comma-separated lists
-CORS_ALLOW_ORIGINS = getEnvString("FASTMCP_CORS_ALLOW_ORIGINS")
-CORS_ALLOW_METHODS = getEnvString("FASTMCP_CORS_ALLOW_METHODS")
-CORS_ALLOW_HEADERS = getEnvString("FASTMCP_CORS_ALLOW_HEADERS")
-CORS_EXPOSE_HEADERS = getEnvString("FASTMCP_CORS_EXPOSE_HEADERS")
-CORS_ALLOW_CREDENTIALS = getEnvBool("FASTMCP_CORS_ALLOW_CREDENTIALS", False)
+CORS_ALLOW_ORIGINS = getEnvString("FASTMCP_CORS_ALLOW_ORIGINS","")
+CORS_ALLOW_METHODS = getEnvString("FASTMCP_CORS_ALLOW_METHODS","GET,POST,PUT,DELETE,OPTIONS")
+CORS_ALLOW_HEADERS = getEnvString("FASTMCP_CORS_ALLOW_HEADERS","mcp-protocol-version,mcp-session-id,Authorization,Content-Type")
+CORS_EXPOSE_HEADERS = getEnvString("FASTMCP_CORS_EXPOSE_HEADERS","mcp-session-id")
+CORS_ALLOW_CREDENTIALS = getEnvBool("FASTMCP_CORS_ALLOW_CREDENTIALS", True)
 CORS_MAX_AGE = getEnvInt("FASTMCP_CORS_MAX_AGE", 3600)
 
 # Server Binding
@@ -141,6 +141,7 @@ CORS_MAX_AGE = getEnvInt("FASTMCP_CORS_MAX_AGE", 3600)
 HOST = getEnvString("FASTMCP_HOST", "0.0.0.0")
 PORT = getEnvInt("FASTMCP_PORT", 9123)
 
+SWAGGER_ENABLED = getEnvBool("FASTMCP_SWAGGER_ENABLED", True)
 # Authentication Configuration
 # =============================
 # Enable or disable request header validation (Authorization header must not be empty)
