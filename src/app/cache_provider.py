@@ -147,5 +147,5 @@ class CacheProvider:
         base_store = CacheProvider._create_key_value_store()
         CacheProvider.cache_storage = TTLAsyncKeyValue(base_store, default_ttl_seconds=15 * 60)
         
-        logging.info(f"Cache store initialized with backend: {OAUTH_STORAGE_TYPE}, default TTL: 15 minutes")
+        logging.info("Cache store initialized with default TTL: 15 minutes")
         return CacheProvider.cache_storage
