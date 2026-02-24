@@ -163,10 +163,10 @@ OAUTH_STORAGE_ENCRYPTION_KEY = getEnvString("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KE
 # OAuth Storage Type Configuration
 # ==================================
 # Type of storage backend for OAuth tokens (e.g., "redis", "memory", "database")
-OAUTH_STORAGE_TYPE = getEnvString("MCP_OAUTH_STORAGE_TYPE", "memory")
+OAUTH_STORAGE_TYPE = getEnvString("FASTMCP_OAUTH_STORAGE_TYPE", "memory")
 
 # Redis Configuration
 # ====================
 # Connection string for Redis backend
 # Format: redis://[user:password@]host:port/database
-REDIS_CONNECTION_STRING = getEnvString("MCP_REDIS_CONNECTION_STRING") or None
+REDIS_CONNECTION_STRING = getEnvString("FASTMCP_REDIS_CONNECTION_STRING") or None
