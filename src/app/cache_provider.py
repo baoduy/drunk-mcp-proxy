@@ -104,10 +104,10 @@ class CacheProvider:
     def _create_key_value_store() -> AsyncKeyValue:
         """Create a new key-value store instance based on the configured storage type."""
         
-        if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None:
+        if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None and len(REDIS_CONNECTION_STRING) > 0:
             try:
                 from key_value.aio.stores.redis import RedisStore
-                return RedisStore(default_collection=REDIS_CONNECTION_STRING)
+                return RedisStore(url=REDIS_CONNECTION_STRING)
             except ImportError:
                 logging.warning("Redis store not available, falling back to memory store")
 
@@ -147,5 +147,5 @@ class CacheProvider:
         base_store = CacheProvider._create_key_value_store()
         CacheProvider.cache_storage = TTLAsyncKeyValue(base_store, default_ttl_seconds=15 * 60)
         
-        logging.info(f"Cache store initialized with backend: {OAUTH_STORAGE_TYPE}, default TTL: 15 minutes")
+        logging.info("Cache store initialized with default TTL: 15 minutes")
         return CacheProvider.cache_storage

@@ -84,6 +84,9 @@ class LlmProxiesProvider:
     }
     _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
     
+    # Keywords that indicate user-actionable errors that should be preserved
+    _USER_ACTIONABLE_ERROR_KEYWORDS = ("Missing required", "is required", "does not support")
+    
     def __init__(
         self,
         providers: list[LlmConfig]
@@ -96,6 +99,25 @@ class LlmProxiesProvider:
         self.cache = CacheProvider.get_cache_store()
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self._fastapi_app: FastAPI | None = None
+
+    @staticmethod
+    def _is_user_actionable_error(error: Exception) -> bool:
+        """Check if error contains user-actionable information that should be preserved."""
+        error_str = str(error)
+        return any(keyword in error_str for keyword in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
+
+    @staticmethod
+    def _sanitize_error_message(error: Exception) -> str:
+        """Sanitize error messages to prevent information exposure.
+        
+        Returns a generic error message while preserving user-actionable information.
+        Sensitive information like API keys, paths, and internal details are removed.
+        """
+        # Preserve certain user-actionable error patterns
+        if LlmProxiesProvider._is_user_actionable_error(error):
+            return str(error)
+        # Return generic message for all other errors to prevent information exposure
+        return "An error occurred while processing the request"
 
     def mount(self, app: Starlette, route_prefix: str = "/llm/v1") -> None:
         app.mount(route_prefix, self._get_fastapi_app())
@@ -289,17 +311,16 @@ class LlmProxiesProvider:
             response_dict = self._to_dict(response)
             return JSONResponse(content=response_dict)
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Error calling embeddings for provider '{provider_name}': {error_msg}")
-            if "Missing required" in error_msg or "does not support" in error_msg:
-                # Return a generic client-facing error message to avoid exposing internal details.
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling embeddings for provider '{provider_name}': {type(e).__name__}")
+            # Check if this is a user-actionable error
+            if self._is_user_actionable_error(e):
                 return JSONResponse(
-                    content={"error": {"message": "Invalid embeddings request: missing or unsupported parameter."}},
+                    content={"error": {"message": sanitized_msg}}, 
                     status_code=400
                 )
-            # For unexpected errors, return a generic internal error message without exposing error details.
             return JSONResponse(
-                content={"error": {"message": "An internal error occurred while processing the embeddings request."}},
+                content={"error": {"message": sanitized_msg}}, 
                 status_code=500
             )
     
@@ -336,9 +357,10 @@ class LlmProxiesProvider:
             )
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            logger.error(f"Error calling audio transcriptions for provider '{provider_name}': {str(e)}")
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling audio transcriptions for provider '{provider_name}': {type(e).__name__}")
             return JSONResponse(
-                content={"error": f"Failed to call audio transcriptions: {str(e)}"}, 
+                content={"error": f"Failed to call audio transcriptions: {sanitized_msg}"}, 
                 status_code=500
             )
     
@@ -375,9 +397,10 @@ class LlmProxiesProvider:
             )
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            logger.error(f"Error calling audio translations for provider '{provider_name}': {str(e)}")
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling audio translations for provider '{provider_name}': {type(e).__name__}")
             return JSONResponse(
-                content={"error": f"Failed to call audio translations: {str(e)}"}, 
+                content={"error": f"Failed to call audio translations: {sanitized_msg}"}, 
                 status_code=500
             )
     
@@ -399,9 +422,10 @@ class LlmProxiesProvider:
             response = await client.images.generate(**body)
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            logger.error(f"Error calling images.generate for provider '{provider_name}': {str(e)}")
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling images.generate for provider '{provider_name}': {type(e).__name__}")
             return JSONResponse(
-                content={"error": f"Failed to call images.generate: {str(e)}"}, 
+                content={"error": f"Failed to call images.generate: {sanitized_msg}"}, 
                 status_code=500
             )
     
@@ -424,9 +448,10 @@ class LlmProxiesProvider:
             response = await client.completions.create(**body)
             return await self._format_response(response, is_streaming)
         except Exception as e:
-            logger.error(f"Error calling completions for provider '{provider_name}': {str(e)}")
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling completions for provider '{provider_name}': {type(e).__name__}")
             return JSONResponse(
-                content={"error": f"Failed to call completions: {str(e)}"}, 
+                content={"error": f"Failed to call completions: {sanitized_msg}"}, 
                 status_code=500
             )
     
@@ -453,15 +478,16 @@ class LlmProxiesProvider:
             response = await client.chat.completions.create(**body)
             return await self._format_response(response, is_streaming)
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Error calling chat completions for provider '{provider_name}': {error_msg}")
-            if "Missing required" in error_msg or "is required" in error_msg or "does not support" in error_msg:
+            sanitized_msg = self._sanitize_error_message(e)
+            logger.error(f"Error calling chat completions for provider '{provider_name}': {type(e).__name__}")
+            # Check if this is a user-actionable error
+            if self._is_user_actionable_error(e):
                 return JSONResponse(
-                    content={"error": {"message": error_msg}}, 
+                    content={"error": {"message": sanitized_msg}}, 
                     status_code=400
                 )
             return JSONResponse(
-                content={"error": {"message": error_msg}}, 
+                content={"error": {"message": sanitized_msg}}, 
                 status_code=500
             )
 
