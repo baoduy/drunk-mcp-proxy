@@ -119,7 +119,6 @@ def test_add_llm_services_adds_all(monkeypatch):
 
 def test_build_mounts_llm_services(monkeypatch):
     monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
-    monkeypatch.setattr(starlette_app, "OPENAPI_ENABLED", False)
     app_factory = starlette_app.StarletteApp()
     
     llm_provider = DummyLlmProvider(providers=["provider1"])

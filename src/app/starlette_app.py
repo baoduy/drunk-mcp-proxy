@@ -15,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from .lifespan import AppLifespanManager
 from .swagger_provider import SwaggerProvider
-from tools.env import SERVER_NAME, HOST, PORT, OPENAPI_ENABLED
+from tools.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
@@ -179,8 +179,8 @@ class StarletteApp:
         # Add health check endpoint
         app.add_route("/health", self._health_check_handler, methods=["GET"], include_in_schema=True)
         
-        # Add OpenAPI documentation endpoints if enabled
-        if OPENAPI_ENABLED:
+        # Add OpenAPI documentation endpoints
+        if SWAGGER_ENABLED:
             self.swagger_provider.mount(app, self.mcp_apps, self.llm_services)
 
         return app
