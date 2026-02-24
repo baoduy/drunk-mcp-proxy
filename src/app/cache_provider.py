@@ -104,7 +104,7 @@ class CacheProvider:
     def _create_key_value_store() -> AsyncKeyValue:
         """Create a new key-value store instance based on the configured storage type."""
         
-        if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None:
+        if OAUTH_STORAGE_TYPE == "redis" and REDIS_CONNECTION_STRING is not None and len(REDIS_CONNECTION_STRING) > 0:
             try:
                 from key_value.aio.stores.redis import RedisStore
                 return RedisStore(default_collection=REDIS_CONNECTION_STRING)
