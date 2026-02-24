@@ -408,7 +408,8 @@ def test_embeddings_error_handling(monkeypatch: pytest.MonkeyPatch):
         "/llm/v1/embeddings", json={"model": "openrouter/test", "input": "test"}
     )
     assert response.status_code == 500
-    assert "Test error" in response.json()["error"]["message"]
+    # Security fix: error messages are sanitized to prevent information exposure
+    assert "An error occurred while processing the request" in response.json()["error"]["message"]
 
 
 def test_completions_endpoint(monkeypatch: pytest.MonkeyPatch):
@@ -507,7 +508,8 @@ def test_images_generations_error_handling(monkeypatch: pytest.MonkeyPatch):
         json={"model": "openrouter/dall-e-3", "prompt": "test"},
     )
     assert response.status_code == 500
-    assert "Image generation failed" in response.json()["error"]
+    # Security fix: error messages are sanitized to prevent information exposure
+    assert "An error occurred while processing the request" in response.json()["error"]
 
 
 def test_audio_transcriptions_missing_model():
