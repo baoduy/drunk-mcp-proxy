@@ -69,6 +69,7 @@ services:
     environment:
       - WEBUI_AUTH=false
       - WEBUI_SECRET_KEY=Dj3EFkjbwL9NaLjXTBn7
+      - ENABLE_OLLAMA_API=false
       - ENABLE_OPENAI_API=true
       - OPENAI_API_BASE_URL=http://mcp-proxy-server:9123/api/v1
       - OPENAI_API_KEY=${FASTMCP_API_KEY}

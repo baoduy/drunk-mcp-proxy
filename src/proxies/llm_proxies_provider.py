@@ -65,7 +65,12 @@ class AsyncOpenAIFactory:
         
         if provider.provider in self._clients:
             return self._clients[provider.provider]
-        client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
+        
+        if provider.api_key is not None and len(provider.api_key) > 0:
+            client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
+        else:
+            client = AsyncOpenAI(base_url=provider.base_url)
+            
         self._clients[provider.provider] = client
         return client
     

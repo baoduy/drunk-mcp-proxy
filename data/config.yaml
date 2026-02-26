@@ -37,20 +37,22 @@ auth:
 #
 llm:
   # Example: OpenRouter LLM provider (disabled)
-  - enabled: true # Set to true to enable this provider
-    provider: openrouter # Provider name
-    base_url:
-      "https://openrouter.ai/api/v1"
-      # API base URL for this provider
+  - enabled: false # Set to true to enable this provider
+    provider: or # Provider name
+    base_url: "https://openrouter.ai/api/v1"
+    # API base URL for this provider
     api_key: $OPENROUTER_API_KEY # API key (can use environment variable)
 
   # Example: OpenAI LLM provider (enabled)
-  - enabled: true # Set to true to enable this provider
-    provider: openai # Provider name
-    base_url:
-      "https://api.openai.com/v1"
-      # API base URL for this provider
+  - enabled: false # Set to true to enable this provider
+    provider: op # Provider name
+    base_url: "https://api.openai.com/v1"
+    # API base URL for this provider
     api_key: $OPENAI_API_KEY # API key (can use environment variable)
+
+  - enabled: true # Set to true to enable this provider
+    provider: ol # Provider name
+    base_url: "http://host.docker.internal:11434/v1"
 
 # ============================================================================
 # MODEL CONTEXT PROTOCOL (MCP) CONFIGURATION
