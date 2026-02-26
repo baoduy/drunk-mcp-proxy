@@ -14,7 +14,7 @@ auth:
   # Basic authentication provider
   basic:
     base_url: null # Optional: base URL for the backend service
-    token: $API_KEY # API token (can use environment variable)
+    token: $FASTMCP_API_KEY # API token (can use environment variable)
 
   # JWT authentication provider (validates JWT tokens from requests)
   jwt:
@@ -37,10 +37,10 @@ auth:
 #
 llm:
   # Example: OpenRouter LLM provider (disabled)
-  - enabled: false # Set to true to enable this provider
+  - enabled: true # Set to true to enable this provider
     provider: openrouter # Provider name
     base_url:
-      "https://openrouter.ai/v1"
+      "https://openrouter.ai/api/v1"
       # API base URL for this provider
     api_key: $OPENROUTER_API_KEY # API key (can use environment variable)
 

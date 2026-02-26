@@ -83,7 +83,7 @@ class TestEnvConfiguration:
             os.environ.pop("FASTMCP_LOG_LEVEL", None)
 
     def test_server_name_default(self):
-        """Test SERVER_NAME defaults to 'mcp-proxy-server' when not set."""
+        """Test SERVER_NAME defaults to 'drunk-ai-proxy' when not set."""
         env_backup = os.environ.pop("FASTMCP_SERVER_NAME", None)
         
         try:
@@ -91,7 +91,7 @@ class TestEnvConfiguration:
             import src.tools.env as env_module
             importlib.reload(env_module)
             
-            assert env_module.SERVER_NAME == "mcp-proxy-server"
+            assert env_module.SERVER_NAME == "drunk-ai-proxy"
         finally:
             if env_backup is not None:
                 os.environ["FASTMCP_SERVER_NAME"] = env_backup

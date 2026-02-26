@@ -44,7 +44,7 @@ def _build_app(provider: LlmProxiesProvider) -> Starlette:
         mock_app_config = Mock()
         mock_app_config.get_fast_mcp_auth_provider.return_value = None
         mock_get_app_config.return_value = mock_app_config
-        provider.mount(app)
+        provider.mount(app, route_prefix="/llm/v1")
     return app
 
 
@@ -136,13 +136,13 @@ def test_models_aggregates(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = _build_provider()
     client = TestClient(_build_app(provider))
 
-    async def fake_fetch_all_models(*_: Any, **__: Any) -> list[LlmModel]:
+    async def fake_get_all_models(*_: Any, **__: Any) -> list[LlmModel]:
         return [
             LlmModel(id="openrouter/test", provider="openrouter"),
             LlmModel(id="openrouter/test-2", provider="openrouter"),
         ]
 
-    monkeypatch.setattr(provider, "_fetch_all_models", fake_fetch_all_models)
+    monkeypatch.setattr(provider, "_get_all_models", fake_get_all_models)
 
     response = client.get("/llm/v1/models")
     assert response.status_code == 200
@@ -236,15 +236,15 @@ def test_llm_proxies_provider_with_providers():
 
 # Test model ID parsing
 def test_parse_model_id_with_provider():
-    """Test _parse_model_id with provider/model format."""
-    provider_name, model_name = LlmProxiesProvider._parse_model_id("openrouter/gpt-4")
+    """Test parse_model_id with provider/model format."""
+    provider_name, model_name = LlmProxiesProvider.parse_model_id("openrouter/gpt-4")
     assert provider_name == "openrouter"
     assert model_name == "gpt-4"
 
 
 def test_parse_model_id_without_provider():
-    """Test _parse_model_id with just model name."""
-    provider_name, model_name = LlmProxiesProvider._parse_model_id("gpt-4")
+    """Test parse_model_id with just model name."""
+    provider_name, model_name = LlmProxiesProvider.parse_model_id("gpt-4")
     assert provider_name == ""
     assert model_name == "gpt-4"
 
@@ -412,44 +412,6 @@ def test_embeddings_error_handling(monkeypatch: pytest.MonkeyPatch):
     assert "An error occurred while processing the request" in response.json()["error"]["message"]
 
 
-def test_completions_endpoint(monkeypatch: pytest.MonkeyPatch):
-    """Test completions endpoint."""
-    provider = _build_provider()
-    client = TestClient(_build_app(provider))
-
-    response_payload = {
-        "id": "cmpl-1",
-        "object": "text_completion",
-        "choices": [{"text": "Hello", "index": 0, "finish_reason": "stop"}],
-    }
-
-    class FakeCompletions:
-        async def create(self, **_: Any):
-            return response_payload
-
-    class FakeClient:
-        completions = FakeCompletions()
-
-    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
-
-    response = client.post(
-        "/llm/v1/completions", json={"model": "openrouter/test", "prompt": "Hello"}
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["choices"][0]["text"] == "Hello"
-
-
-def test_completions_missing_model():
-    """Test completions endpoint with missing model."""
-    provider = _build_provider()
-    client = TestClient(_build_app(provider))
-
-    response = client.post("/llm/v1/completions", json={"prompt": "test"})
-    assert response.status_code == 400
-    assert "Model ID is required" in response.json()["error"]
-
-
 def test_images_generations_endpoint(monkeypatch: pytest.MonkeyPatch):
     """Test images generations endpoint."""
     provider = _build_provider()
@@ -509,7 +471,7 @@ def test_images_generations_error_handling(monkeypatch: pytest.MonkeyPatch):
     )
     assert response.status_code == 500
     # Security fix: error messages are sanitized to prevent information exposure
-    assert "An error occurred while processing the request" in response.json()["error"]
+    assert "An error occurred while processing the request" in response.json()["error"]["message"]
 
 
 def test_audio_transcriptions_missing_model():

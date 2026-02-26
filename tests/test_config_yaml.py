@@ -254,6 +254,7 @@ class TestConfigYamlLoading:
             os.environ,
             {
                 "API_KEY": "test-key",
+                "FASTMCP_API_KEY": "test-key",
                 "OPENROUTER_API_KEY": "test-key",
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
