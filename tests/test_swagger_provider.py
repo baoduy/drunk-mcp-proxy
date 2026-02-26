@@ -138,7 +138,6 @@ def test_openapi_schema_includes_llm_endpoints():
     assert "/llm/v1/audio/transcriptions" in schema["paths"]
     assert "/llm/v1/audio/translations" in schema["paths"]
     assert "/llm/v1/images/generations" in schema["paths"]
-    assert "/llm/v1/completions" in schema["paths"]
     assert "/llm/v1/models" in schema["paths"]
     assert "/llm/v1/providers" in schema["paths"]
 
@@ -282,33 +281,6 @@ def test_llm_images_generations_endpoint_schema():
     assert "prompt" in request_schema["properties"]
     assert "size" in request_schema["properties"]
     assert "quality" in request_schema["properties"]
-
-
-def test_llm_completions_endpoint_schema():
-    """Test legacy completions endpoint schema details."""
-    app = Starlette()
-    provider = SwaggerProvider("TestService")
-    
-    mock_llm_service = Mock()
-    provider.mount(
-        app,
-        mcp_apps=[],
-        llm_services=[("/llm/v1", mock_llm_service)]
-    )
-    
-    client = TestClient(app)
-    response = client.get("/openapi.json")
-    schema = response.json()
-    
-    completions_endpoint = schema["paths"]["/llm/v1/completions"]["post"]
-    
-    assert completions_endpoint["tags"] == ["OpenAI"]
-    assert "legacy" in completions_endpoint["summary"].lower()
-    request_schema = completions_endpoint["requestBody"]["content"]["application/json"]["schema"]
-    assert "prompt" in request_schema["required"]
-    
-    # Prompt should support both string and array
-    assert "oneOf" in request_schema["properties"]["prompt"]
 
 
 def test_llm_models_endpoint_schema():

@@ -107,7 +107,7 @@ CONFIG_DIR = getEnvString("FASTMCP_CONFIG_DIR", "data")
 # Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
 SCHEMA_DIR = getEnvString("FASTMCP_SCHEMA_DIR", "schemas")
 # Route prefix for LLM proxy endpoints
-LLM_ROUTE_PREFIX = getEnvString("FASTMCP_LLM_ROUTE_PREFIX", "/llm/v1")
+LLM_ROUTE_PREFIX = getEnvString("FASTMCP_LLM_ROUTE_PREFIX", "/api/v1")
 
 # Logging Configuration
 # =====================
@@ -118,7 +118,7 @@ LOG_LEVEL = getEnvString("FASTMCP_LOG_LEVEL", "INFO").upper()
 # Server Identity
 # ===============
 # These values identify the server in logs and health checks
-SERVER_NAME = getEnvString("FASTMCP_SERVER_NAME", "mcp-proxy-server")
+SERVER_NAME = getEnvString("FASTMCP_SERVER_NAME", "drunk-ai-proxy")
 SERVER_VERSION = getEnvString("FASTMCP_SERVER_VERSION", "1.0.0")
 SERVER_TRANSPORT = getEnvString("FASTMCP_SERVER_TRANSPORT", "streamable-http")
 

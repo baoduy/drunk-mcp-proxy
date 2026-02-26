@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 import json
 from app.app_config_provider import AppConfigProvider
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse,PlainTextResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
@@ -64,7 +65,12 @@ class AsyncOpenAIFactory:
         
         if provider.provider in self._clients:
             return self._clients[provider.provider]
-        client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
+        
+        if provider.api_key is not None and len(provider.api_key) > 0:
+            client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
+        else:
+            client = AsyncOpenAI(base_url=provider.base_url)
+            
         self._clients[provider.provider] = client
         return client
     
@@ -84,9 +90,6 @@ class LlmProxiesProvider:
     }
     _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
     
-    # Keywords that indicate user-actionable errors that should be preserved
-    _USER_ACTIONABLE_ERROR_KEYWORDS = ("Missing required", "is required", "does not support")
-    
     def __init__(
         self,
         providers: list[LlmConfig]
@@ -100,26 +103,7 @@ class LlmProxiesProvider:
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self._fastapi_app: FastAPI | None = None
 
-    @staticmethod
-    def _is_user_actionable_error(error: Exception) -> bool:
-        """Check if error contains user-actionable information that should be preserved."""
-        error_str = str(error)
-        return any(keyword in error_str for keyword in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
-
-    @staticmethod
-    def _sanitize_error_message(error: Exception) -> str:
-        """Sanitize error messages to prevent information exposure.
-        
-        Returns a generic error message while preserving user-actionable information.
-        Sensitive information like API keys, paths, and internal details are removed.
-        """
-        # Preserve certain user-actionable error patterns
-        if LlmProxiesProvider._is_user_actionable_error(error):
-            return str(error)
-        # Return generic message for all other errors to prevent information exposure
-        return "An error occurred while processing the request"
-
-    def mount(self, app: Starlette, route_prefix: str = "/llm/v1") -> None:
+    def mount(self, app: Starlette, route_prefix: str) -> None:
         app.mount(route_prefix, self._get_fastapi_app())
 
     def _get_fastapi_app(self) -> FastAPI:
@@ -159,11 +143,6 @@ class LlmProxiesProvider:
                 methods=["POST"],
             )
             app.add_api_route(
-                "/completions",
-                self._completions_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
                 "/models",
                 self._get_models_endpoint,
                 methods=["GET"],
@@ -179,7 +158,7 @@ class LlmProxiesProvider:
         return self._fastapi_app
 
     @staticmethod
-    def _parse_model_id(model_id: str) -> tuple[str, str]:
+    def parse_model_id(model_id: str) -> tuple[str, str]:
         """Parse model_id into provider_name and model_name.
         
         Args:
@@ -193,6 +172,54 @@ class LlmProxiesProvider:
             return parts[0], parts[1]
         # If no "/" found, treat the whole string as model_name with empty provider
         return "", model_id
+
+    def extract_and_validate_model(self, source: Mapping[str, Any], key: str = "model") -> tuple[str, str] | JSONResponse:
+        """Extract and validate model_id from input dict (body or form).
+
+        Args:
+            source: Input mapping (request body, form data, etc.).
+            key: Key to extract model id (default: 'model').
+
+        Returns:
+            Tuple of (provider_name, model_name) or JSONResponse error.
+        """
+        model_id = source.get(key)
+        if not model_id:
+            return JSONResponse(content={"error": f"{key.capitalize()} ID is required"}, status_code=400)
+        provider_name, model_name = self.parse_model_id(str(model_id))
+        if not provider_name:
+            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
+        return provider_name, model_name
+
+    _USER_ACTIONABLE_ERROR_KEYWORDS = ("missing required", "invalid", "not found", "already exists")
+
+    @staticmethod
+    def _is_user_actionable_error(e: Exception) -> bool:
+        """Check if an exception message is user-actionable."""
+        msg = str(e).lower()
+        return any(kw in msg for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
+
+    @staticmethod
+    def _sanitize_error_message(e: Exception) -> str:
+        """Sanitize error message to prevent information exposure."""
+        if LlmProxiesProvider._is_user_actionable_error(e):
+            return str(e)
+        return "An error occurred while processing the request"
+
+    def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
+        """Consistent error response and logging.
+
+        Args:
+            e: Exception instance.
+            context: Optional context string for log.
+
+        Returns:
+            JSONResponse with error message.
+        """
+        logger.error(f"{context}: {type(e).__name__}: {str(e)}")
+        sanitized = self._sanitize_error_message(e)
+        status_code = 400 if self._is_user_actionable_error(e) else 500
+        return JSONResponse(content={"error": {"message": sanitized}}, status_code=status_code)
 
     @staticmethod
     def _collect_forward_headers(request: Request) -> dict[str, str]:
@@ -210,7 +237,7 @@ class LlmProxiesProvider:
     def _to_dict(obj: Any) -> dict[str, Any]:
         """Convert a Pydantic model or dict to a dict."""
         if isinstance(obj, dict):
-            return obj
+            return obj # type: ignore
         elif hasattr(obj, 'model_dump'):
             return obj.model_dump()
         else:
@@ -276,16 +303,11 @@ class LlmProxiesProvider:
             all_models.extend(models)
         return all_models
     
-    async def _fetch_all_models(self) -> dict[str, Any]:
-        """Fetch all models from all providers and return as LlmModel instances."""
-        models = await self._get_all_models()
-        return {"data": models}
-    
     async def _get_models_endpoint(self,request: Request) -> dict[str, Any]:
         # For simplicity, we return a static list of models for each provider.
         # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
-        models =await self._get_models_by_provider(provider) if provider else await self._fetch_all_models()
+        models =await self._get_models_by_provider(provider) if provider else await self._get_all_models()
         return {"data": models}
 
     def _get_providers_endpoint(self) -> dict[str, Any]:
@@ -295,199 +317,94 @@ class LlmProxiesProvider:
     async def _embeddings_endpoint(self, request: Request):
         """Handle embeddings requests."""
         body = await request.json()
-        model_id = body.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        
+        result = self.extract_and_validate_model(body)
+        if isinstance(result, JSONResponse):
+            return result
+        provider_name, model_name = result
         client = self._get_openai_client(provider_name)
-        
         try:
             body["model"] = model_name
             response = await client.embeddings.create(**body)
-            response_dict = self._to_dict(response)
-            return JSONResponse(content=response_dict)
+            return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling embeddings for provider '{provider_name}': {type(e).__name__}")
-            # Check if this is a user-actionable error
-            if self._is_user_actionable_error(e):
-                return JSONResponse(
-                    content={"error": {"message": sanitized_msg}}, 
-                    status_code=400
-                )
-            return JSONResponse(
-                content={"error": {"message": sanitized_msg}}, 
-                status_code=500
-            )
+            return self.handle_exception(e, f"embeddings for '{model_name}'")
     
     async def _audio_transcriptions_endpoint(self, request: Request):
         """Handle audio transcriptions requests."""
         form_data = await request.form()
-        model_id = form_data.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        
-        # Ensure model_id is a string
-        model_id = str(model_id)
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        
+        result = self.extract_and_validate_model(form_data)
+        if isinstance(result, JSONResponse):
+            return result
+        provider_name, model_name = result
         client = self._get_openai_client(provider_name)
-        
         try:
             file = form_data.get("file")
             if not file:
                 return JSONResponse(content={"error": "File is required"}, status_code=400)
-            
-            # Build kwargs from form data, excluding model and file
-            kwargs = {}
-            for key in form_data:
-                if key not in ["model", "file"]:
-                    kwargs[key] = form_data.get(key)
-            
+            kwargs: dict[str, Any] = {k: form_data.get(k) for k in form_data if k not in ["model", "file"]}
             response = await client.audio.transcriptions.create(
                 model=model_name,
                 file=file,  # type: ignore
-                **kwargs
+                **kwargs  # type: ignore[arg-type]
             )
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling audio transcriptions for provider '{provider_name}': {type(e).__name__}")
-            return JSONResponse(
-                content={"error": f"Failed to call audio transcriptions: {sanitized_msg}"}, 
-                status_code=500
-            )
+            return self.handle_exception(e, f"audio transcriptions for '{model_name}'")
     
     async def _audio_translations_endpoint(self, request: Request):
         """Handle audio translations requests."""
         form_data = await request.form()
-        model_id = form_data.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        
-        # Ensure model_id is a string
-        model_id = str(model_id)
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        
+        result = self.extract_and_validate_model(form_data)
+        if isinstance(result, JSONResponse):
+            return result
+        provider_name, model_name = result
         client = self._get_openai_client(provider_name)
-        
         try:
             file = form_data.get("file")
             if not file:
                 return JSONResponse(content={"error": "File is required"}, status_code=400)
-            
-            # Build kwargs from form data, excluding model and file
-            kwargs = {}
-            for key in form_data:
-                if key not in ["model", "file"]:
-                    kwargs[key] = form_data.get(key)
-            
+            kwargs: dict[str, Any] = {k: form_data.get(k) for k in form_data if k not in ["model", "file"]}
             response = await client.audio.translations.create(
                 model=model_name,
                 file=file,  # type: ignore
-                **kwargs
+                **kwargs  # type: ignore[arg-type]
             )
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling audio translations for provider '{provider_name}': {type(e).__name__}")
-            return JSONResponse(
-                content={"error": f"Failed to call audio translations: {sanitized_msg}"}, 
-                status_code=500
-            )
+            return self.handle_exception(e, f"audio translations for '{model_name}'")
     
     async def _images_generations_endpoint(self, request: Request):
         """Handle image generations requests."""
         body = await request.json()
-        model_id = body.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        
+        result = self.extract_and_validate_model(body)
+        if isinstance(result, JSONResponse):
+            return result
+        provider_name, model_name = result
         client = self._get_openai_client(provider_name)
-        
         try:
             body["model"] = model_name
             response = await client.images.generate(**body)
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling images.generate for provider '{provider_name}': {type(e).__name__}")
-            return JSONResponse(
-                content={"error": f"Failed to call images.generate: {sanitized_msg}"}, 
-                status_code=500
-            )
-    
-    async def _completions_endpoint(self, request: Request):
-        """Handle legacy completions requests."""
-        body = await request.json()
-        model_id = body.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        
-        client = self._get_openai_client(provider_name)
-        
-        try:
-            body["model"] = model_name
-            is_streaming = body.get("stream", False)
-            response = await client.completions.create(**body)
-            return await self._format_response(response, is_streaming)
-        except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling completions for provider '{provider_name}': {type(e).__name__}")
-            return JSONResponse(
-                content={"error": f"Failed to call completions: {sanitized_msg}"}, 
-                status_code=500
-            )
+            return self.handle_exception(e, f"images generations for '{model_name}'")
     
     async def _chat_completions_endpoint(self,request: Request):
-        # This is a placeholder for the chat completions endpoint implementation.
-        # You would need to implement the logic to handle incoming requests, forward them to the appropriate provider,
-        # and return the response in the expected format.
         body = await request.json()
-        model_id = body.get("model")
-        if not model_id:
-            return JSONResponse(content={"error": "Model ID is required"}, status_code=400)
-        # Extract provider name and model name from model ID
-        provider_name, model_name = self._parse_model_id(model_id)
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
-        # Get the appropriate OpenAI client for the provider
+        result = self.extract_and_validate_model(body)
+        if isinstance(result, JSONResponse):
+            return result
+        provider_name, model_name = result
+        if "messages" not in body:
+            return JSONResponse(
+                content={"error": {"message": "messages is required"}},
+                status_code=400,
+            )
         client = self._get_openai_client(provider_name)
-        # Forward the request to the provider's chat completions endpoint
-        
         try:
             body["model"] = model_name
             is_streaming = body.get("stream", False)
-
             response = await client.chat.completions.create(**body)
             return await self._format_response(response, is_streaming)
         except Exception as e:
-            sanitized_msg = self._sanitize_error_message(e)
-            logger.error(f"Error calling chat completions for provider '{provider_name}': {type(e).__name__}")
-            # Check if this is a user-actionable error
-            if self._is_user_actionable_error(e):
-                return JSONResponse(
-                    content={"error": {"message": sanitized_msg}}, 
-                    status_code=400
-                )
-            return JSONResponse(
-                content={"error": {"message": sanitized_msg}}, 
-                status_code=500
-            )
+            return self.handle_exception(e, f"chat completions for '{model_name}'")
 
