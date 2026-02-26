@@ -93,6 +93,17 @@ class StarletteApp:
         """
         return JSONResponse({"status": "healthy", "service": self.service_name})
 
+    def _exception_handler(self, request: Request, exc: Exception) -> JSONResponse:
+        """
+        Global exception handler for the application.
+
+        Args:
+            request: The incoming request that caused the exception
+            exc: The exception that was raised
+        """
+        logger.error("Unhandled exception: %s", exc, exc_info=True)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
     def add_mcp_service(self, service: "McpProxyConfig"
                         ) -> None:
         """
@@ -166,7 +177,8 @@ class StarletteApp:
         # Create new app with custom lifespan
         app = Starlette(
             middleware=self.middleware,
-            lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps)
+            lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps),
+            exception_handlers={Exception: self._exception_handler}
         )
 
         for mount_path, mcp_app in self.mcp_apps:
