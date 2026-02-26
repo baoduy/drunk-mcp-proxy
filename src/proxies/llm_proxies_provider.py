@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Mapping
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase
-from fastapi.responses import JSONResponse, StreamingResponse,PlainTextResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
@@ -158,6 +158,15 @@ class LlmProxiesProvider:
         return self._fastapi_app
 
     @staticmethod
+    def _transform_models(models: list[dict[str, Any]], provider: str) -> list[dict[str, Any]]:
+        # This is a placeholder for any transformation logic you might want to apply to the models list.
+        # For now, it just returns the input as-is.
+        for model in models:
+            model['provider'] = provider
+            model['id'] = f"{provider}_{model.get('id', '')}"
+        return models
+    
+    @staticmethod
     def parse_model_id(model_id: str) -> tuple[str, str]:
         """Parse model_id into provider_name and model_name.
         
@@ -167,10 +176,10 @@ class LlmProxiesProvider:
         Returns:
             Tuple of (provider_name, model_name)
         """
-        parts = model_id.split("/", 1)
+        parts = model_id.split("_", 1)
         if len(parts) == 2:
             return parts[0], parts[1]
-        # If no "/" found, treat the whole string as model_name with empty provider
+        # If no "_" found, treat the whole string as model_name with empty provider
         return "", model_id
 
     def extract_and_validate_model(self, source: Mapping[str, Any], key: str = "model") -> tuple[str, str] | JSONResponse:
@@ -191,21 +200,6 @@ class LlmProxiesProvider:
             return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
         return provider_name, model_name
 
-    _USER_ACTIONABLE_ERROR_KEYWORDS = ("missing required", "invalid", "not found", "already exists")
-
-    @staticmethod
-    def _is_user_actionable_error(e: Exception) -> bool:
-        """Check if an exception message is user-actionable."""
-        msg = str(e).lower()
-        return any(kw in msg for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
-
-    @staticmethod
-    def _sanitize_error_message(e: Exception) -> str:
-        """Sanitize error message to prevent information exposure."""
-        if LlmProxiesProvider._is_user_actionable_error(e):
-            return str(e)
-        return "An error occurred while processing the request"
-
     def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
         """Consistent error response and logging.
 
@@ -217,9 +211,7 @@ class LlmProxiesProvider:
             JSONResponse with error message.
         """
         logger.error(f"{context}: {type(e).__name__}: {str(e)}")
-        sanitized = self._sanitize_error_message(e)
-        status_code = 400 if self._is_user_actionable_error(e) else 500
-        return JSONResponse(content={"error": {"message": sanitized}}, status_code=status_code)
+        return JSONResponse(content={"error": {"message": str(e)}}, status_code=400)
 
     @staticmethod
     def _collect_forward_headers(request: Request) -> dict[str, str]:
@@ -267,15 +259,6 @@ class LlmProxiesProvider:
     def _get_openai_client(self, provider_name: str) -> AsyncOpenAI:
         return self.open_ai_factory.get_client(provider_name)
 
-    @staticmethod
-    def _transform_models(models: list[dict[str, Any]], provider: str) -> list[dict[str, Any]]:
-        # This is a placeholder for any transformation logic you might want to apply to the models list.
-        # For now, it just returns the input as-is.
-        for model in models:
-            model['provider'] = provider
-            model['id'] = f"{provider}/{model.get('id', '')}"
-        return models
-    
     async def _get_models_by_provider(self, provider_name: str) -> list[LlmModel]:
         # Check cache first
         cache_key = f"models_{provider_name}"
