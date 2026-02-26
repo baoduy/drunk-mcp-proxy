@@ -65,6 +65,7 @@ RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
 # Consolidate environment variables
 ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
     FASTMCP_SCHEMA_DIR=/drunk-proxy/schemas \
+    FASTMCP_STATELESS_HTTP=true \
     PYTHONPATH=/drunk-proxy \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser \
