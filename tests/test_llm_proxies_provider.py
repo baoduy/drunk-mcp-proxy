@@ -53,7 +53,7 @@ def test_chat_completions_requires_messages() -> None:
     client = TestClient(_build_app(provider))
 
     response = client.post(
-        "/llm/v1/chat/completions", json={"model": "openrouter/test"}
+        "/llm/v1/chat/completions", json={"model": "openrouter_test"}
     )
     assert response.status_code == 400
     error_msg = response.json()["error"]["message"]
@@ -88,7 +88,7 @@ def test_chat_completions_success(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.post(
         "/llm/v1/chat/completions",
         json={
-            "model": "openrouter/test",
+            "model": "openrouter_test",
             "messages": [{"role": "user", "content": "hi"}],
         },
     )
@@ -123,7 +123,7 @@ def test_embeddings_success(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.post(
         "/llm/v1/embeddings",
         json={
-            "model": "openrouter/test",
+            "model": "openrouter_test",
             "input": "hello",
         },
     )
@@ -138,8 +138,8 @@ def test_models_aggregates(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def fake_get_all_models(*_: Any, **__: Any) -> list[LlmModel]:
         return [
-            LlmModel(id="openrouter/test", provider="openrouter"),
-            LlmModel(id="openrouter/test-2", provider="openrouter"),
+            LlmModel(id="openrouter_test", provider="openrouter"),
+            LlmModel(id="openrouter_test-2", provider="openrouter"),
         ]
 
     monkeypatch.setattr(provider, "_get_all_models", fake_get_all_models)
@@ -148,8 +148,8 @@ def test_models_aggregates(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.status_code == 200
     body = response.json()
     assert {item["id"] for item in body["data"]} == {
-        "openrouter/test",
-        "openrouter/test-2",
+        "openrouter_test",
+        "openrouter_test-2",
     }
 
 
@@ -236,8 +236,8 @@ def test_llm_proxies_provider_with_providers():
 
 # Test model ID parsing
 def test_parse_model_id_with_provider():
-    """Test parse_model_id with provider/model format."""
-    provider_name, model_name = LlmProxiesProvider.parse_model_id("openrouter/gpt-4")
+    """Test parse_model_id with provider_model format."""
+    provider_name, model_name = LlmProxiesProvider.parse_model_id("openrouter_gpt-4")
     assert provider_name == "openrouter"
     assert model_name == "gpt-4"
 
@@ -405,7 +405,7 @@ def test_embeddings_error_handling(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
 
     response = client.post(
-        "/llm/v1/embeddings", json={"model": "openrouter/test", "input": "test"}
+        "/llm/v1/embeddings", json={"model": "openrouter_test", "input": "test"}
     )
     assert response.status_code == 500
     # Security fix: error messages are sanitized to prevent information exposure
@@ -433,7 +433,7 @@ def test_images_generations_endpoint(monkeypatch: pytest.MonkeyPatch):
 
     response = client.post(
         "/llm/v1/images/generations",
-        json={"model": "openrouter/dall-e-3", "prompt": "A cat"},
+        json={"model": "openrouter_dall-e-3", "prompt": "A cat"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -467,7 +467,7 @@ def test_images_generations_error_handling(monkeypatch: pytest.MonkeyPatch):
 
     response = client.post(
         "/llm/v1/images/generations",
-        json={"model": "openrouter/dall-e-3", "prompt": "test"},
+        json={"model": "openrouter_dall-e-3", "prompt": "test"},
     )
     assert response.status_code == 500
     # Security fix: error messages are sanitized to prevent information exposure
@@ -493,7 +493,7 @@ def test_audio_transcriptions_missing_file():
     client = TestClient(_build_app(provider))
 
     response = client.post(
-        "/llm/v1/audio/transcriptions", data={"model": "openrouter/whisper-1"}
+        "/llm/v1/audio/transcriptions", data={"model": "openrouter_whisper-1"}
     )
     assert response.status_code == 400
     assert "File is required" in response.json()["error"]
@@ -518,7 +518,7 @@ def test_audio_translations_missing_file():
     client = TestClient(_build_app(provider))
 
     response = client.post(
-        "/llm/v1/audio/translations", data={"model": "openrouter/whisper-1"}
+        "/llm/v1/audio/translations", data={"model": "openrouter_whisper-1"}
     )
     assert response.status_code == 400
     assert "File is required" in response.json()["error"]
@@ -553,7 +553,7 @@ def test_chat_completions_streaming(monkeypatch: pytest.MonkeyPatch):
     response = client.post(
         "/llm/v1/chat/completions",
         json={
-            "model": "openrouter/test",
+            "model": "openrouter_test",
             "messages": [{"role": "user", "content": "hi"}],
             "stream": True,
         },
@@ -579,7 +579,7 @@ def test_chat_completions_missing_required_error(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
 
     response = client.post(
-        "/llm/v1/chat/completions", json={"model": "openrouter/test", "messages": []}
+        "/llm/v1/chat/completions", json={"model": "openrouter_test", "messages": []}
     )
     assert response.status_code == 400
 
@@ -598,7 +598,7 @@ def test_embeddings_missing_required_error(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
 
-    response = client.post("/llm/v1/embeddings", json={"model": "openrouter/test"})
+    response = client.post("/llm/v1/embeddings", json={"model": "openrouter_test"})
     assert response.status_code == 400
 
 
@@ -612,6 +612,6 @@ def test_transform_models():
     result = LlmProxiesProvider._transform_models(models, "openrouter")
 
     assert result[0]["provider"] == "openrouter"
-    assert result[0]["id"] == "openrouter/model1"
+    assert result[0]["id"] == "openrouter_model1"
     assert result[1]["provider"] == "openrouter"
-    assert result[1]["id"] == "openrouter/model2"
+    assert result[1]["id"] == "openrouter_model2"

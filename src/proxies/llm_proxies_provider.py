@@ -163,7 +163,7 @@ class LlmProxiesProvider:
         # For now, it just returns the input as-is.
         for model in models:
             model['provider'] = provider
-            model['id'] = f"{provider}/{model.get('id', '')}"
+            model['id'] = f"{provider}_{model.get('id', '')}"
         return models
     
     @staticmethod
@@ -171,15 +171,15 @@ class LlmProxiesProvider:
         """Parse model_id into provider_name and model_name.
         
         Args:
-            model_id: Model identifier in format "provider/model_name"
+            model_id: Model identifier in format "provider_model_name"
             
         Returns:
             Tuple of (provider_name, model_name)
         """
-        parts = model_id.split("/", 1)
+        parts = model_id.split("_", 1)
         if len(parts) == 2:
             return parts[0], parts[1]
-        # If no "/" found, treat the whole string as model_name with empty provider
+        # If no "_" found, treat the whole string as model_name with empty provider
         return "", model_id
 
     def extract_and_validate_model(self, source: Mapping[str, Any], key: str = "model") -> tuple[str, str] | JSONResponse:
@@ -197,7 +197,7 @@ class LlmProxiesProvider:
             return JSONResponse(content={"error": f"{key.capitalize()} ID is required"}, status_code=400)
         provider_name, model_name = self.parse_model_id(str(model_id))
         if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
+            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider_model_name'"}, status_code=400)
         return provider_name, model_name
 
     _USER_ACTIONABLE_ERROR_KEYWORDS = (
