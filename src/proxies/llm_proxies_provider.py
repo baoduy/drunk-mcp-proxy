@@ -163,7 +163,7 @@ class LlmProxiesProvider:
         # For now, it just returns the input as-is.
         for model in models:
             model['provider'] = provider
-            model['id'] = f"{provider}_{model.get('id', '')}"
+            model['id'] = f"{provider}/{model.get('id', '')}"
         return models
     
     @staticmethod
@@ -176,10 +176,10 @@ class LlmProxiesProvider:
         Returns:
             Tuple of (provider_name, model_name)
         """
-        parts = model_id.split("_", 1)
+        parts = model_id.split("/", 1)
         if len(parts) == 2:
             return parts[0], parts[1]
-        # If no "_" found, treat the whole string as model_name with empty provider
+        # If no "/" found, treat the whole string as model_name with empty provider
         return "", model_id
 
     def extract_and_validate_model(self, source: Mapping[str, Any], key: str = "model") -> tuple[str, str] | JSONResponse:
@@ -200,6 +200,46 @@ class LlmProxiesProvider:
             return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider/model_name'"}, status_code=400)
         return provider_name, model_name
 
+    _USER_ACTIONABLE_ERROR_KEYWORDS = (
+        "missing required",
+        "invalid",
+        "not found",
+        "already exists",
+        "permission denied",
+        "unauthorized",
+        "forbidden",
+        "rate limit",
+        "quota",
+        "timeout",
+    )
+
+    @staticmethod
+    def _is_user_actionable_error(message: str) -> bool:
+        """Check if the error message is user-actionable.
+
+        Args:
+            message: The error message to check.
+
+        Returns:
+            True if the error is user-actionable.
+        """
+        lower = message.lower()
+        return any(kw in lower for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
+
+    @staticmethod
+    def _sanitize_error_message(message: str) -> str:
+        """Sanitize error message to prevent information exposure.
+
+        Args:
+            message: The raw error message.
+
+        Returns:
+            Sanitized error message safe for client consumption.
+        """
+        if LlmProxiesProvider._is_user_actionable_error(message):
+            return message
+        return "An error occurred while processing the request"
+
     def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
         """Consistent error response and logging.
 
@@ -210,8 +250,10 @@ class LlmProxiesProvider:
         Returns:
             JSONResponse with error message.
         """
-        logger.error(f"{context}: {type(e).__name__}: {str(e)}")
-        return JSONResponse(content={"error": {"message": str(e)}}, status_code=400)
+        logger.error("%s: %s", context, type(e).__name__)
+        safe_message = self._sanitize_error_message(str(e))
+        status_code = 400 if self._is_user_actionable_error(str(e)) else 500
+        return JSONResponse(content={"error": {"message": safe_message}}, status_code=status_code)
 
     @staticmethod
     def _collect_forward_headers(request: Request) -> dict[str, str]:
@@ -307,7 +349,10 @@ class LlmProxiesProvider:
         client = self._get_openai_client(provider_name)
         try:
             body["model"] = model_name
-            response = await client.embeddings.create(**body)
+            known_params, extra_body = self._split_params(body, self._EMBEDDINGS_KNOWN_PARAMS)
+            if extra_body:
+                known_params["extra_body"] = extra_body
+            response = await client.embeddings.create(**known_params)
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
             return self.handle_exception(e, f"embeddings for '{model_name}'")
@@ -324,12 +369,12 @@ class LlmProxiesProvider:
             file = form_data.get("file")
             if not file:
                 return JSONResponse(content={"error": "File is required"}, status_code=400)
-            kwargs: dict[str, Any] = {k: form_data.get(k) for k in form_data if k not in ["model", "file"]}
-            response = await client.audio.transcriptions.create(
-                model=model_name,
-                file=file,  # type: ignore
-                **kwargs  # type: ignore[arg-type]
-            )
+            form_dict: dict[str, Any] = {k: form_data.get(k) for k in form_data if k != "model"}
+            form_dict["model"] = model_name
+            known_params, extra_body = self._split_params(form_dict, self._AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS)
+            if extra_body:
+                known_params["extra_body"] = extra_body
+            response = await client.audio.transcriptions.create(**known_params)  # type: ignore[arg-type]
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
             return self.handle_exception(e, f"audio transcriptions for '{model_name}'")
@@ -346,12 +391,12 @@ class LlmProxiesProvider:
             file = form_data.get("file")
             if not file:
                 return JSONResponse(content={"error": "File is required"}, status_code=400)
-            kwargs: dict[str, Any] = {k: form_data.get(k) for k in form_data if k not in ["model", "file"]}
-            response = await client.audio.translations.create(
-                model=model_name,
-                file=file,  # type: ignore
-                **kwargs  # type: ignore[arg-type]
-            )
+            form_dict: dict[str, Any] = {k: form_data.get(k) for k in form_data if k != "model"}
+            form_dict["model"] = model_name
+            known_params, extra_body = self._split_params(form_dict, self._AUDIO_TRANSLATIONS_KNOWN_PARAMS)
+            if extra_body:
+                known_params["extra_body"] = extra_body
+            response = await client.audio.translations.create(**known_params)  # type: ignore[arg-type]
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
             return self.handle_exception(e, f"audio translations for '{model_name}'")
@@ -366,12 +411,130 @@ class LlmProxiesProvider:
         client = self._get_openai_client(provider_name)
         try:
             body["model"] = model_name
-            response = await client.images.generate(**body)
+            known_params, extra_body = self._split_params(body, self._IMAGES_GENERATE_KNOWN_PARAMS)
+            if extra_body:
+                known_params["extra_body"] = extra_body
+            response = await client.images.generate(**known_params)
             return JSONResponse(content=self._to_dict(response))
         except Exception as e:
             return self.handle_exception(e, f"images generations for '{model_name}'")
     
-    async def _chat_completions_endpoint(self,request: Request):
+    # Known parameters accepted by the OpenAI embeddings API.
+    _EMBEDDINGS_KNOWN_PARAMS: set[str] = {
+        "input",
+        "model",
+        "dimensions",
+        "encoding_format",
+        "user",
+    }
+
+    # Known parameters accepted by the OpenAI images generate API.
+    _IMAGES_GENERATE_KNOWN_PARAMS: set[str] = {
+        "prompt",
+        "background",
+        "model",
+        "moderation",
+        "n",
+        "output_compression",
+        "output_format",
+        "partial_images",
+        "quality",
+        "response_format",
+        "size",
+        "stream",
+        "style",
+        "user",
+    }
+
+    # Known parameters accepted by the OpenAI audio transcriptions API.
+    _AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS: set[str] = {
+        "file",
+        "model",
+        "chunking_strategy",
+        "include",
+        "known_speaker_names",
+        "known_speaker_references",
+        "language",
+        "prompt",
+        "response_format",
+        "stream",
+        "temperature",
+        "timestamp_granularities",
+    }
+
+    # Known parameters accepted by the OpenAI audio translations API.
+    _AUDIO_TRANSLATIONS_KNOWN_PARAMS: set[str] = {
+        "file",
+        "model",
+        "prompt",
+        "response_format",
+        "temperature",
+    }
+
+    # Known parameters accepted by the OpenAI chat completions API.
+    _CHAT_COMPLETION_KNOWN_PARAMS: set[str] = {
+        "messages",
+        "model",
+        "audio",
+        "frequency_penalty",
+        "function_call",
+        "functions",
+        "logit_bias",
+        "logprobs",
+        "max_completion_tokens",
+        "max_tokens",
+        "metadata",
+        "modalities",
+        "n",
+        "parallel_tool_calls",
+        "prediction",
+        "presence_penalty",
+        "prompt_cache_key",
+        "prompt_cache_retention",
+        "reasoning_effort",
+        "response_format",
+        "safety_identifier",
+        "seed",
+        "service_tier",
+        "stop",
+        "store",
+        "stream",
+        "stream_options",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p",
+        "user",
+        "verbosity",
+        "web_search_options",
+    }
+
+    @staticmethod
+    def _split_params(
+        body: dict[str, Any],
+        known_params_set: set[str],
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        """Split request body into known API params and extra_body.
+
+        Args:
+            body: The raw request JSON body (or form data dict).
+            known_params_set: Set of parameter names accepted by the API.
+
+        Returns:
+            Tuple of (known_params, extra_body). extra_body is None when
+            there are no unknown keys.
+        """
+        known: dict[str, Any] = {}
+        extra: dict[str, Any] = {}
+        for key, value in body.items():
+            if key in known_params_set:
+                known[key] = value
+            else:
+                extra[key] = value
+        return known, extra or None
+
+    async def _chat_completions_endpoint(self, request: Request):
         body = await request.json()
         result = self.extract_and_validate_model(body)
         if isinstance(result, JSONResponse):
@@ -386,7 +549,12 @@ class LlmProxiesProvider:
         try:
             body["model"] = model_name
             is_streaming = body.get("stream", False)
-            response = await client.chat.completions.create(**body)
+
+            known_params, extra_body = self._split_params(body, self._CHAT_COMPLETION_KNOWN_PARAMS)
+            if extra_body:
+                known_params["extra_body"] = extra_body
+
+            response = await client.chat.completions.create(**known_params)
             return await self._format_response(response, is_streaming)
         except Exception as e:
             return self.handle_exception(e, f"chat completions for '{model_name}'")
