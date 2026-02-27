@@ -265,7 +265,7 @@ class TestConfigYamlLoading:
             assert config.auth is not None
             assert config.auth.default_provider == "basic"
             assert config.llm is not None
-            assert len(config.llm) == 2
+            assert len(config.llm) == 3
             assert config.mcp is not None
             assert len(config.mcp) == 4
 

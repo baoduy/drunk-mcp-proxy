@@ -37,14 +37,14 @@ auth:
 #
 llm:
   # Example: OpenRouter LLM provider (disabled)
-  - enabled: false # Set to true to enable this provider
+  - enabled: true # Set to true to enable this provider
     provider: or # Provider name
     base_url: "https://openrouter.ai/api/v1"
     # API base URL for this provider
     api_key: $OPENROUTER_API_KEY # API key (can use environment variable)
 
   # Example: OpenAI LLM provider (enabled)
-  - enabled: false # Set to true to enable this provider
+  - enabled: true # Set to true to enable this provider
     provider: op # Provider name
     base_url: "https://api.openai.com/v1"
     # API base URL for this provider
