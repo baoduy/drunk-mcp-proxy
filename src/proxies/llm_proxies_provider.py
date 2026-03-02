@@ -75,20 +75,20 @@ class AsyncOpenAIFactory:
         return client
     
 class LlmProxiesProvider:
-    _BLOCKED_FORWARD_HEADERS = {
-        "authorization",
-        "proxy-authorization",
-        "forwarded",
-        "via",
-        "connection",
-        "keep-alive",
-        "te",
-        "trailer",
-        "transfer-encoding",
-        "upgrade",
-        "host",
-    }
-    _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
+    # _BLOCKED_FORWARD_HEADERS = {
+    #     "authorization",
+    #     "proxy-authorization",
+    #     "forwarded",
+    #     "via",
+    #     "connection",
+    #     "keep-alive",
+    #     "te",
+    #     "trailer",
+    #     "transfer-encoding",
+    #     "upgrade",
+    #     "host",
+    # }
+    # _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
     
     def __init__(
         self,
@@ -200,31 +200,31 @@ class LlmProxiesProvider:
             return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider_model_name'"}, status_code=400)
         return provider_name, model_name
 
-    _USER_ACTIONABLE_ERROR_KEYWORDS = (
-        "missing required",
-        "invalid",
-        "not found",
-        "already exists",
-        "permission denied",
-        "unauthorized",
-        "forbidden",
-        "rate limit",
-        "quota",
-        "timeout",
-    )
+    # _USER_ACTIONABLE_ERROR_KEYWORDS = (
+    #     "missing required",
+    #     "invalid",
+    #     "not found",
+    #     "already exists",
+    #     "permission denied",
+    #     "unauthorized",
+    #     "forbidden",
+    #     "rate limit",
+    #     "quota",
+    #     "timeout",
+    # )
 
-    @staticmethod
-    def _is_user_actionable_error(message: str) -> bool:
-        """Check if the error message is user-actionable.
+    # @staticmethod
+    # def _is_user_actionable_error(message: str) -> bool:
+    #     """Check if the error message is user-actionable.
 
-        Args:
-            message: The error message to check.
+    #     Args:
+    #         message: The error message to check.
 
-        Returns:
-            True if the error is user-actionable.
-        """
-        lower = message.lower()
-        return any(kw in lower for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
+    #     Returns:
+    #         True if the error is user-actionable.
+    #     """
+    #     lower = message.lower()
+    #     return any(kw in lower for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
 
     @staticmethod
     def _sanitize_error_message(message: str) -> str:
@@ -236,8 +236,8 @@ class LlmProxiesProvider:
         Returns:
             Sanitized error message safe for client consumption.
         """
-        if LlmProxiesProvider._is_user_actionable_error(message):
-            return message
+        # if LlmProxiesProvider._is_user_actionable_error(message):
+        #     return message
         return "An error occurred while processing the request"
 
     def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
@@ -252,20 +252,20 @@ class LlmProxiesProvider:
         """
         logger.error("%s: %s", context, type(e).__name__)
         safe_message = self._sanitize_error_message(str(e))
-        status_code = 400 if self._is_user_actionable_error(str(e)) else 500
-        return JSONResponse(content={"error": {"message": safe_message}}, status_code=status_code)
+        # status_code = 400 if self._is_user_actionable_error(str(e)) else 500
+        return JSONResponse(content={"error": {"message": safe_message}}, status_code=400)
 
-    @staticmethod
-    def _collect_forward_headers(request: Request) -> dict[str, str]:
-        forward_headers: dict[str, str] = {}
-        for header_name, header_value in request.headers.items():
-            header_name_lower = header_name.lower()
-            if header_name_lower in LlmProxiesProvider._BLOCKED_FORWARD_HEADERS:
-                continue
-            if header_name_lower.startswith(LlmProxiesProvider._BLOCKED_FORWARD_PREFIXES):
-                continue
-            forward_headers[header_name] = header_value
-        return forward_headers
+    # @staticmethod
+    # def _collect_forward_headers(request: Request) -> dict[str, str]:
+    #     forward_headers: dict[str, str] = {}
+    #     for header_name, header_value in request.headers.items():
+    #         header_name_lower = header_name.lower()
+    #         if header_name_lower in LlmProxiesProvider._BLOCKED_FORWARD_HEADERS:
+    #             continue
+    #         if header_name_lower.startswith(LlmProxiesProvider._BLOCKED_FORWARD_PREFIXES):
+    #             continue
+    #         forward_headers[header_name] = header_value
+    #     return forward_headers
 
     @staticmethod
     def _to_dict(obj: Any) -> dict[str, Any]:

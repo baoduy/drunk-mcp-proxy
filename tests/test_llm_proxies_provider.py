@@ -15,6 +15,8 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
+from fastapi.responses import JSONResponse
+
 from src.proxies.llm_proxies_provider import (
     AsyncOpenAIFactory,
     LlmModel,
@@ -249,39 +251,68 @@ def test_parse_model_id_without_provider():
     assert model_name == "gpt-4"
 
 
-# Test header collection
-def test_collect_forward_headers_blocks_auth():
-    """Test that authorization headers are blocked."""
-    mock_request = Mock()
-    mock_request.headers = {
-        "Authorization": "Bearer token",
-        "Content-Type": "application/json",
-        "User-Agent": "test",
+# Test extract_and_validate_model method
+def test_extract_and_validate_model_success():
+    """Test extract_and_validate_model with valid model_id."""
+    provider = _build_provider()
+    source = {"model": "openrouter_gpt-4"}
+
+    result = provider.extract_and_validate_model(source)
+
+    assert isinstance(result, tuple)
+    assert result == ("openrouter", "gpt-4")
+
+
+def test_extract_and_validate_model_missing_model():
+    """Test extract_and_validate_model with missing model key."""
+    provider = _build_provider()
+    source = {"input": "test"}
+
+    result = provider.extract_and_validate_model(source)
+
+    assert isinstance(result, JSONResponse)
+    assert result.status_code == 400
+    assert "Model ID is required" in result.body.decode()
+
+
+def test_extract_and_validate_model_invalid_format():
+    """Test extract_and_validate_model with invalid model format (no underscore)."""
+    provider = _build_provider()
+    source = {"model": "invalidformat"}
+
+    result = provider.extract_and_validate_model(source)
+
+    assert isinstance(result, JSONResponse)
+    assert result.status_code == 400
+    assert "Invalid model ID format" in result.body.decode()
+
+
+def test_split_params_separates_known_and_extra():
+    """Test _split_params correctly separates known and unknown parameters."""
+    body = {
+        "model": "gpt-4",
+        "messages": [{"role": "user", "content": "hello"}],
+        "temperature": 0.7,
+        "custom_param": "value",
+        "another_unknown": 123,
     }
+    known_params = {"model", "messages", "temperature"}
 
-    headers = LlmProxiesProvider._collect_forward_headers(mock_request)
-    assert all(k.lower() != "authorization" for k in headers.keys())
-    assert "Content-Type" in headers
-    assert "User-Agent" in headers
+    result_known, result_extra = LlmProxiesProvider._split_params(body, known_params)
+
+    assert result_known == {"model": "gpt-4", "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7}
+    assert result_extra == {"custom_param": "value", "another_unknown": 123}
 
 
-def test_collect_forward_headers_blocks_proxy_headers():
-    """Test that proxy-related headers are blocked."""
-    mock_request = Mock()
-    mock_request.headers = {
-        "X-Forwarded-For": "192.168.1.1",
-        "X-Forwarded-Host": "example.com",
-        "Via": "1.1 proxy",
-        "Connection": "keep-alive",
-        "Content-Type": "application/json",
-    }
+def test_split_params_returns_none_extra_when_all_known():
+    """Test _split_params returns None for extra_body when all params are known."""
+    body = {"model": "gpt-4", "temperature": 0.5}
+    known_params = {"model", "temperature"}
 
-    headers = LlmProxiesProvider._collect_forward_headers(mock_request)
-    assert "x-forwarded-for" not in headers
-    assert "x-forwarded-host" not in headers
-    assert "via" not in headers
-    assert "connection" not in headers
-    assert "Content-Type" in headers
+    result_known, result_extra = LlmProxiesProvider._split_params(body, known_params)
+
+    assert result_known == {"model": "gpt-4", "temperature": 0.5}
+    assert result_extra is None
 
 
 # Test _to_dict conversion
@@ -407,7 +438,7 @@ def test_embeddings_error_handling(monkeypatch: pytest.MonkeyPatch):
     response = client.post(
         "/llm/v1/embeddings", json={"model": "openrouter_test", "input": "test"}
     )
-    assert response.status_code == 500
+    assert response.status_code == 400
     # Security fix: error messages are sanitized to prevent information exposure
     assert "An error occurred while processing the request" in response.json()["error"]["message"]
 
@@ -469,7 +500,7 @@ def test_images_generations_error_handling(monkeypatch: pytest.MonkeyPatch):
         "/llm/v1/images/generations",
         json={"model": "openrouter_dall-e-3", "prompt": "test"},
     )
-    assert response.status_code == 500
+    assert response.status_code == 400
     # Security fix: error messages are sanitized to prevent information exposure
     assert "An error occurred while processing the request" in response.json()["error"]["message"]
 

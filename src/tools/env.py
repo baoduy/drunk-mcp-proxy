@@ -4,49 +4,6 @@ Centralized environment configuration for MCP proxy.
 This module provides a single source of truth for all environment variables
 used by the MCP proxy server. All configuration is read from environment
 variables with sensible defaults.
-
-Environment Variables:
-    Configuration:
-        FASTMCP_CONFIG_DIR: Directory containing *.mcp.json files (default: "data")
-
-    Logging:
-        FASTMCP_LOG_LEVEL: Log level - DEBUG, INFO, WARNING, ERROR (default: "INFO")
-
-    Server Identity:
-        FASTMCP_SERVER_NAME: Server name for logging (default: "drunk-mcp-proxy-server")
-        FASTMCP_SERVER_VERSION: Server version string (default: "1.0.0")
-
-    Transport:
-        FASTMCP_SERVER_TRANSPORT: Transport protocol - http, sse, streamable-http (default: "")
-
-    CORS (comma-separated):
-        FASTMCP_CORS_ALLOW_ORIGINS: Allowed origins (e.g., "https://example.com")
-        FASTMCP_CORS_ALLOW_METHODS: Allowed methods (e.g., "GET,POST")
-        FASTMCP_CORS_ALLOW_HEADERS: Allowed headers (e.g., "Content-Type")
-        FASTMCP_CORS_EXPOSE_HEADERS: Headers to expose (e.g., "X-Request-ID")
-
-    Server Binding:
-        FASTMCP_HOST: Host to bind to (default: "0.0.0.0")
-        FASTMCP_PORT: Port to listen on (default: 9123)
-
-    Authentication:
-        FASTMCP_AUTH_ENABLED: Enable request header validation (default: false)
-
-    Rate Limiting:
-        FASTMCP_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
-        FASTMCP_RATE_LIMIT_REQUESTS: Max requests per window (default: 60)
-        FASTMCP_RATE_LIMIT_WINDOW_SECONDS: Window size in seconds (default: 60)
-
-    OAuth:
-        FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY: Fernet encryption key for OAuth token storage (required if using OAuth)
-
-Example .env file:
-    FASTMCP_CONFIG_DIR=./data
-    FASTMCP_LOG_LEVEL=DEBUG
-    FASTMCP_SERVER_NAME=my-mcp-proxy
-    FASTMCP_HOST=localhost
-    FASTMCP_PORT=8080
-    FASTMCP_CORS_ALLOW_ORIGINS=https://app.example.com
 """
 # pyright: reportConstantRedefinition=false
 
