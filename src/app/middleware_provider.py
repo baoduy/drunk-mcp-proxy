@@ -2,10 +2,10 @@ import asyncio
 import math
 import time
 
-from httpx import request
+from starlette.types import ASGIApp
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -26,10 +26,11 @@ from tools.env import (
 
 class AuthHeaderMiddleware(BaseHTTPMiddleware):
     """Middleware to validate that Authorization header is not empty when AUTH_ENABLED is true."""
-    
-    async def dispatch(self, request: Request, call_next):
-        # Skip authentication for health check
-        if request.url.path == "/health":
+    _AnonymousPaths = ["/health", "/docs", "/openapi.json"]
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
+        # Skip authentication for anonymous paths
+        if request.url.path in self._AnonymousPaths:
             return await call_next(request)
         
         authorization = request.headers.get("authorization", "").strip()
@@ -45,7 +46,7 @@ class AuthHeaderMiddleware(BaseHTTPMiddleware):
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Fixed-window rate limiter based on client IP address."""
 
-    def __init__(self, app, cache: TTLAsyncKeyValue, max_requests: int, window_seconds: int) -> None:
+    def __init__(self, app:ASGIApp, cache: TTLAsyncKeyValue, max_requests: int, window_seconds: int) -> None:
         super().__init__(app)
         self._cache = cache
         self._max_requests = max_requests
@@ -54,7 +55,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._lock = asyncio.Lock()
         self._key_prefix = "RATELIMIT_"
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         if not self._enabled:
             return await call_next(request)
 

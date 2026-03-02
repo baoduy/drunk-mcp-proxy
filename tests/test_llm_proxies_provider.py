@@ -646,3 +646,290 @@ def test_transform_models():
     assert result[0]["id"] == "openrouter_model1"
     assert result[1]["provider"] == "openrouter"
     assert result[1]["id"] == "openrouter_model2"
+
+
+# ---------------------------------------------------------------------------
+# Anthropic Messages endpoint tests
+# ---------------------------------------------------------------------------
+
+def test_anthropic_messages_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test basic Anthropic messages request returns Anthropic-format response."""
+    provider = _build_provider()
+    client = TestClient(_build_app(provider))
+
+    response_payload = {
+        "id": "chatcmpl-abc",
+        "object": "chat.completion",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello there!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
+
+    class FakeChatCompletions:
+        async def create(self, **_: Any) -> dict[str, Any]:
+            return response_payload
+
+    class FakeClient:
+        chat = SimpleNamespace(completions=FakeChatCompletions())
+
+    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={
+            "model": "openrouter_gpt-4o",
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "message"
+    assert body["role"] == "assistant"
+    assert body["content"][0]["type"] == "text"
+    assert body["content"][0]["text"] == "Hello there!"
+    assert body["stop_reason"] == "end_turn"
+    assert body["usage"]["input_tokens"] == 10
+    assert body["usage"]["output_tokens"] == 5
+    assert body["model"] == "openrouter_gpt-4o"
+
+
+def test_anthropic_messages_with_system(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that system prompt is converted to an OpenAI system message."""
+    provider = _build_provider()
+
+    captured: dict[str, Any] = {}
+
+    class FakeChatCompletions:
+        async def create(self, **kwargs: Any) -> dict[str, Any]:
+            captured["messages"] = kwargs.get("messages", [])
+            return {
+                "id": "x",
+                "choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+                "usage": {},
+            }
+
+    class FakeClient:
+        chat = SimpleNamespace(completions=FakeChatCompletions())
+
+    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
+    client = TestClient(_build_app(provider))
+
+    client.post(
+        "/llm/v1/messages",
+        json={
+            "model": "openrouter_gpt-4o",
+            "max_tokens": 50,
+            "system": "You are a helpful assistant.",
+            "messages": [{"role": "user", "content": "Hi"}],
+        },
+    )
+
+    assert captured["messages"][0]["role"] == "system"
+    assert captured["messages"][0]["content"] == "You are a helpful assistant."
+    assert captured["messages"][1]["role"] == "user"
+
+
+def test_anthropic_messages_with_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test tool definitions are converted to OpenAI format and tool_use blocks come back."""
+    provider = _build_provider()
+
+    captured: dict[str, Any] = {}
+
+    class FakeChatCompletions:
+        async def create(self, **kwargs: Any) -> dict[str, Any]:
+            captured["tools"] = kwargs.get("tools")
+            captured["tool_choice"] = kwargs.get("tool_choice")
+            return {
+                "id": "x",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {"name": "get_weather", "arguments": '{"location":"NYC"}'},
+                                }
+                            ],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 8},
+            }
+
+    class FakeClient:
+        chat = SimpleNamespace(completions=FakeChatCompletions())
+
+    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
+    client = TestClient(_build_app(provider))
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={
+            "model": "openrouter_gpt-4o",
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "What is the weather in NYC?"}],
+            "tools": [
+                {
+                    "name": "get_weather",
+                    "description": "Get current weather",
+                    "input_schema": {"type": "object", "properties": {"location": {"type": "string"}}},
+                }
+            ],
+            "tool_choice": {"type": "auto"},
+        },
+    )
+
+    # Verify tool format was converted correctly
+    assert captured["tools"] is not None
+    assert captured["tools"][0]["type"] == "function"
+    assert captured["tools"][0]["function"]["name"] == "get_weather"
+    assert captured["tool_choice"] == "auto"
+
+    # Verify response has tool_use block
+    assert response.status_code == 200
+    body = response.json()
+    assert body["stop_reason"] == "tool_use"
+    tool_block = next(b for b in body["content"] if b["type"] == "tool_use")
+    assert tool_block["name"] == "get_weather"
+    assert tool_block["input"] == {"location": "NYC"}
+
+
+def test_anthropic_messages_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test Anthropic streaming response emits correct SSE event types."""
+    provider = _build_provider()
+    client = TestClient(_build_app(provider))
+
+    async def mock_stream():
+        yield {"id": "chatcmpl-1", "choices": [{"delta": {"content": "Hello"}, "finish_reason": None}], "usage": None}
+        yield {"id": "chatcmpl-1", "choices": [{"delta": {"content": " world"}, "finish_reason": None}], "usage": None}
+        yield {"id": "chatcmpl-1", "choices": [{"delta": {}, "finish_reason": "stop"}], "usage": {"completion_tokens": 2}}
+
+    class MockStreamResponse:
+        def __aiter__(self):
+            return mock_stream()
+
+    class FakeChatCompletions:
+        async def create(self, **_: Any) -> MockStreamResponse:
+            return MockStreamResponse()
+
+    class FakeClient:
+        chat = SimpleNamespace(completions=FakeChatCompletions())
+
+    monkeypatch.setattr(provider, "_get_openai_client", lambda *_: FakeClient())
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={
+            "model": "openrouter_gpt-4o",
+            "max_tokens": 100,
+            "stream": True,
+            "messages": [{"role": "user", "content": "Hi"}],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers.get("content-type", "")
+
+    raw = response.text
+    event_types = [
+        line.removeprefix("event: ").strip()
+        for line in raw.splitlines()
+        if line.startswith("event:")
+    ]
+    assert "message_start" in event_types
+    assert "content_block_start" in event_types
+    assert "ping" in event_types
+    assert "content_block_delta" in event_types
+    assert "content_block_stop" in event_types
+    assert "message_delta" in event_types
+    assert "message_stop" in event_types
+
+
+def test_anthropic_messages_missing_model() -> None:
+    """Test Anthropic messages endpoint returns 400 when model is missing."""
+    provider = _build_provider()
+    client = TestClient(_build_app(provider))
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={"max_tokens": 100, "messages": [{"role": "user", "content": "Hi"}]},
+    )
+    assert response.status_code == 400
+
+
+def test_anthropic_messages_missing_max_tokens() -> None:
+    """Test Anthropic messages endpoint returns 400 when max_tokens is missing."""
+    provider = _build_provider()
+    client = TestClient(_build_app(provider))
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={"model": "openrouter_gpt-4o", "messages": [{"role": "user", "content": "Hi"}]},
+    )
+    assert response.status_code == 400
+    assert "max_tokens" in response.json()["error"]["message"]
+
+
+def test_anthropic_messages_missing_messages() -> None:
+    """Test Anthropic messages endpoint returns 400 when messages is missing."""
+    provider = _build_provider()
+    client = TestClient(_build_app(provider))
+
+    response = client.post(
+        "/llm/v1/messages",
+        json={"model": "openrouter_gpt-4o", "max_tokens": 100},
+    )
+    assert response.status_code == 400
+    assert "messages" in response.json()["error"]["message"]
+
+
+def test_anthropic_to_openai_request_stop_sequences() -> None:
+    """Test stop_sequences is renamed to stop in the converted request."""
+    body = {
+        "model": "openrouter_x",
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 50,
+        "stop_sequences": ["END", "STOP"],
+    }
+    result = LlmProxiesProvider._anthropic_to_openai_request(body, "x")
+    assert result["stop"] == ["END", "STOP"]
+    assert "stop_sequences" not in result
+
+
+def test_anthropic_to_openai_request_tool_choice_any() -> None:
+    """Test tool_choice 'any' maps to 'required' in OpenAI format."""
+    body = {
+        "model": "openrouter_x",
+        "messages": [],
+        "max_tokens": 50,
+        "tool_choice": {"type": "any"},
+    }
+    result = LlmProxiesProvider._anthropic_to_openai_request(body, "x")
+    assert result["tool_choice"] == "required"
+
+
+def test_openai_to_anthropic_response_finish_reason_mapping() -> None:
+    """Test finish_reason to stop_reason conversion."""
+    for finish_reason, expected_stop_reason in [
+        ("stop", "end_turn"),
+        ("length", "max_tokens"),
+        ("tool_calls", "tool_use"),
+        ("content_filter", "end_turn"),
+    ]:
+        oai_response = {
+            "id": "x",
+            "choices": [{"message": {"role": "assistant", "content": "hi"}, "finish_reason": finish_reason}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+        result = LlmProxiesProvider._openai_to_anthropic_response(oai_response, "openrouter_x")
+        assert result["stop_reason"] == expected_stop_reason, f"Failed for {finish_reason}"

@@ -367,6 +367,14 @@ python -m pytest tests/test_server.py
 python -m pytest --cov=src --cov-report=html
 ```
 
+## Try with Claude Code
+
+```bash
+export ANTHROPIC_BASE_URL=http://localhost:9123/api
+export ANTHROPIC_AUTH_TOKEN=YOUR_API_KEY_HERE
+claude --model lms_openai/gpt-oss-20b
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please:

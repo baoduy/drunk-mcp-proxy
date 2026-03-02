@@ -79,6 +79,40 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   - Group imports: Standard library, Third-party, Local application.
   - Use `from __future__ import annotations` at the top of files.
 
+### Design Principles: DRY & Single Responsibility
+
+- **Don't Repeat Yourself (DRY)**: Avoid code duplication by extracting common logic into reusable helper methods or functions.
+  - Group related functionality into private methods (prefixed with `_`).
+  - Use these methods from public methods to maintain a single source of truth.
+  - Example: Instead of validating the same logic in multiple methods, create a `_validate_input()` method.
+
+- **Single Responsibility Principle (SRP)**: Each method/function should have a single, well-defined responsibility.
+  - If a method does multiple unrelated things, split it into smaller, focused methods.
+  - Method names should clearly indicate their purpose (e.g., `_extract_path()`, `_validate_token()`, `_log_result()`).
+  - This improves testability, maintainability, and reusability.
+
+- **Example Pattern**:
+  ```python
+  class DataProcessor:
+      def process(self, data: str) -> Result:
+          """Orchestrate the processing workflow."""
+          parsed = self._parse_input(data)
+          validated = self._validate_data(parsed)
+          return self._compute_result(validated)
+      
+      def _parse_input(self, data: str) -> dict:
+          """Parse input data into structured format."""
+          # Focused, reusable logic
+      
+      def _validate_data(self, data: dict) -> dict:
+          """Validate data and raise exceptions if invalid."""
+          # Single responsibility: validation
+      
+      def _compute_result(self, data: dict) -> Result:
+          """Compute and return the final result."""
+          # Single responsibility: computation
+  ```
+
 ### Typing
 - **Type Hints**: Mandatory for all function signatures (arguments and return types).
 - Use `Optional[Type]` or `Type | None` for nullable types.
@@ -120,6 +154,40 @@ data/               # Configuration files (auth.json, etc.)
 - **Fixtures**: Use `pytest` fixtures for setup/teardown.
 - **Isolation**: Ensure tests do not depend on the actual filesystem or external services unless explicitly intended (integration tests). Patch file I/O and network calls.
 - **Config Loading**: When testing components that load configuration (like `GlobalAuthProvider`), mock the loading mechanism to prevent reading actual config files or requiring real environment variables.
+
+### Test Coverage & Updates
+
+- **Updated Tests Required**: Whenever you modify or refactor a class (add methods, change signatures, extract helper methods), you **must** update the corresponding unit tests.
+  - Create tests for new methods, especially private helper methods that are extracted for DRY/SRP.
+  - Update existing tests if method behavior or signatures change.
+  - Ensure test coverage for all branches and edge cases.
+  - Example: If you refactor a large method into smaller helper methods (following SRP), create unit tests for each helper method to ensure they work correctly in isolation.
+
+- **Test Organization**: Organize tests into classes that mirror the code structure:
+  ```python
+  class TestMyClass:
+      """Test suite for MyClass."""
+      
+      class TestInit:
+          """Tests for __init__ method."""
+          def test_initialization_default(self): ...
+      
+      class TestPrivateMethod:
+          """Tests for _private_method."""
+          def test_valid_input(self): ...
+          def test_invalid_input(self): ...
+      
+      class TestPublicMethod:
+          """Tests for public_method."""
+          def test_basic_workflow(self): ...
+          def test_error_handling(self): ...
+  ```
+
+- **Test Execution**: Run tests after any code changes:
+  ```bash
+  python -m pytest tests/test_your_module.py -v
+  python -m pytest --cov=src tests/
+  ```
 
 ## 6. Common Issues & Fixes
 

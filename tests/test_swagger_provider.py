@@ -2,12 +2,28 @@
 Tests for SwaggerProvider.
 """
 
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
-from starlette.routing import Route
 
 from src.app.swagger_provider import SwaggerProvider
+
+
+def _resolve_schema(openapi_schema: dict, schema_or_ref: dict) -> dict:
+    """Resolve a JSON Schema $ref against the OpenAPI components/schemas.
+
+    If ``schema_or_ref`` is already an object schema (has 'type' or 'properties'),
+    return it unchanged. Otherwise follow the $ref path inside the document.
+    """
+    ref = schema_or_ref.get("$ref")
+    if not ref:
+        return schema_or_ref
+    # $ref format: "#/components/schemas/FooBar"
+    parts = ref.lstrip("#/").split("/")
+    node: dict = openapi_schema
+    for part in parts:
+        node = node[part]
+    return node
 
 
 def test_swagger_provider_init():
@@ -91,7 +107,7 @@ def test_openapi_schema_includes_mcp_paths():
     assert "post" in schema["paths"]["/mcp/server1/"]
     
     # Check tags
-    assert schema["paths"]["/mcp/server1/"]["get"]["tags"] == ["Mcp-Servers"]
+    assert schema["paths"]["/mcp/server1/"]["get"]["tags"] == ["Mcps"]
 
 
 def test_openapi_schema_skips_none_mcp_paths():
@@ -165,8 +181,8 @@ def test_llm_chat_completions_endpoint_schema():
     assert "requestBody" in chat_endpoint
     assert chat_endpoint["requestBody"]["required"] is True
     
-    # Check request schema
-    request_schema = chat_endpoint["requestBody"]["content"]["application/json"]["schema"]
+    # Check request schema (resolve $ref to components/schemas)
+    request_schema = _resolve_schema(schema, chat_endpoint["requestBody"]["content"]["application/json"]["schema"])
     assert "messages" in request_schema["required"]
     assert "messages" in request_schema["properties"]
     assert "model" in request_schema["properties"]
@@ -198,7 +214,7 @@ def test_llm_embeddings_endpoint_schema():
     embeddings_endpoint = schema["paths"]["/llm/v1/embeddings"]["post"]
     
     assert embeddings_endpoint["tags"] == ["OpenAI"]
-    request_schema = embeddings_endpoint["requestBody"]["content"]["application/json"]["schema"]
+    request_schema = _resolve_schema(schema, embeddings_endpoint["requestBody"]["content"]["application/json"]["schema"])
     assert "input" in request_schema["required"]
     assert "input" in request_schema["properties"]
     
@@ -227,7 +243,7 @@ def test_llm_audio_transcriptions_endpoint_schema():
     assert transcriptions_endpoint["tags"] == ["OpenAI"]
     
     # Should use multipart/form-data
-    request_schema = transcriptions_endpoint["requestBody"]["content"]["multipart/form-data"]["schema"]
+    request_schema = _resolve_schema(schema, transcriptions_endpoint["requestBody"]["content"]["multipart/form-data"]["schema"])
     assert "file" in request_schema["required"]
     assert "model" in request_schema["required"]
     assert request_schema["properties"]["file"]["format"] == "binary"
@@ -252,7 +268,7 @@ def test_llm_audio_translations_endpoint_schema():
     translations_endpoint = schema["paths"]["/llm/v1/audio/translations"]["post"]
     
     assert translations_endpoint["tags"] == ["OpenAI"]
-    request_schema = translations_endpoint["requestBody"]["content"]["multipart/form-data"]["schema"]
+    request_schema = _resolve_schema(schema, translations_endpoint["requestBody"]["content"]["multipart/form-data"]["schema"])
     assert "file" in request_schema["required"]
     assert "model" in request_schema["required"]
 
@@ -276,7 +292,7 @@ def test_llm_images_generations_endpoint_schema():
     images_endpoint = schema["paths"]["/llm/v1/images/generations"]["post"]
     
     assert images_endpoint["tags"] == ["OpenAI"]
-    request_schema = images_endpoint["requestBody"]["content"]["application/json"]["schema"]
+    request_schema = _resolve_schema(schema, images_endpoint["requestBody"]["content"]["application/json"]["schema"])
     assert "prompt" in request_schema["required"]
     assert "prompt" in request_schema["properties"]
     assert "size" in request_schema["properties"]
