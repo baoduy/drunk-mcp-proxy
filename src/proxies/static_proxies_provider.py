@@ -12,7 +12,7 @@ from tools.logging_config import setup_logging
 from tools import SpecType,McpConfig
 
 if TYPE_CHECKING:
-    from .static_mcp_provider import McpProxyConfig
+    from .mcp_base_provider import McpProxyConfig
     from .mcp_proxy_provider import McpProxyProvider
 
 

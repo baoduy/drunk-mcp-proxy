@@ -26,7 +26,7 @@ from tools.env import (
 
 class AuthHeaderMiddleware(BaseHTTPMiddleware):
     """Middleware to validate that Authorization header is not empty when AUTH_ENABLED is true."""
-    _AnonymousPaths = ["/health", "/docs", "/openapi.json"]
+    _AnonymousPaths = ["/","/health", "/docs", "/openapi.json"]
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         # Skip authentication for anonymous paths

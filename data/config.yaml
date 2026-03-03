@@ -37,14 +37,14 @@ auth:
 #
 llm:
   # Example: OpenRouter LLM provider (disabled)
-  - enabled: true # Set to true to enable this provider
+  - enabled: false # Set to true to enable this provider
     provider: ort # Openrouter provider
     base_url: "https://openrouter.ai/api/v1"
     # API base URL for this provider
     api_key: $OPENROUTER_API_KEY # API key (can use environment variable)
 
-  # Example: OpenAI LLM provider (enabled)
-  - enabled: false # Set to true to enable this provider
+  # Example: OpenAI provider (enabled)
+  - enabled: true # Set to true to enable this provider
     provider: opi # OpenAI provider
     base_url: "https://api.openai.com/v1"
     # API base URL for this provider
@@ -62,7 +62,11 @@ llm:
   - enabled: false
     provider: nvd #NVIDIA provider
     base_url: "https://integrate.api.nvidia.com/v1"
-    api_key: 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
+    api_key: $NVIDIA_API_KEY # API key (can use environment variable)
+
+  - enabled: false
+    provider: dok #Docker provider
+    base_url: "http://model-runner.docker.internal"
 
 # ============================================================================
 # MODEL CONTEXT PROTOCOL (MCP) CONFIGURATION

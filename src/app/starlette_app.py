@@ -5,6 +5,8 @@ This module provides a reusable StarletteApp class for creating Starlette applic
 with MCP server mounts, health check endpoints, middleware, and lifespan management.
 """
 
+from __future__ import annotations
+
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -19,10 +21,8 @@ from tools.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    from ..proxies.static_mcp_provider import McpProxyConfig
+    from ..proxies.mcp_base_provider import McpProxyConfig
     from ..proxies.llm_proxies_provider import LlmProxiesProvider
-
-logger = setup_logging("StarletteApp")
 
 class StarletteApp:
     """
@@ -70,6 +70,7 @@ class StarletteApp:
             routes: Initial list of routes (health check will be added automatically)
             middleware: Optional list of Starlette middleware
         """
+        self._logger = setup_logging("StarletteApp")
         self.middleware = middleware
         self.lifespan_manager = AppLifespanManager()
         # Get configuration from environment variables
@@ -77,11 +78,11 @@ class StarletteApp:
         self.host = HOST or "0.0.0.0"
         self.port = PORT or 9123
         self.mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
-        self.llm_services: list[tuple[str, LlmProxiesProvider]] = []
+        self.llm_services: list[tuple[str, "LlmProxiesProvider"]] = []
         # Initialize Swagger provider
         self.swagger_provider = SwaggerProvider(self.service_name)
 
-    def _health_check_handler(self, request: Request) -> JSONResponse:
+    def _health_check_endpoint(self, request: Request) -> JSONResponse:
         """
         Health check endpoint.
         
@@ -101,7 +102,7 @@ class StarletteApp:
             request: The incoming request that caused the exception
             exc: The exception that was raised
         """
-        logger.error("Unhandled exception: %s", exc, exc_info=True)
+        self._logger.error("Unhandled exception: %s", exc, exc_info=True)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
     def add_mcp_service(self, service: "McpProxyConfig"
@@ -116,7 +117,7 @@ class StarletteApp:
         mount_path = "/mcp" if service.path == "/" else f"{service.path}/mcp"
         mcp_app = service.http_app()
         self.mcp_apps.append((mount_path, mcp_app))
-        logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
+        self._logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
 
     def add_mcp_services(
             self,
@@ -133,24 +134,24 @@ class StarletteApp:
         Raises:
             Exception: If any mount fails to be added
         """
-        logger.info("Adding %d MCP mount(s)", len(services))
+        self._logger.info("Adding %d MCP mount(s)", len(services))
 
         for service in services:
             self.add_mcp_service(service)
            
-    def _add_llm_service(self, path:str, service: "LlmProxiesProvider") -> None:
+    def _add_llm_service(self, path: str, service: LlmProxiesProvider) -> None:
         """
         Add an LLM provider service mount to the application.
 
         Args:
-            service: LlmProxiesProvider instance to mount
+            service: LLM provider instance (HTTP or WebSocket) to mount
         """
         # For LLM providers, we can use a fixed mount path based on the provider name
         self.llm_services.append((path, service))
 
     def add_llm_services(
             self,
-            services: list[tuple[str, "LlmProxiesProvider"]]
+            services: list[tuple[str, LlmProxiesProvider]]
     ) -> None:
         """
         Add multiple LLM provider service mounts to the application.
@@ -161,7 +162,7 @@ class StarletteApp:
         Raises:
             Exception: If any mount fails to be added
         """
-        logger.info("Adding %d LLM provider service(s)", len(services))
+        self._logger.info("Adding %d LLM provider service(s)", len(services))
 
         for path, service in services:
             self._add_llm_service(path, service)
@@ -171,7 +172,7 @@ class StarletteApp:
         Return the Starlette app with a custom lifespan function.
         Note: If a custom lifespan is provided, the app will be recreated with the new lifespan.
         """
-        logger.info(
+        self._logger.info(
             "Returning Starlette application with %d MCP mount(s)", len(self.mcp_apps))
 
         # Create new app with custom lifespan
@@ -189,10 +190,11 @@ class StarletteApp:
             llm_service.mount(app, route_prefix=path)
 
         # Add health check endpoint
-        app.add_route("/health", self._health_check_handler, methods=["GET"], include_in_schema=True)
+        app.add_route("/health", self._health_check_endpoint, methods=["GET"], include_in_schema=True)
+        app.add_route("/", self._health_check_endpoint, methods=["GET"], include_in_schema=False)
         
         # Add OpenAPI documentation endpoints
         if SWAGGER_ENABLED:
-            self.swagger_provider.mount(app, self.mcp_apps, self.llm_services)
+            self.swagger_provider.mount(app=app, mcp_apps=self.mcp_apps, llm_services=self.llm_services)
 
         return app

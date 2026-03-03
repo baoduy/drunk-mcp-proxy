@@ -342,7 +342,7 @@ Each service gets its own FastMCP server instance:
 
 **McpProxyProvider** (`src/proxies/mcp_proxy_provider.py`):
 ```python
-class McpProxyProvider(StaticMcpProvider):
+class McpProxyProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
 
     def create_proxy(self) -> FastMCP:

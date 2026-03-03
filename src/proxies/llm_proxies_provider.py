@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from app.app_config_provider import AppConfigProvider
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase
@@ -12,13 +12,13 @@ from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
 from tools.env import SERVER_NAME, SERVER_VERSION
-from tools import setup_logging,LlmConfig
+from tools import setup_logging, LlmConfig
+from proxies.llm_base_provider import LlmBaseProvider
+from proxies.llm_websocket_provider import LlmWebSocketProvider
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     
-logger = setup_logging("LlmProxiesProvider")
-
 class ModelBase(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     def get(self, key: str, default: Any = None) -> Any:
@@ -73,8 +73,10 @@ class AsyncOpenAIFactory:
             
         self._clients[provider.provider] = client
         return client
-    
-class LlmProxiesProvider:
+
+logger = setup_logging(__name__)
+
+class LlmProxiesProvider(LlmBaseProvider):
     # _BLOCKED_FORWARD_HEADERS = {
     #     "authorization",
     #     "proxy-authorization",
@@ -94,21 +96,22 @@ class LlmProxiesProvider:
         self,
         providers: list[LlmConfig]
     ) -> None:
+        super().__init__()
         if not providers or len(providers) == 0:
             raise ValueError("LLM proxy requires at least one provider configuration")
         self.providers = providers
-
         from app.cache_provider import CacheProvider
         self.cache = CacheProvider.get_cache_store()
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
+        self.websocket_provider = LlmWebSocketProvider(self.providers)
         self._fastapi_app: FastAPI | None = None
 
     def mount(self, app: Starlette, route_prefix: str) -> None:
+        self._logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
         app.mount(route_prefix, self._get_fastapi_app())
 
     def _get_fastapi_app(self) -> FastAPI:
         if self._fastapi_app is None:
-            auth = None
             dependencies = []
             
             auth = AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
@@ -159,6 +162,11 @@ class LlmProxiesProvider:
                 methods=["POST"],
             )
 
+            app.add_websocket_route(
+                "/responses",
+                self.websocket_provider.websocket_response_endpoint,
+            )
+
             self._fastapi_app = app
         return self._fastapi_app
 
@@ -171,39 +179,7 @@ class LlmProxiesProvider:
             model['id'] = f"{provider}_{model.get('id', '')}"
         return models
     
-    @staticmethod
-    def parse_model_id(model_id: str) -> tuple[str, str]:
-        """Parse model_id into provider_name and model_name.
-        
-        Args:
-            model_id: Model identifier in format "provider_model_name"
-            
-        Returns:
-            Tuple of (provider_name, model_name)
-        """
-        parts = model_id.split("_", 1)
-        if len(parts) == 2:
-            return parts[0], parts[1]
-        # If no "_" found, treat the whole string as model_name with empty provider
-        return "", model_id
 
-    def extract_and_validate_model(self, source: Mapping[str, Any], key: str = "model") -> tuple[str, str] | JSONResponse:
-        """Extract and validate model_id from input dict (body or form).
-
-        Args:
-            source: Input mapping (request body, form data, etc.).
-            key: Key to extract model id (default: 'model').
-
-        Returns:
-            Tuple of (provider_name, model_name) or JSONResponse error.
-        """
-        model_id = source.get(key)
-        if not model_id:
-            return JSONResponse(content={"error": f"{key.capitalize()} ID is required"}, status_code=400)
-        provider_name, model_name = self.parse_model_id(str(model_id))
-        if not provider_name:
-            return JSONResponse(content={"error": "Invalid model ID format. Expected 'provider_model_name'"}, status_code=400)
-        return provider_name, model_name
 
     # _USER_ACTIONABLE_ERROR_KEYWORDS = (
     #     "missing required",
@@ -231,34 +207,7 @@ class LlmProxiesProvider:
     #     lower = message.lower()
     #     return any(kw in lower for kw in LlmProxiesProvider._USER_ACTIONABLE_ERROR_KEYWORDS)
 
-    @staticmethod
-    def _sanitize_error_message(message: str) -> str:
-        """Sanitize error message to prevent information exposure.
 
-        Args:
-            message: The raw error message.
-
-        Returns:
-            Sanitized error message safe for client consumption.
-        """
-        # if LlmProxiesProvider._is_user_actionable_error(message):
-        #     return message
-        return "An error occurred while processing the request"
-
-    def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
-        """Consistent error response and logging.
-
-        Args:
-            e: Exception instance.
-            context: Optional context string for log.
-
-        Returns:
-            JSONResponse with error message.
-        """
-        logger.error("%s: %s", context, type(e).__name__)
-        safe_message = self._sanitize_error_message(str(e))
-        # status_code = 400 if self._is_user_actionable_error(str(e)) else 500
-        return JSONResponse(content={"error": {"message": safe_message}}, status_code=400)
 
     # @staticmethod
     # def _collect_forward_headers(request: Request) -> dict[str, str]:
@@ -272,69 +221,7 @@ class LlmProxiesProvider:
     #         forward_headers[header_name] = header_value
     #     return forward_headers
 
-    @staticmethod
-    def _to_dict(obj: Any) -> dict[str, Any]:
-        """Convert a Pydantic model or dict to a dict."""
-        if isinstance(obj, dict):
-            return obj # type: ignore
-        elif hasattr(obj, 'model_dump'):
-            return obj.model_dump()
-        else:
-            return obj.__dict__
 
-    @staticmethod
-    def _json_response(data: Any, status_code: int = 200) -> JSONResponse:
-        """Wrap data in a JSONResponse, converting objects to dict first.
-        
-        Args:
-            data: Data to wrap (will be converted via _to_dict).
-            status_code: HTTP status code (default: 200).
-            
-        Returns:
-            JSONResponse with serialized data.
-        """
-        return JSONResponse(content=LlmProxiesProvider._to_dict(data), status_code=status_code)
-
-    @staticmethod
-    def _error_response(message: str, status_code: int = 400) -> JSONResponse:
-        """Create a standardized error response.
-        
-        Args:
-            message: Error message to return to client.
-            status_code: HTTP status code (default: 400).
-            
-        Returns:
-            JSONResponse with error structure.
-        """
-        return JSONResponse(content={"error": message}, status_code=status_code)
-
-    @staticmethod
-    def _form_data_to_dict(form_data: Any, exclude_key: str = "model") -> dict[str, Any]:
-        """Convert form data to dict, excluding a specific key.
-        
-        Args:
-            form_data: Form data object from request.form().
-            exclude_key: Key to exclude from conversion (default: 'model').
-            
-        Returns:
-            Dict with form data, excluding the specified key.
-        """
-        return {k: form_data.get(k) for k in form_data if k != exclude_key}
-
-    @staticmethod
-    def _require_form_field(form_data: Any, field_name: str) -> JSONResponse | None:
-        """Check if a required form field exists.
-        
-        Args:
-            form_data: Form data object from request.form().
-            field_name: Name of required field.
-            
-        Returns:
-            Error JSONResponse if field missing, None if present.
-        """
-        if not form_data.get(field_name):
-            return LlmProxiesProvider._error_response(f"{field_name.capitalize()} is required")
-        return None
 
     @staticmethod
     async def _format_response(response: Any, is_streaming: bool) -> JSONResponse | StreamingResponse:
@@ -365,17 +252,17 @@ class LlmProxiesProvider:
         cache_key = f"models_{provider_name}"
         cached_models = await self.cache.get(cache_key)
         if cached_models is not None:
-            logger.info(f"Cache hit for models of provider '{provider_name}'")
+            self._logger.info(f"Cache hit for models of provider '{provider_name}'")
             return cached_models
         
         # Cache miss, fetch from provider
-        logger.info(f"fetching models of provider '{provider_name}'")
+        self._logger.info(f"fetching models of provider '{provider_name}'")
         client = self._get_openai_client(provider_name)
         
         # Get models from provider
         response = await client.models.list()
         if not response or not hasattr(response, "data") or not response.data:
-            logger.warning(f"No models data found in response from provider '{provider_name}'")
+            self._logger.warning(f"No models data found in response from provider '{provider_name}'")
             return []
         # Transform models to dict and add provider info
         models = [self._to_dict(model) for model in response.data]
@@ -574,30 +461,6 @@ class LlmProxiesProvider:
         "verbosity",
         "web_search_options",
     }
-
-    @staticmethod
-    def _split_params(
-        body: dict[str, Any],
-        known_params_set: set[str],
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-        """Split request body into known API params and extra_body.
-
-        Args:
-            body: The raw request JSON body (or form data dict).
-            known_params_set: Set of parameter names accepted by the API.
-
-        Returns:
-            Tuple of (known_params, extra_body). extra_body is None when
-            there are no unknown keys.
-        """
-        known: dict[str, Any] = {}
-        extra: dict[str, Any] = {}
-        for key, value in body.items():
-            if key in known_params_set:
-                known[key] = value
-            else:
-                extra[key] = value
-        return known, extra or None
 
     async def _chat_completions_endpoint(self, request: Request):
         body = await request.json()

@@ -24,7 +24,7 @@ Supported Transports:
 - streamable-http: HTTP with streaming support
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from proxies.llm_proxies_provider import LlmProxiesProvider
 from app.app_config_provider import AppConfigProvider
 from .middleware_provider import get_middlewares
@@ -42,7 +42,7 @@ from tools.env import (
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    from proxies.static_mcp_provider import McpProxyConfig
+    from proxies.mcp_base_provider import McpProxyConfig
 
 # Initialize logging with server name from environment
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable
@@ -65,7 +65,7 @@ class MCPProxyServer:
         """Initialize the MCP Proxy Server."""
         self.logger = logger
         self.mcp_services: list["McpProxyConfig"] = []
-        self.llm_services: list[tuple[str, LlmProxiesProvider]] = []
+        self.llm_services: list[tuple[str, Any]] = []
 
     # Server Management Methods
     # =========================
@@ -98,39 +98,31 @@ class MCPProxyServer:
                 [cors_middleware]
             )
         """
-        try:
-            # Create StarletteApp with middleware
-            # Host, port, and service name are loaded from environment variables
-            starlette_app = StarletteApp(middleware=get_middlewares())
+        
+        # Create StarletteApp with middleware
+        # Host, port, and service name are loaded from environment variables
+        starlette_app = StarletteApp(middleware=get_middlewares())
 
-            # Add all MCP mounts
-            starlette_app.add_mcp_services(self.mcp_services)
-            starlette_app.add_llm_services(self.llm_services)
+        # Add all MCP mounts
+        starlette_app.add_mcp_services(self.mcp_services)
+        starlette_app.add_llm_services(self.llm_services)
 
-            # Build the Starlette application with lifespan management
-            app = starlette_app.build()
+        # Build the Starlette application with lifespan management
+        app = starlette_app.build()
 
-            # Get host and port for uvicorn
-            server_host = HOST or "0.0.0.0"
-            server_port = PORT or 9123
+        # Get host and port for uvicorn
+        server_host = HOST or "0.0.0.0"
+        server_port = PORT or 9123
 
-            self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
+        self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
                              server_host, server_port, LOG_LEVEL.lower())
 
-            import uvicorn
-            config = uvicorn.Config(app, host=server_host, port=server_port, log_level=LOG_LEVEL.lower())
-            server = uvicorn.Server(config)
+        import uvicorn
+        config = uvicorn.Config(app, host=server_host, port=server_port, log_level=LOG_LEVEL.lower())
+        server = uvicorn.Server(config)
 
-            self.logger.info("Starting uvicorn server")
-            await server.serve()
-
-        except ImportError as e:
-            self.logger.error("Failed to import uvicorn: %s", str(e))
-            raise ImportError(
-                "uvicorn is required to run the MCP proxy server. Install it with: pip install uvicorn") from e
-        except Exception as e:
-            self.logger.error("Server startup failed: %s", str(e), exc_info=True)
-            raise
+        self.logger.info("Starting uvicorn server")
+        await server.serve()
 
     # Utility Methods
     # ===============
@@ -191,11 +183,9 @@ class MCPProxyServer:
         config_provider = AppConfigProvider.get_instance()
         provider = StaticProxiesProvider(config_provider.get_mcp_configs())
         self.mcp_services = provider.get_config_services()
-        self.logger.info("Total MCP servers loaded: %d", len(self.mcp_services))
 
         llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
         self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
-        self.logger.info("LLM Proxies Provider loaded with %d providers", len(llmProvider.providers))
 
         print("MCP Proxy Server is ready!")
         print("=" * 50)

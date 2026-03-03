@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from tools import ConfigYaml, AuthType, McpConfig, LlmConfig
-from tools.env import CONFIG_DIR
+from tools.env import AUTH_ENABLED, CONFIG_DIR
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
@@ -28,6 +28,9 @@ class AppConfigProvider:
         
     def get_fast_mcp_auth_provider(self, provider_name:AuthType | None=None) -> "AuthProvider | None":
         """Get the FastMCP authentication provider configuration."""
+        if not AUTH_ENABLED:
+            return None
+
         name, config = self.get_auth_config(provider_name)
         if config is None:
             return None

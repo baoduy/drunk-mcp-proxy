@@ -13,13 +13,13 @@ from fastmcp.server.providers.openapi import MCPType
 if TYPE_CHECKING:
     pass
 
-from proxies.static_mcp_provider import StaticMcpProvider, McpProxyConfig
+from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
 from tools import McpConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
 
 
-class OpenApiMcpProvider(StaticMcpProvider):
+class OpenApiMcpProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from McpProxyConfig."""
 
     def __init__(self, config: McpConfig) -> None:

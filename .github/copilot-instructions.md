@@ -52,7 +52,7 @@
 
 - **Configuration**: `data/config.yaml` (source), `src/tools/config_yaml.py` (models), `src/app/app_config_provider.py` (loader).
 - **Server setup**: `src/app/starlette_app.py` (Starlette app factory), `src/app/server.py` (server lifecycle).
-- **Providers**: `src/proxies/llm_proxies_provider.py` (LLM endpoints), `src/proxies/mcp_proxy_provider.py` (MCP routing), `src/proxies/static_mcp_provider.py` (static MCPs).
+- **Providers**: `src/proxies/llm_proxies_provider.py` (LLM endpoints), `src/proxies/mcp_proxy_provider.py` (MCP routing), `src/proxies/mcp_base_provider.py` (base MCP provider).
 - **Utilities**: `src/tools/env.py` (env vars), `src/tools/env_resolver.py` (resolution logic), `src/tools/logging_config.py` (logging setup).
 - **Tests**: `tests/conftest.py` (pytest setup), `tests/test_*.py` (unit tests for respective modules).
 

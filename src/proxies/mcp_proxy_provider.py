@@ -5,11 +5,11 @@ This module provides a class for creating FastMCP instances from MCP configurati
 from __future__ import annotations
 from fastmcp import FastMCP
 from tools import McpConfig
-from proxies.static_mcp_provider import StaticMcpProvider, McpProxyConfig
+from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
 from tools.env import SERVER_NAME, SERVER_VERSION
 from tools.logging_config import setup_logging
 
-class McpProxyProvider(StaticMcpProvider):
+class McpProxyProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
 
     def __init__(self, config: McpConfig, root_mcp:FastMCP|None=None) -> None:

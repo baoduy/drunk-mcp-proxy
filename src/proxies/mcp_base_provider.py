@@ -1,4 +1,4 @@
-"""Static MCP Provider abstract base class.
+"""MCP Base Provider abstract base class.
 
 This module provides an abstract base class for creating MCP provider implementations.
 """
@@ -43,11 +43,11 @@ class McpProxyConfig:
         )  # type: ignore
 
 
-class StaticMcpProvider(ABC):
+class McpBaseProvider(ABC):
     """Abstract base class for MCP provider implementations."""
 
     def __init__(self, config: McpConfig) -> None:
-        """Initialize the StaticMcpProvider.
+        """Initialize the McpBaseProvider.
 
         Args:
             config: The McpConfig instance for this provider.
