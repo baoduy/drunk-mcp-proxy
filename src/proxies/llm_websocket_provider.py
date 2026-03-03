@@ -22,13 +22,9 @@ import json
 from typing import Any
 
 import websockets
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
-from starlette.applications import Starlette
-
-from app.app_config_provider import AppConfigProvider
+from fastapi import WebSocket, WebSocketDisconnect
 from proxies.llm_base_provider import LlmBaseProvider
 from tools import setup_logging
-from tools.env import SERVER_NAME, SERVER_VERSION
 from tools import LlmConfig
 
 logger = setup_logging(__name__)
@@ -136,42 +132,18 @@ class LlmWebSocketProvider(LlmBaseProvider):
 
         self.providers = providers
         self.ws_factory = WebSocketFactory(providers)
-        self._fastapi_app: FastAPI | None = None
 
-    def mount(self, app: Starlette, route_prefix: str) -> None:
-        """Mount WebSocket provider to Starlette app.
-
+    def mount(self, app: Any, route_prefix: str) -> None:
+        """Mount provider to Starlette application.
+        
+        Note: WebSocket endpoint is now registered directly on the LLM FastAPI app,
+        so this method is a no-op stub to satisfy the abstract base class requirement.
+        
         Args:
-            app: Starlette application
-            route_prefix: Route prefix for mounting (e.g., "/api/v1")
+            app: Starlette application instance (unused)
+            route_prefix: Route prefix for mounting (unused)
         """
-        logger.info("Mounting LLM WebSocket provider at prefix '%s'", route_prefix)
-        fastapi_app = self._get_fastapi_app()
-        app.mount(route_prefix, fastapi_app)
-
-    def _get_fastapi_app(self) -> FastAPI:
-        """Create internal FastAPI instance with WebSocket endpoint.
-
-        Returns:
-            FastAPI instance with /responses WebSocket route
-        """
-        if self._fastapi_app is None:
-            dependencies = []
-            
-            auth = AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
-            if auth:
-                from proxies.llm_proxies_provider import FastAuthMiddleware
-                dependencies = [Depends(FastAuthMiddleware(auth_provider=auth))]
-           
-            app = FastAPI(
-                title=SERVER_NAME,
-                version=SERVER_VERSION,
-                dependencies=dependencies,
-            )
-            app.add_websocket_route("/responses", self.websocket_response_endpoint)
-            self._fastapi_app = app
-
-        return self._fastapi_app
+        pass
 
     @staticmethod
     def create_error(error_code: str, message: str, status: int = 500) -> dict[str, Any]:

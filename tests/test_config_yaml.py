@@ -258,6 +258,7 @@ class TestConfigYamlLoading:
                 "OPENROUTER_API_KEY": "test-key",
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
+                "NVIDIA_API_KEY": "test-key",
             },
         ):
             config = ConfigYaml.load_from_file(config_file)
@@ -265,7 +266,7 @@ class TestConfigYamlLoading:
             assert config.auth is not None
             assert config.auth.default_provider == "basic"
             assert config.llm is not None
-            assert len(config.llm) == 4
+            assert len(config.llm) == 6
             assert config.mcp is not None
             assert len(config.mcp) == 4
 

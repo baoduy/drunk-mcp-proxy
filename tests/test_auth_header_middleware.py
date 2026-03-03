@@ -135,31 +135,33 @@ class TestValidateAccessToken:
     """Test suite for _validate_access_token method."""
 
     @patch("src.middleware.auth_header_middleware.get_access_token")
-    @patch("src.middleware.auth_header_middleware.logger")
-    def test_validate_access_token_present(self, mock_logger, mock_get_token):
+    def test_validate_access_token_present(self, mock_get_token):
         """Test logging when access token is present."""
         mock_token = Mock()
         mock_token.client_id = "test-client"
         mock_get_token.return_value = mock_token
 
         middleware = AuthHeaderMiddleware()
+        # Mock the instance logger
+        middleware._logger = Mock()
         middleware._validate_access_token()
 
         mock_get_token.assert_called_once()
-        mock_logger.info.assert_called_once()
-        assert "test-client" in mock_logger.info.call_args[0][0]
+        middleware._logger.info.assert_called_once()
+        assert "test-client" in middleware._logger.info.call_args[0][0]
 
     @patch("src.middleware.auth_header_middleware.get_access_token")
-    @patch("src.middleware.auth_header_middleware.logger")
-    def test_validate_access_token_absent(self, mock_logger, mock_get_token):
+    def test_validate_access_token_absent(self, mock_get_token):
         """Test logging when access token is not available."""
         mock_get_token.return_value = None
 
         middleware = AuthHeaderMiddleware()
+        # Mock the instance logger
+        middleware._logger = Mock()
         middleware._validate_access_token()
 
         mock_get_token.assert_called_once()
-        mock_logger.warning.assert_called_once()
+        middleware._logger.warning.assert_called_once()
 
 
 class TestOnMessage:

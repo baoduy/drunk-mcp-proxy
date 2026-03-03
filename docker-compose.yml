@@ -29,10 +29,10 @@ services:
       - mcp-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9123/health"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 15s
 
   redis:
     image: redis:7-alpine
