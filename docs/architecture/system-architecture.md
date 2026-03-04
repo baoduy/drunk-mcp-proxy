@@ -146,7 +146,7 @@ src/
 │       └── cors_middleware.py       # CORS middleware configuration
 ├── proxies/
 │   ├── config_provider.py           # ProxyConfigProvider - Config loader
-│   ├── static_mcp_provider.py       # StaticMcpProvider - Base provider
+│   ├── mcp_base_provider.py         # McpBaseProvider - Base provider
 │   ├── mcp_proxy_provider.py        # McpProxyProvider - MCP proxy creator
 │   ├── openapi_mcp_provider.py      # OpenApiMcpProvider - OpenAPI converter
 │   └── llm_proxies_provider.py      # LLMProxiesProvider - LLM routing
@@ -170,15 +170,15 @@ src/
 
 ```python
 # Base provider interface
-class StaticMcpProvider:
+class McpBaseProvider:
     def create_services(self, configs: List[SpecConfig]) -> Dict[str, FastMCP]
         # Create MCP services from configuration
 
 # Specific implementations
-class McpProxyProvider(StaticMcpProvider):
+class McpProxyProvider(McpBaseProvider):
     # Creates proxies for MCP backends
 
-class OpenApiMcpProvider(StaticMcpProvider):
+class OpenApiMcpProvider(McpBaseProvider):
     # Converts OpenAPI specs to MCP tools
 ```
 

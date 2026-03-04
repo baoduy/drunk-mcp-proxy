@@ -7,7 +7,7 @@ Tests logging configuration setup.
 import logging
 import pytest
 from unittest.mock import patch, MagicMock
-from src.tools.logging_config import setup_logging
+from drunk_ai_proxy.tools.logging_config import setup_logging
 
 
 class TestSetupLogging:
@@ -32,11 +32,11 @@ class TestSetupLogging:
         """Test setup_logging respects FASTMCP_LOG_LEVEL environment variable."""
         # Need to reload the env module to pick up the new env var
         import importlib
-        import src.tools.env as env_module
+        import drunk_ai_proxy.tools.env as env_module
         importlib.reload(env_module)
         
         # Now reload logging_config to use the new log level
-        import src.tools.logging_config as logging_config_module
+        import drunk_ai_proxy.tools.logging_config as logging_config_module
         importlib.reload(logging_config_module)
         
         logger = logging_config_module.setup_logging("test_debug")

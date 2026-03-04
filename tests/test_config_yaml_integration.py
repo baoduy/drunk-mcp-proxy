@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tools.config_yaml import ConfigYaml, McpConfig, AuthConfig, LlmConfig
+from drunk_ai_proxy.tools.config_yaml import ConfigYaml, McpConfig, AuthConfig, LlmConfig
 
 
 class TestConfigYamlIntegration:
@@ -31,7 +31,7 @@ class TestConfigYamlIntegration:
         # Create a temporary directory for the test
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch CONFIG_DIR to use temp directory
-            monkeypatch.setattr("src.tools.config_yaml.CONFIG_DIR", tmpdir)
+            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
             
             # Create the openapi directory and spec file
             openapi_dir = Path(tmpdir) / "openapi"
@@ -53,11 +53,13 @@ auth:
 
 llm:
   - enabled: true
+    websocket: true
     provider: openai
     base_url: https://api.openai.com/v1
     api_key: $OPENAI_API_KEY
     
   - enabled: false
+    websocket: false
     provider: test-provider
     base_url: https://test.example.com
     api_key: test-key
@@ -107,9 +109,11 @@ mcp:
                 assert config.llm is not None
                 assert len(config.llm) == 2
                 assert config.llm[0].enabled is True
+                assert config.llm[0].websocket is True
                 assert config.llm[0].provider == "openai"
                 assert config.llm[0].api_key == "test-openai-key-456"  # Resolved from env
                 assert config.llm[1].enabled is False
+                assert config.llm[1].websocket is False
 
                 # Verify MCP configuration
                 assert config.mcp is not None
@@ -322,7 +326,7 @@ mcp:
         # Old config.json had array of specs with spec_file and spec_type
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch CONFIG_DIR to use temp directory
-            monkeypatch.setattr("src.tools.config_yaml.CONFIG_DIR", tmpdir)
+            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
             
             # Create the openapi directory and spec file
             openapi_dir = Path(tmpdir) / "openapi"

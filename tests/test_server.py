@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-import src.app.server as server
+import drunk_ai_proxy.app.server as server
 
 
 class FakeStarletteApp:

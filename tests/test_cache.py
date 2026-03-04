@@ -17,7 +17,7 @@ from cryptography.fernet import Fernet
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
 
-from src.app.cache_provider import CacheProvider
+from drunk_ai_proxy.app.cache_provider import CacheProvider
 
 # Check Redis availability at module load time
 try:
@@ -50,28 +50,36 @@ def encryption_key() -> bytes:
 @pytest.fixture
 def mock_env_memory(encryption_key, monkeypatch):
     """Mock environment for memory storage."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
 
 @pytest.fixture
 def mock_env_sqlite(encryption_key, monkeypatch):
     """Mock environment for SQLite storage."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "sqlite")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "sqlite")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
 
 @pytest.fixture
 def mock_env_redis(encryption_key, monkeypatch):
     """Mock environment for Redis storage."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0")
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0"
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
 
 # =============================================================================
@@ -132,10 +140,12 @@ def test_get_oauth_store_sqlite_backend(mock_env_sqlite):
 
 def test_get_oauth_store_defaults_to_memory(encryption_key, monkeypatch):
     """Test that memory storage is used as default when no valid config."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "unknown")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "unknown")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     with patch("key_value.aio.stores.memory.MemoryStore") as mock_memory_store:
         mock_store_instance = MagicMock(spec=AsyncKeyValue)
@@ -149,10 +159,12 @@ def test_get_oauth_store_defaults_to_memory(encryption_key, monkeypatch):
 
 def test_get_oauth_store_redis_without_connection_string_fallback(encryption_key, monkeypatch):
     """Test that memory storage is used when redis is configured but connection string is missing."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     with patch("key_value.aio.stores.memory.MemoryStore") as mock_memory_store:
         mock_store_instance = MagicMock(spec=AsyncKeyValue)
@@ -185,12 +197,14 @@ def test_get_oauth_store_wraps_with_encryption(mock_env_memory, encryption_key):
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_get_oauth_store_uses_correct_encryption_key(encryption_key, monkeypatch):
     """Test that the correct encryption key is used."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
-    with patch("src.app.cache_provider.Fernet") as mock_fernet_class:
+    with patch("drunk_ai_proxy.app.cache_provider.Fernet") as mock_fernet_class:
         mock_fernet_instance = MagicMock()
         mock_fernet_class.return_value = mock_fernet_instance
 
@@ -325,10 +339,10 @@ def test_cache_class_cannot_be_instantiated_with_state(mock_env_memory):
 
 def test_get_oauth_store_generates_key_when_missing(monkeypatch):
     """Use unencrypted storage when OAUTH_STORAGE_ENCRYPTION_KEY is empty."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     with patch("key_value.aio.stores.memory.MemoryStore") as mock_memory_store:
         mock_store_instance = MagicMock(spec=AsyncKeyValue)
@@ -345,12 +359,12 @@ def test_get_oauth_store_generates_key_when_missing(monkeypatch):
 def test_get_oauth_store_encodes_string_key(monkeypatch):
     """Use string keys directly for encryption when provided."""
     key_str = Fernet.generate_key().decode()
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", key_str)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "memory")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", key_str)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
-    with patch("src.app.cache_provider.Fernet") as mock_fernet:
+    with patch("drunk_ai_proxy.app.cache_provider.Fernet") as mock_fernet:
         mock_fernet_instance = MagicMock()
         mock_fernet.return_value = mock_fernet_instance
         with patch("key_value.aio.stores.memory.MemoryStore"):
@@ -365,10 +379,14 @@ def test_get_oauth_store_encodes_string_key(monkeypatch):
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_get_oauth_store_redis_import_error_fallback(encryption_key, monkeypatch):
     """Fallback to memory if Redis store import fails."""
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key)
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0")
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", encryption_key
+    )
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0"
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     original_import = __import__
 
@@ -389,10 +407,12 @@ def test_get_oauth_store_logs_warning_no_encryption_for_redis(monkeypatch):
     # Reset the singleton cache
     CacheProvider.token_storage = None
     
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0")
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "redis")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr(
+        "drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", "redis://localhost:6379/0"
+    )
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     import builtins
     original_import = builtins.__import__
@@ -406,7 +426,7 @@ def test_get_oauth_store_logs_warning_no_encryption_for_redis(monkeypatch):
         return original_import(name, *args, **kwargs)
     
     with patch("builtins.__import__", side_effect=mock_import):
-        with patch("src.app.cache_provider.logging") as mock_logging:
+        with patch("drunk_ai_proxy.app.cache_provider.logger") as mock_logging:
             CacheProvider.get_oauth_store()
             
             # Should warn about missing encryption key for non-memory storage
@@ -420,10 +440,10 @@ def test_get_oauth_store_logs_warning_no_encryption_for_sqlite(monkeypatch):
     # Reset the singleton cache
     CacheProvider.token_storage = None
     
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_TYPE", "sqlite")
-    monkeypatch.setattr("src.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
-    monkeypatch.setattr("src.app.cache_provider.REDIS_CONNECTION_STRING", None)
-    monkeypatch.setattr("src.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_TYPE", "sqlite")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.OAUTH_STORAGE_ENCRYPTION_KEY", "")
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.REDIS_CONNECTION_STRING", None)
+    monkeypatch.setattr("drunk_ai_proxy.app.cache_provider.CONFIG_DIR", "/tmp/test-config")
 
     import builtins
     original_import = builtins.__import__
@@ -437,7 +457,7 @@ def test_get_oauth_store_logs_warning_no_encryption_for_sqlite(monkeypatch):
         return original_import(name, *args, **kwargs)
     
     with patch("builtins.__import__", side_effect=mock_import):
-        with patch("src.app.cache_provider.logging") as mock_logging:
+        with patch("drunk_ai_proxy.app.cache_provider.logger") as mock_logging:
             CacheProvider.get_oauth_store()
             
             # Should warn about missing encryption key for non-memory storage

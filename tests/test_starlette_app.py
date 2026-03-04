@@ -6,8 +6,8 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.testclient import TestClient
 
-import src.app.starlette_app as starlette_app
-from src.proxies.static_mcp_provider import McpProxyConfig
+import drunk_ai_proxy.app.starlette_app as starlette_app
+from drunk_ai_proxy.proxies.mcp_base_provider import McpProxyConfig
 
 
 class DummyMcpServer:

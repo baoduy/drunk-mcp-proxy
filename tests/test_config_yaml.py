@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tools.config_yaml import (
+from drunk_ai_proxy.tools.config_yaml import (
     AuthConfig,
     BearerAuthConfig,
     ConfigYaml,
@@ -91,6 +91,7 @@ class TestLlmConfig:
         assert config.provider == "openai"
         assert config.base_url == "https://api.openai.com/v1"
         assert config.enabled is True
+        assert config.websocket is False
         assert config.api_key is None
 
     def test_llm_config_with_api_key(self) -> None:
@@ -101,6 +102,15 @@ class TestLlmConfig:
             api_key="sk-test-key",
         )
         assert config.api_key == "sk-test-key"
+
+    def test_llm_config_with_websocket_enabled(self) -> None:
+        """Test LlmConfig with websocket support flag."""
+        config = LlmConfig(
+            provider="openai",
+            base_url="https://api.openai.com/v1",
+            websocket=True,
+        )
+        assert config.websocket is True
 
     def test_llm_config_enabled_field(self) -> None:
         """Test LlmConfig enabled field."""
@@ -258,6 +268,7 @@ class TestConfigYamlLoading:
                 "OPENROUTER_API_KEY": "test-key",
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
+                "NVIDIA_API_KEY": "test-key",
             },
         ):
             config = ConfigYaml.load_from_file(config_file)
@@ -265,7 +276,7 @@ class TestConfigYamlLoading:
             assert config.auth is not None
             assert config.auth.default_provider == "basic"
             assert config.llm is not None
-            assert len(config.llm) == 3
+            assert len(config.llm) == 6
             assert config.mcp is not None
             assert len(config.mcp) == 4
 
@@ -419,7 +430,7 @@ mcp:
             os.unlink(temp_file)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    @patch("src.tools.config_yaml.CONFIG_DIR", "/tmp")
+    @patch("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", "/tmp")
     def test_parse_config_with_complete_structure(self, monkeypatch) -> None:
         """Test parsing configuration with complete auth, llm, and mcp sections."""
         # Create a temporary spec file
@@ -432,7 +443,7 @@ mcp:
             f.write('{"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}')
         
         # Patch CONFIG_DIR to use temp directory
-        monkeypatch.setattr("src.tools.config_yaml.CONFIG_DIR", temp_dir)
+        monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", temp_dir)
         
         yaml_content = """
 auth:

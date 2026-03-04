@@ -9,6 +9,7 @@ ENV/
 env/
 .venv
 *.egg-info/
+.DS_Store
 
 # Git
 .git
@@ -19,9 +20,6 @@ env/
 .idea/
 *.swp
 *.swo
-
-# Documentation
-README.md
 
 # Docker
 Dockerfile
@@ -39,6 +37,4 @@ proxies.json
 
 # Examples
 config.example.json
-data/
-docs/
 scripts/

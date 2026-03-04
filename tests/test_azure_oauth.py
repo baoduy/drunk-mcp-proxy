@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 import time
 
-from src.auth_providers.azure_oauth import AzureOauth
+from drunk_ai_proxy.auth_providers.azure_oauth import AzureOauth
 
 
 # =============================================================================

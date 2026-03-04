@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from src.proxies.openapi_mcp_provider import OpenApiMcpProvider
-from src.tools.config_yaml import McpConfig, McpAuthConfig
+from drunk_ai_proxy.proxies.openapi_mcp_provider import OpenApiMcpProvider
+from drunk_ai_proxy.tools.config_yaml import McpConfig, McpAuthConfig
 
 
 class TestOpenApiMcpProviderInit:
@@ -22,7 +22,7 @@ class TestOpenApiMcpProviderInit:
 
         assert provider.config == mock_config
         assert provider.mcp is None
-        assert provider.logger is not None
+        assert provider._logger is not None
 
 
 class TestOpenApiMcpProviderCustomRouteMapper:
@@ -121,8 +121,8 @@ class TestOpenApiMcpProviderCustomRouteMapper:
 class TestOpenApiMcpProviderCreateClient:
     """Test suite for create_client method."""
 
-    @patch("src.proxies.openapi_mcp_provider.httpx.AsyncClient")
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.httpx.AsyncClient")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
     def test_create_client_without_auth(self, mock_get_app_config, mock_client_cls):
         """Test creating client without authentication."""
         # Mock AppConfigProvider
@@ -146,7 +146,7 @@ class TestOpenApiMcpProviderCreateClient:
         )
         assert result == mock_client
 
-    @patch("src.proxies.openapi_mcp_provider.httpx.AsyncClient")
+    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.httpx.AsyncClient")
     def test_create_client_with_azure_auth(self, mock_client_cls):
         """Test creating client with Azure authentication."""
         mock_azure_config = Mock(spec=McpAuthConfig)
@@ -182,8 +182,8 @@ class TestOpenApiMcpProviderCreateClient:
 class TestOpenApiMcpProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.openapi_mcp_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.FastMCP")
     @patch.object(OpenApiMcpProvider, "create_client")
     def test_create_proxy_success(
         self, mock_create_client, mock_fastmcp_cls, mock_get_app_config
@@ -218,8 +218,8 @@ class TestOpenApiMcpProviderCreateProxy:
         assert provider.mcp == mock_mcp
         mock_fastmcp_cls.from_openapi.assert_called_once()
 
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.openapi_mcp_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.FastMCP")
     @patch.object(OpenApiMcpProvider, "create_client")
     def test_create_proxy_returns_cached(
         self, mock_create_client, mock_fastmcp_cls, mock_get_app_config

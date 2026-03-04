@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch, call, MagicMock
 
 import pytest
 
-from src.proxies.mcp_proxy_provider import McpProxyProvider
-from src.proxies.static_mcp_provider import StaticMcpProvider
-from src.tools.config_yaml import McpConfig
+from drunk_ai_proxy.proxies.mcp_proxy_provider import McpProxyProvider
+from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider
+from drunk_ai_proxy.tools.config_yaml import McpConfig
 
 
 class TestMcpProxyProviderInit:
@@ -28,7 +28,7 @@ class TestMcpProxyProviderInit:
         assert provider.config == mock_config
         assert provider.root_mcp is None
         assert provider.mcp is None
-        assert provider.logger is not None
+        assert provider._logger is not None
 
     def test_init_with_root_mcp(self):
         """Test initialization with root_mcp parameter."""
@@ -61,7 +61,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         assert result is None
         mock_mcp.add_provider.assert_not_called()
 
-    @patch("src.tools.env.CONFIG_DIR", "/test/config")
+    @patch("drunk_ai_proxy.tools.env.CONFIG_DIR", "/test/config")
     def test_create_skill_proxy_with_nonexistent_directory(self):
         """Test that _create_skill_proxy returns early when skill_dir doesn't exist."""
         mock_config = Mock(spec=McpConfig)
@@ -261,10 +261,10 @@ class TestMcpProxyProviderCreateSkillProxy:
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("src.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
     def test_create_proxy_calls_create_skill_proxy(
         self,
         mock_fastmcp_cls,
@@ -293,10 +293,10 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_mcp)
         assert result == mock_mcp
 
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("src.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
     def test_create_proxy_uses_root_mcp_for_root_path(
         self,
         mock_fastmcp_cls,
@@ -325,10 +325,10 @@ class TestMcpProxyProviderCreateProxy:
         mock_fastmcp_cls.assert_not_called()
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
-    @patch("src.proxies.static_mcp_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("src.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("src.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
     def test_create_proxy_returns_cached_mcp(
         self,
         mock_fastmcp_cls,

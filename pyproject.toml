@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "drunk-mcp-proxy"
+name = "drunk-ai-proxy"
 version = "0.1.0"
-description = "MCP proxy server"
+description = "MCP proxy and model provider gateway"
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -16,7 +16,7 @@ dependencies = [
     "uvicorn>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-core>=2.41.5",
-    "openai>=1.0.0",
+    "openai>=2.24.0",
     "fastapi>=0.110.0",
     "pandas>=2.2.0",
     "botocore>=1.35.0",
@@ -25,7 +25,11 @@ dependencies = [
     "py-key-value-aio[disk,keyring,memory,redis]>=0.4.0",
     "key-value>=0.1.2",
     "pyyaml>=6.0.0",
+    "websockets>=12.0",
 ]
+
+[project.scripts]
+drunk-ai-proxy = "drunk_ai_proxy.main:main"
 
 [project.optional-dependencies]
 # Development-only dependencies

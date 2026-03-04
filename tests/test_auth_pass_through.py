@@ -9,13 +9,13 @@ import pytest
 import httpx
 from mcp.server.auth.provider import AccessToken
 
-from src.auth_providers.auth_pass_through import AuthPassThrough
+from drunk_ai_proxy.auth_providers.auth_pass_through import AuthPassThrough
 
 
 class TestAuthPassThroughGetToken:
     """Test suite for AuthPassThrough._get_token method."""
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_get_token_with_valid_token(self, mock_get_token):
         """Test _get_token returns token when available."""
         mock_token = Mock(spec=AccessToken)
@@ -28,7 +28,7 @@ class TestAuthPassThroughGetToken:
         assert result == mock_token
         mock_get_token.assert_called_once()
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_get_token_with_no_token(self, mock_get_token):
         """Test _get_token returns None when token is not available."""
         mock_get_token.return_value = None
@@ -39,8 +39,8 @@ class TestAuthPassThroughGetToken:
         assert result is None
         mock_get_token.assert_called_once()
 
-    @patch('src.auth_providers.auth_pass_through.logger')
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.logger')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_get_token_logs_info_when_token_available(self, mock_get_token, mock_logger):
         """Test _get_token logs info message when token is available."""
         mock_token = Mock(spec=AccessToken)
@@ -53,12 +53,12 @@ class TestAuthPassThroughGetToken:
         auth._get_token()
 
         mock_logger.info.assert_called_once()
-        # Verify the logger was called with a message containing "Access token:"
+        # Verify the logger was called with a message containing "Access token"
         call_message = mock_logger.info.call_args[0][0]
-        assert "Access token:" in call_message
+        assert "Access token" in call_message
 
-    @patch('src.auth_providers.auth_pass_through.logger')
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.logger')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_get_token_logs_warning_when_no_token(self, mock_get_token, mock_logger):
         """Test _get_token logs warning when token is not available."""
         mock_get_token.return_value = None
@@ -72,7 +72,7 @@ class TestAuthPassThroughGetToken:
 class TestAuthPassThroughAuthFlow:
     """Test suite for AuthPassThrough.auth_flow method (sync)."""
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_adds_bearer_token(self, mock_get_token):
         """Test auth_flow adds Bearer token to request headers."""
         mock_token = Mock(spec=AccessToken)
@@ -89,7 +89,7 @@ class TestAuthPassThroughAuthFlow:
         assert "Authorization" in modified_request.headers
         assert modified_request.headers["Authorization"] == "Bearer test-token-sync"
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_without_token(self, mock_get_token):
         """Test auth_flow doesn't add Authorization header when no token."""
         mock_get_token.return_value = None
@@ -102,7 +102,7 @@ class TestAuthPassThroughAuthFlow:
 
         assert "Authorization" not in modified_request.headers
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_preserves_existing_headers(self, mock_get_token):
         """Test auth_flow preserves other request headers."""
         mock_token = Mock(spec=AccessToken)
@@ -122,7 +122,7 @@ class TestAuthPassThroughAuthFlow:
         assert modified_request.headers["X-Custom-Header"] == "custom-value"
         assert modified_request.headers["Authorization"] == "Bearer test-token"
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_generator_yields_request(self, mock_get_token):
         """Test auth_flow is a generator that yields the request."""
         mock_token = Mock(spec=AccessToken)
@@ -143,7 +143,7 @@ class TestAuthPassThroughAsyncAuthFlow:
     """Test suite for AuthPassThrough.async_auth_flow method (async)."""
 
     @pytest.mark.asyncio
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     async def test_async_auth_flow_adds_bearer_token(self, mock_get_token):
         """Test async_auth_flow adds Bearer token to request headers."""
         mock_token = Mock(spec=AccessToken)
@@ -161,7 +161,7 @@ class TestAuthPassThroughAsyncAuthFlow:
         assert modified_request.headers["Authorization"] == "Bearer test-token-async"
 
     @pytest.mark.asyncio
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     async def test_async_auth_flow_without_token(self, mock_get_token):
         """Test async_auth_flow doesn't add header when no token."""
         mock_get_token.return_value = None
@@ -175,7 +175,7 @@ class TestAuthPassThroughAsyncAuthFlow:
         assert "Authorization" not in modified_request.headers
 
     @pytest.mark.asyncio
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     async def test_async_auth_flow_preserves_headers(self, mock_get_token):
         """Test async_auth_flow preserves other headers."""
         mock_token = Mock(spec=AccessToken)
@@ -197,7 +197,7 @@ class TestAuthPassThroughAsyncAuthFlow:
         assert modified_request.headers["Authorization"] == "Bearer test-token"
 
     @pytest.mark.asyncio
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     async def test_async_auth_flow_is_async_generator(self, mock_get_token):
         """Test async_auth_flow is an async generator."""
         mock_token = Mock(spec=AccessToken)
@@ -217,7 +217,7 @@ class TestAuthPassThroughAsyncAuthFlow:
 class TestAuthPassThroughEdgeCases:
     """Test suite for edge cases and error conditions."""
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_with_empty_token_string(self, mock_get_token):
         """Test auth_flow with empty token string (falsy value)."""
         mock_token = Mock(spec=AccessToken)
@@ -234,7 +234,7 @@ class TestAuthPassThroughEdgeCases:
         assert "Authorization" in modified_request.headers
         assert modified_request.headers["Authorization"] == "Bearer "
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_with_special_characters_in_token(self, mock_get_token):
         """Test auth_flow correctly handles tokens with special characters."""
         special_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0In0.test=="
@@ -250,7 +250,7 @@ class TestAuthPassThroughEdgeCases:
 
         assert modified_request.headers["Authorization"] == f"Bearer {special_token}"
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_with_post_request(self, mock_get_token):
         """Test auth_flow works with POST requests."""
         mock_token = Mock(spec=AccessToken)
@@ -270,7 +270,7 @@ class TestAuthPassThroughEdgeCases:
         assert modified_request.headers["Authorization"] == "Bearer test-token"
         assert modified_request.method == "POST"
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_flow_multiple_iterations(self, mock_get_token):
         """Test auth_flow can be called multiple times."""
         mock_token = Mock(spec=AccessToken)
@@ -300,7 +300,7 @@ class TestAuthPassThroughHTTPXIntegration:
         """Test AuthPassThrough is a subclass of httpx.Auth."""
         assert issubclass(AuthPassThrough, httpx.Auth)
 
-    @patch('src.auth_providers.auth_pass_through.get_access_token')
+    @patch('drunk_ai_proxy.auth_providers.auth_pass_through.get_access_token')
     def test_auth_can_be_used_with_httpx_client(self, mock_get_token):
         """Test AuthPassThrough can be passed to httpx.Client."""
         mock_token = Mock(spec=AccessToken)

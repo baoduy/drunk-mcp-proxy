@@ -581,7 +581,7 @@ Content-Type: application/json
 
 **OpenApiMcpProvider** (`src/proxies/openapi_mcp_provider.py`):
 ```python
-class OpenApiMcpProvider(StaticMcpProvider):
+class OpenApiMcpProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from OpenAPI specs."""
 
     def custom_route_mapper(self, route: HTTPRoute, mcp_type: MCPType) -> MCPType | None:

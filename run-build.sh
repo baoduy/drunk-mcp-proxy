@@ -1,8 +1,36 @@
-# Install the build tool
-pip install build
+#!/bin/bash
+# Build script for drunk-ai-proxy package
 
-# Compile all files to check for syntax errors
-python -m py_compile *.py
+set -e
+
+echo "🔨 Building drunk-ai-proxy package..."
+echo ""
+
+# Install the build tool
+echo "📦 Installing build dependencies..."
+pip install --upgrade build pip setuptools wheel
+
+echo ""
+echo "✅ Build dependencies installed"
+echo ""
+
+# Clean previous build artifacts
+echo "🧹 Cleaning dist folder..."
+rm -rf dist
+
+echo ""
+echo "✅ Dist folder cleaned"
+echo ""
 
 # Run the build
+echo "🏗️  Building package..."
 python -m build
+
+echo ""
+echo "✅ Build complete!"
+echo ""
+echo "📦 Built packages:"
+ls -lh dist/
+echo ""
+echo "💡 Install locally: pip install dist/drunk_ai_proxy-*.whl"
+echo "💡 Test with uvx: uvx --from dist/drunk_ai_proxy-*.whl drunk-ai-proxy"

@@ -17,7 +17,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo "${GREEN}  drunk-mcp-proxy Docker Compose${NC}"
+echo "${GREEN}  drunk-ai-proxy Docker Compose${NC}"
 echo "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo "${BLUE}Project Root:${NC} $PROJECT_ROOT"
@@ -44,6 +44,7 @@ fi
 echo "${GREEN}✓ Docker Compose is available${NC}"
 echo ""
 
+export DOCKER_BUILDKIT=1
 # Get the action (default to up)
 ACTION=${1:-up}
 PORT=${2:-8000}
@@ -63,7 +64,7 @@ case "$ACTION" in
         # Start the container
         echo "${BLUE}Starting container...${NC}"
         echo "  Service: ${YELLOW}mcp-proxy${NC}"
-        echo "  Image: ${YELLOW}drunk-mcp-proxy:latest${NC}"
+        echo "  Image: ${YELLOW}drunk-ai-proxy:latest${NC}"
         echo "  Port: ${YELLOW}${PORT}:8000${NC}"
         echo "  Data: ${YELLOW}${PROJECT_ROOT}/data:/app/data${NC}"
         echo ""
