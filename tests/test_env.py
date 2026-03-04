@@ -232,32 +232,32 @@ class TestEnvConfiguration:
             os.environ.pop("FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY", None)
 
     def test_get_env_bool_false_values(self):
-        """Test getEnvBool with false values."""
-        from src.tools.env import getEnvBool
-        
+        """Test get_env_bool with false values."""
+        from src.tools.env import get_env_bool
+
         os.environ["TEST_BOOL"] = "0"
-        assert getEnvBool("TEST_BOOL", True) is False
-        
+        assert get_env_bool("TEST_BOOL", True) is False
+
         os.environ["TEST_BOOL"] = "false"
-        assert getEnvBool("TEST_BOOL", True) is False
-        
+        assert get_env_bool("TEST_BOOL", True) is False
+
         os.environ["TEST_BOOL"] = "no"
-        assert getEnvBool("TEST_BOOL", True) is False
-        
+        assert get_env_bool("TEST_BOOL", True) is False
+
         os.environ["TEST_BOOL"] = "off"
-        assert getEnvBool("TEST_BOOL", True) is False
-        
+        assert get_env_bool("TEST_BOOL", True) is False
+
         os.environ.pop("TEST_BOOL", None)
 
     def test_get_env_bool_default_for_invalid(self):
-        """Test getEnvBool returns default for invalid/empty values."""
-        from src.tools.env import getEnvBool
-        
+        """Test get_env_bool returns default for invalid/empty values."""
+        from src.tools.env import get_env_bool
+
         os.environ["TEST_BOOL"] = "maybe"
-        assert getEnvBool("TEST_BOOL", True) is True
-        assert getEnvBool("TEST_BOOL", False) is False
-        
+        assert get_env_bool("TEST_BOOL", True) is True
+        assert get_env_bool("TEST_BOOL", False) is False
+
         os.environ["TEST_BOOL"] = ""
-        assert getEnvBool("TEST_BOOL", True) is True
-        
+        assert get_env_bool("TEST_BOOL", True) is True
+
         os.environ.pop("TEST_BOOL", None)

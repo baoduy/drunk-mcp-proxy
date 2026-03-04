@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ..proxies.mcp_base_provider import McpProxyConfig
     from ..proxies.llm_proxies_provider import LlmProxiesProvider
 
+
 class StarletteApp:
     """
     Starlette application factory for MCP proxy servers.
@@ -195,11 +196,15 @@ class StarletteApp:
             llm_service.mount(app, route_prefix=path)
 
         # Add health check endpoint
-        app.add_route("/health", self._health_check_endpoint, methods=["GET"], include_in_schema=True)
+        app.add_route(
+            "/health", self._health_check_endpoint, methods=["GET"], include_in_schema=True
+        )
         app.add_route("/", self._health_check_endpoint, methods=["GET"], include_in_schema=False)
-        
+
         # Add OpenAPI documentation endpoints
         if SWAGGER_ENABLED:
-            self.swagger_provider.mount(app=app, mcp_apps=self.mcp_apps, llm_services=self.llm_services)
+            self.swagger_provider.mount(
+                app=app, mcp_apps=self.mcp_apps, llm_services=self.llm_services
+            )
 
         return app

@@ -20,22 +20,27 @@ from proxies.anthropic_provider import AnthropicProvider
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
-    
+
+
 class ModelBase(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
+
     def get(self, key: str, default: object | None = None) -> object | None:
         return getattr(self, key, default)
-    
+
+
 class LlmModel(ModelBase):
     id: str
     provider: str
+
 
 class ProviderModel(ModelBase):
     name: str
     slug: str
 
-class FastAuthMiddleware(HTTPBase): 
-    def __init__(self, auth_provider:AuthProvider):
+
+class FastAuthMiddleware(HTTPBase):
+    def __init__(self, auth_provider: "AuthProvider"):
         super().__init__(scheme="bearer")
         self.auth_provider = auth_provider
         self.auto_error = True
@@ -43,18 +48,19 @@ class FastAuthMiddleware(HTTPBase):
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials | None:
         authorization = request.headers.get("Authorization")
         scheme, token = get_authorization_scheme_param(authorization)
-        
+
         if not (authorization and scheme and token):
             raise self.make_not_authenticated_error()
-        
+
         rs = await self.auth_provider.verify_token(token)
         if rs is not None and (rs.claims.__len__() > 0 or rs.scopes.__len__() > 0):
             return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
         raise self.make_not_authenticated_error()
-        
-    
+
+
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
+
     def __init__(self, providers: list[LlmConfig]) -> None:
         self._logger: Logger = setup_logging(__name__)
         self.providers = providers
@@ -65,17 +71,18 @@ class AsyncOpenAIFactory:
         provider = next((p for p in self.providers if p.provider == provider_name), None)
         if provider is None:
             raise ValueError(f"Provider '{provider_name}' not found in configuration")
-        
+
         if provider.provider in self._clients:
             return self._clients[provider.provider]
-        
+
         if provider.api_key is not None and len(provider.api_key) > 0:
             client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
         else:
             client = AsyncOpenAI(base_url=provider.base_url)
-            
+
         self._clients[provider.provider] = client
         return client
+
 
 class LlmProxiesProvider(LlmBaseProvider):
     # _BLOCKED_FORWARD_HEADERS = {
@@ -248,7 +255,7 @@ class LlmProxiesProvider(LlmBaseProvider):
         # For simplicity, we return a static list of models for each provider.
         # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
-        models =await self._get_models_by_provider(provider) if provider else await self._get_all_models()
+        models = await self._get_models_by_provider(provider) if provider else await self._get_all_models()
         return {"data": models}
 
     def _get_providers_endpoint(self) -> dict[str, object]:
@@ -515,4 +522,3 @@ class LlmProxiesProvider(LlmBaseProvider):
             )
         except Exception as e:
             return self.handle_exception(e, f"anthropic messages for '{model_name}'")
-

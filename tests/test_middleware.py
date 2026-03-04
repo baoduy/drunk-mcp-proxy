@@ -59,7 +59,7 @@ class TestBuildCorsMiddleware:
     @patch('src.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_disabled(self):
         """Test CORS middleware with default values when origins not set."""
-        result = middleware_provider._create_cros_middleware()
+        result = middleware_provider._create_cors_middleware()
         assert result is not None
         assert isinstance(result, Middleware)
         assert result.kwargs['allow_origins'] == ['*']  # Defaults to allow all
@@ -72,7 +72,7 @@ class TestBuildCorsMiddleware:
     @patch('src.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_with_origin(self):
         """Test CORS middleware is built with single origin."""
-        result = middleware_provider._create_cros_middleware()
+        result = middleware_provider._create_cors_middleware()
         
         assert result is not None
         assert isinstance(result, Middleware)
@@ -87,7 +87,7 @@ class TestBuildCorsMiddleware:
     @patch('src.app.middleware_provider.CORS_EXPOSE_HEADERS', 'X-Request-ID')
     def test_build_cors_middleware_all_options(self):
         """Test CORS middleware with all options configured."""
-        result = middleware_provider._create_cros_middleware()
+        result = middleware_provider._create_cors_middleware()
         
         assert result is not None
         assert result.kwargs['allow_origins'] == ['https://example.com', 'https://app.example.com']
@@ -101,7 +101,7 @@ class TestBuildCorsMiddleware:
     @patch('src.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_strips_whitespace(self):
         """Test CORS middleware strips whitespace from values."""
-        result = middleware_provider._create_cros_middleware()
+        result = middleware_provider._create_cors_middleware()
         
         assert result is not None
         assert result.kwargs['allow_origins'] == ['https://example.com']
@@ -111,7 +111,7 @@ class TestGetMiddlewares:
     """Test suite for get_middlewares function."""
 
     @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('src.app.middleware_provider._create_cros_middleware')
+    @patch('src.app.middleware_provider._create_cors_middleware')
     def test_get_middlewares_with_cors(self, mock_create_cors):
         """Test get_middlewares includes CORS middleware."""
         mock_cors_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
@@ -123,7 +123,7 @@ class TestGetMiddlewares:
         assert result[0] == mock_cors_middleware
 
     @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('src.app.middleware_provider._create_cros_middleware')
+    @patch('src.app.middleware_provider._create_cors_middleware')
     def test_get_middlewares_without_cors(self, mock_create_cors):
         """Test get_middlewares still returns list when CORS middleware is mocked as None."""
         mock_create_cors.return_value = None
@@ -135,7 +135,7 @@ class TestGetMiddlewares:
         assert result[0] is None
 
     @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('src.app.middleware_provider._create_cros_middleware')
+    @patch('src.app.middleware_provider._create_cors_middleware')
     def test_get_middlewares_returns_list(self, mock_create_cors):
         """Test get_middlewares always returns a list."""
         mock_create_cors.return_value = []
@@ -146,7 +146,7 @@ class TestGetMiddlewares:
 
     @patch('src.app.middleware_provider.RATE_LIMIT_ENABLED', True)
     @patch('src.app.middleware_provider._create_rate_limit_middleware')
-    @patch('src.app.middleware_provider._create_cros_middleware')
+    @patch('src.app.middleware_provider._create_cors_middleware')
     def test_get_middlewares_includes_rate_limit(self, mock_create_cors, mock_rate_limit):
         """Test get_middlewares includes rate limit middleware when enabled."""
         mock_cors_middleware = Middleware(CORSMiddleware, allow_origins=['*'])

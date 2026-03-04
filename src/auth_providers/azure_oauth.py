@@ -105,13 +105,13 @@ class AzureOauth(httpx.Auth):
         self.token_url = token_url
         self.scope = scope
         self.storage = token_storage or MemoryStore()
-        self._cached_token: dict[str,typing.Any] | None = None
+        self._cached_token: dict[str, typing.Any] | None = None
 
     # =========================
     # TOKEN MANAGEMENT
     # =========================
 
-    async def _async_fetch_token(self) -> dict[str,typing.Any]:
+    async def _async_fetch_token(self) -> dict[str, typing.Any]:
         """
         Fetch a new OAuth2 token from the Azure AD token endpoint.
 
@@ -146,17 +146,17 @@ class AzureOauth(httpx.Auth):
         return token
 
     @staticmethod
-    def _is_token_expired_dict(token: dict[str,typing.Any]) -> bool:
+    def _is_token_expired_dict(token: dict[str, typing.Any]) -> bool:
         """Check if a given token dictionary is expired."""
         if not token:
             return True
         return token.get("expires_at", 0) < time.time()
 
-    async def _fetch_token(self) -> dict[str,typing.Any]:
+    async def _fetch_token(self) -> dict[str, typing.Any]:
         """Backward-compatible alias for fetching a new token (async)."""
         return await self._async_fetch_token()
 
-    async def _async_get_token(self) -> dict[str,typing.Any]:
+    async def _async_get_token(self) -> dict[str, typing.Any]:
         """
         Get a valid OAuth2 token from storage or fetch new one (async).
 
@@ -189,7 +189,7 @@ class AzureOauth(httpx.Auth):
 
         return token
 
-    def _get_token(self) ->  dict[str,typing.Any]:
+    def _get_token(self) -> dict[str, typing.Any]:
         """
         Get a valid OAuth2 token (sync wrapper).
 

@@ -1,9 +1,11 @@
 from logging import Logger
 from typing import Any
+
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
 from tools.logging_config import setup_logging
+
 
 class AuthHeaderMiddleware(Middleware):
     def __init__(self, anonymous_paths: list[str] | None = None) -> None:

@@ -20,6 +20,7 @@ from tools.env import CONFIG_DIR, SCHEMA_DIR
 
 from .env_resolver import resolve_env_var
 
+
 class AuthType(str, Enum):
     """Enumeration of supported authentication provider types."""
     BASIC = "basic"
@@ -35,10 +36,12 @@ class AuthType(str, Enum):
     OCI = "oci"
     SUPABASE = "supabase"
 
+
 class SpecType(str, Enum):
     """Enumeration of supported specification types."""
     MCP = "mcp"
     OPENAPI = "openapi"
+
 
 class ConfigBaseModel(BaseModel):
     """Base model with common validation logic for configuration models."""
@@ -53,42 +56,43 @@ class ConfigBaseModel(BaseModel):
             elif isinstance(attr, ConfigBaseModel):
                 # Exclude None values and use field aliases
                 return attr.model_dump(exclude_none=True)
-            elif hasattr(attr, 'model_dump'):
+            elif hasattr(attr, "model_dump"):
                 return attr.model_dump(exclude_none=True)
-            elif hasattr(attr, '__dict__'):
+            elif hasattr(attr, "__dict__"):
                 return vars(attr)  # Convert any object to dict
             return None
         except AttributeError:
             return None
-    
+
     def _resolve_env_vars(self) -> None:
-        """ Resolve environment variable references in all string attributes. """
+        """Resolve environment variable references in all string attributes."""
         for field_name in self.__class__.model_fields.keys():
             current_value = getattr(self, field_name, None)
             if current_value is not None and isinstance(current_value, str):
                 resolved_value = resolve_env_var(current_value)
                 setattr(self, field_name, resolved_value)
-    
 
     @model_validator(mode="after")
-    def after_model_validator(self) -> ConfigBaseModel:
+    def after_model_validator(self) -> "ConfigBaseModel":
         """Resolve environment variable references in all string attributes.
-        
+
         This method iterates through all model fields and resolves any
         environment variable references (e.g., $VAR or ${VAR}) found in
         string values.
-        
+
         Returns:
             Self with resolved environment variables.
         """
         self._resolve_env_vars()
         return self
-        
+
+
 class BearerAuthConfig(ConfigBaseModel):
     """Bearer token authentication configuration."""
 
     base_url: Optional[str] = Field(default=None)
     token: Optional[str] = Field(default=None)
+
 
 class JwtAuthConfig(ConfigBaseModel):
     """JWT authentication configuration."""
@@ -104,6 +108,7 @@ class AuthConfig(ConfigBaseModel):
     default_provider: Optional[AuthType] = Field(default=None, alias="defaultProvider")
     basic: Optional[BearerAuthConfig] = Field(default=None)
     jwt: Optional[JwtAuthConfig] = Field(default=None)
+
 
 class LlmConfig(ConfigBaseModel):
     """LLM provider configuration."""
@@ -206,7 +211,7 @@ class McpConfig(ConfigBaseModel):
             self.spec_data = {"mcpServers": self.mcp_servers} if self.mcp_servers else None
             return
             
-        file =f"{CONFIG_DIR}/{self.spec_file}"
+        file = f"{CONFIG_DIR}/{self.spec_file}"
         if not os.path.exists(file):
             raise FileNotFoundError(f"Spec file not found: {self.spec_file}")
         
@@ -232,7 +237,8 @@ class McpConfig(ConfigBaseModel):
         self._resolve_env_vars()
         self.load_spec_data()
         return self
-    
+
+
 class ConfigYaml(ConfigBaseModel):
     """
     Main configuration model for YAML-based configuration.

@@ -5,15 +5,13 @@ This module provides a centralized class for loading and managing proxy
 configurations using McpConfig from the CONFIG_DIR/config.json file.
 """
 
-import os
-from typing import TYPE_CHECKING, Optional
-from app.app_config_provider import AppConfigProvider
+from typing import TYPE_CHECKING
+
 from tools.logging_config import setup_logging
-from tools import SpecType,McpConfig
+from tools import SpecType, McpConfig
 
 if TYPE_CHECKING:
     from .mcp_base_provider import McpProxyConfig
-    from .mcp_proxy_provider import McpProxyProvider
 
 
 class StaticProxiesProvider:
@@ -38,12 +36,12 @@ class StaticProxiesProvider:
             print(f"Loaded {config.name} ({config.spec_type})")
     """
 
-    def __init__(self,configs: list[McpConfig]) -> None:
+    def __init__(self, configs: list[McpConfig]) -> None:
         """
         Initialize the ProxyConfigProvider.
         """
         self.configs = configs
-        self.logger = setup_logging(__name__)
+        self._logger = setup_logging(__name__)
 
     def _get_configs_by_type(self, spec_type: SpecType) -> list[McpConfig]:
         """ Get all configurations of a specific type. """
@@ -64,7 +62,7 @@ class StaticProxiesProvider:
         
         mcp_configs = self.mcp_configs
         if len(mcp_configs) == 0:
-            self.logger.warning("No MCP configurations found in config file")
+            self._logger.warning("No MCP configurations found in config file")
             return []
         return McpProxyProvider.create_mcp_proxies_configs(mcp_configs)
 
@@ -81,7 +79,7 @@ class StaticProxiesProvider:
         # Import here to avoid circular dependency
         openapi_configs = self.openapi_configs
         if len(openapi_configs) == 0:
-            self.logger.warning("No OpenAPI configurations found in config file")
+            self._logger.warning("No OpenAPI configurations found in config file")
             return []
         
         from .openapi_mcp_provider import OpenApiMcpProvider

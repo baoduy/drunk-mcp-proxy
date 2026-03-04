@@ -406,7 +406,7 @@ def test_get_oauth_store_logs_warning_no_encryption_for_redis(monkeypatch):
         return original_import(name, *args, **kwargs)
     
     with patch("builtins.__import__", side_effect=mock_import):
-        with patch("src.app.cache_provider.logging") as mock_logging:
+        with patch("src.app.cache_provider.logger") as mock_logging:
             CacheProvider.get_oauth_store()
             
             # Should warn about missing encryption key for non-memory storage
@@ -437,7 +437,7 @@ def test_get_oauth_store_logs_warning_no_encryption_for_sqlite(monkeypatch):
         return original_import(name, *args, **kwargs)
     
     with patch("builtins.__import__", side_effect=mock_import):
-        with patch("src.app.cache_provider.logging") as mock_logging:
+        with patch("src.app.cache_provider.logger") as mock_logging:
             CacheProvider.get_oauth_store()
             
             # Should warn about missing encryption key for non-memory storage
