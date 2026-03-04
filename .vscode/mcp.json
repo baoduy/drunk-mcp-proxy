@@ -30,6 +30,13 @@
 			"gallery": "https://api.mcp.github.com",
 			"version": "0.0.1-seed"
 		},
+		"drawio-mcp": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"@drawio/mcp@latest"
+			],
+		},
 		"cognitionai/deepwiki": {
 			"type": "http",
 			"url": "https://mcp.deepwiki.com/mcp",
