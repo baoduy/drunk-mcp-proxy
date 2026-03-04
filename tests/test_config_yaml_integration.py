@@ -53,11 +53,13 @@ auth:
 
 llm:
   - enabled: true
+    websocket: true
     provider: openai
     base_url: https://api.openai.com/v1
     api_key: $OPENAI_API_KEY
     
   - enabled: false
+    websocket: false
     provider: test-provider
     base_url: https://test.example.com
     api_key: test-key
@@ -107,9 +109,11 @@ mcp:
                 assert config.llm is not None
                 assert len(config.llm) == 2
                 assert config.llm[0].enabled is True
+                assert config.llm[0].websocket is True
                 assert config.llm[0].provider == "openai"
                 assert config.llm[0].api_key == "test-openai-key-456"  # Resolved from env
                 assert config.llm[1].enabled is False
+                assert config.llm[1].websocket is False
 
                 # Verify MCP configuration
                 assert config.mcp is not None

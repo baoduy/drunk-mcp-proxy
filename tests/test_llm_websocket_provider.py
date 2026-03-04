@@ -10,7 +10,7 @@ This test suite covers:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from proxies.llm_websocket_provider import (
     LlmWebSocketProvider,
@@ -123,3 +123,106 @@ class TestCreateError:
         
         assert error["type"] == "error"
         assert error["status"] == 401
+
+
+class TestProviderCapabilities:
+    """Tests for provider capability lookup and routing helpers."""
+
+    def test_supports_native_websocket(self) -> None:
+        """Test websocket capability from provider config."""
+        providers = [
+            LlmConfig(
+                enabled=True,
+                provider="openai",
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test",
+                websocket=True,
+            ),
+            LlmConfig(
+                enabled=True,
+                provider="ollama",
+                base_url="http://localhost:11434/v1",
+                websocket=False,
+            ),
+        ]
+        provider = LlmWebSocketProvider(providers)
+
+        assert provider._supports_native_websocket("openai") is True
+        assert provider._supports_native_websocket("ollama") is False
+
+    def test_build_fallback_payload_from_response_create(self) -> None:
+        """Test transformation for OpenAI websocket response.create payloads."""
+        payload = LlmWebSocketProvider._build_fallback_payload(
+            {
+                "type": "response.create",
+                "response": {
+                    "model": "openai_gpt-4o-mini",
+                    "input": "Hello",
+                },
+            },
+            model_name="gpt-4o-mini",
+        )
+
+        assert payload["model"] == "gpt-4o-mini"
+        assert payload["input"] == "Hello"
+
+
+class TestRouting:
+    """Tests for backend route selection in websocket forwarding."""
+
+    @pytest.mark.asyncio
+    async def test_routes_to_native_backend_when_supported(self) -> None:
+        """Use native websocket forwarding for websocket-enabled providers."""
+        providers = [
+            LlmConfig(
+                enabled=True,
+                provider="openai",
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test",
+                websocket=True,
+            )
+        ]
+        provider = LlmWebSocketProvider(providers)
+        websocket = AsyncMock()
+
+        native_backend = AsyncMock()
+        http_backend = AsyncMock()
+        setattr(provider, "_forward_to_native_backend", native_backend)
+        setattr(provider, "_forward_to_http_backend", http_backend)
+
+        await provider._forward_to_backend(
+            websocket=websocket,
+            data={"model": "openai_gpt-4o"},
+            client_id="client-1",
+        )
+
+        native_backend.assert_awaited_once()
+        http_backend.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_routes_to_http_fallback_when_not_supported(self) -> None:
+        """Use AsyncOpenAI fallback forwarding for non-websocket providers."""
+        providers = [
+            LlmConfig(
+                enabled=True,
+                provider="ollama",
+                base_url="http://localhost:11434/v1",
+                websocket=False,
+            )
+        ]
+        provider = LlmWebSocketProvider(providers)
+        websocket = AsyncMock()
+
+        native_backend = AsyncMock()
+        http_backend = AsyncMock()
+        setattr(provider, "_forward_to_native_backend", native_backend)
+        setattr(provider, "_forward_to_http_backend", http_backend)
+
+        await provider._forward_to_backend(
+            websocket=websocket,
+            data={"model": "ollama_llama3"},
+            client_id="client-1",
+        )
+
+        http_backend.assert_awaited_once()
+        native_backend.assert_not_awaited()

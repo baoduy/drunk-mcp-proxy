@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 import jsonschema
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tools.env import CONFIG_DIR, SCHEMA_DIR
 
@@ -109,6 +109,7 @@ class LlmConfig(ConfigBaseModel):
     """LLM provider configuration."""
 
     enabled: bool = Field(default=True)
+    websocket: bool = Field(default=False)
     provider: str = Field(description="LLM provider name")
     base_url: str = Field(description="Base URL for the LLM provider")
     api_key: Optional[str] = Field(default=None)

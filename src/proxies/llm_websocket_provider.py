@@ -20,15 +20,24 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, Protocol
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
+from openai import AsyncOpenAI
 from proxies.llm_base_provider import LlmBaseProvider
 from tools import LlmConfig, setup_logging
 from websockets.asyncio.client import ClientConnection
 
 logger = setup_logging(__name__)
+
+
+class AsyncOpenAIFactoryProtocol(Protocol):
+    """Protocol for AsyncOpenAI factory dependency."""
+
+    def get_client(self, provider_name: str) -> AsyncOpenAI:
+        """Get configured AsyncOpenAI client for provider."""
+        ...
 
 class WebSocketFactory:
     """Factory for creating backend WebSocket connections with auth.
@@ -295,8 +304,51 @@ class LlmWebSocketProvider(LlmBaseProvider):
             raise ValueError("Llm websocket proxy requires at least one provider configuration")
 
         self.providers = providers
+        self._provider_configs = {provider.provider: provider for provider in providers}
         self.ws_factory = WebSocketFactory(providers)
+        self.open_ai_factory: AsyncOpenAIFactoryProtocol | None = None
         self.connection_pool = BackendConnectionPool()
+
+    def _get_openai_factory(self) -> AsyncOpenAIFactoryProtocol:
+        """Get or lazily create AsyncOpenAI factory.
+
+        Returns:
+            Shared AsyncOpenAI factory implementation.
+        """
+        if self.open_ai_factory is None:
+            from proxies.llm_proxies_provider import AsyncOpenAIFactory
+
+            self.open_ai_factory = AsyncOpenAIFactory(self.providers)
+        return self.open_ai_factory
+
+    def _get_provider_config(self, provider_name: str) -> LlmConfig:
+        """Get provider configuration by provider name.
+
+        Args:
+            provider_name: Provider name from model ID.
+
+        Returns:
+            Provider configuration.
+
+        Raises:
+            ValueError: If provider is not configured.
+        """
+        provider_config = self._provider_configs.get(provider_name)
+        if provider_config is None:
+            raise ValueError(f"Provider '{provider_name}' not found in configuration")
+        return provider_config
+
+    def _supports_native_websocket(self, provider_name: str) -> bool:
+        """Check if provider supports native backend websocket.
+
+        Args:
+            provider_name: Provider name from model ID.
+
+        Returns:
+            True when provider is configured with websocket support.
+        """
+        provider_config = self._get_provider_config(provider_name)
+        return provider_config.websocket
 
     def mount(self, app: Any, route_prefix: str) -> None:
         """Mount provider to Starlette application.
@@ -383,7 +435,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
         except WebSocketDisconnect:
             logger.debug("Llm websocket client disconnected")
         except Exception as e:
-            logger.error("Llm websocket error: %s",str(e))
+            logger.error("Llm websocket error: %s", type(e).__name__)
             try:
                 error_msg = self.create_error(
                     "server_error",
@@ -411,56 +463,180 @@ class LlmWebSocketProvider(LlmBaseProvider):
             data: Client message data
             client_id: Client identifier for connection pooling
         """
-        provider_name: str | None = None
-        
         try:
             # Extract and parse model ID to determine provider
             model = data.get("model", "")
             provider_name, model_name = self.parse_model_id(model)
-            
-            # Get or establish backend WebSocket connection from pool
-            backend_ws = await self.connection_pool.get_connection(
-                client_id, provider_name, self.ws_factory
-            )
-            
-            # Transform model ID in message (provider_model -> model)
-            data["model"] = model_name
-            
-            # Forward message to backend
-            await backend_ws.send(json.dumps(data))
-            
-            # Forward backend responses to client (bidirectional)
-            async for message in backend_ws:
-                if isinstance(message, bytes):
-                    message = message.decode("utf-8")
-                
-                try:
-                    event_dict = json.loads(message)
-                    await websocket.send_json(event_dict)
-                    
-                    # Stop streaming after response.done or error
-                    msg_type = event_dict.get("type")
-                    if msg_type in ("response.done", "error"):
-                        break
-                        
-                except json.JSONDecodeError as je:
-                    logger.error("Failed to decode backend message: %s", str(je))
-                    continue
 
-        except websockets.exceptions.WebSocketException as e:
-            logger.error("Backend WebSocket error: %s", str(e))
-            # Release backend connection on error
-            if provider_name is not None:
-                await self.connection_pool.release_connection(client_id, provider_name)
-            error_msg = self.create_error(
-                "backend_connection_error",
-                "Backend service connection error"
-            )
-            await websocket.send_json(error_msg)
+            if not provider_name:
+                error_msg = self.create_error(
+                    "invalid_model_id",
+                    "Invalid model ID format. Expected 'provider_model_name'",
+                )
+                await websocket.send_json(error_msg)
+                return
+
+            if self._supports_native_websocket(provider_name):
+                await self._forward_to_native_backend(
+                    websocket=websocket,
+                    data=data,
+                    client_id=client_id,
+                    provider_name=provider_name,
+                    model_name=model_name,
+                )
+            else:
+                await self._forward_to_http_backend(
+                    websocket=websocket,
+                    data=data,
+                    provider_name=provider_name,
+                    model_name=model_name,
+                )
         except Exception as e:
-            logger.error("Error forwarding message: %s", str(e))
+            logger.error("Error forwarding message: %s", type(e).__name__)
             error_msg = self.create_error(
                 "server_error",
                 "An error occurred while processing the request"
             )
             await websocket.send_json(error_msg)
+
+    async def _forward_to_native_backend(
+        self,
+        websocket: WebSocket,
+        data: dict[str, Any],
+        client_id: str,
+        provider_name: str,
+        model_name: str,
+    ) -> None:
+        """Forward request to provider native websocket backend.
+
+        Args:
+            websocket: Client websocket connection.
+            data: Client request payload.
+            client_id: Client identity for connection pooling.
+            provider_name: Selected provider name.
+            model_name: Model name without provider prefix.
+        """
+        try:
+            backend_ws = await self.connection_pool.get_connection(
+                client_id, provider_name, self.ws_factory
+            )
+
+            native_payload = dict(data)
+            native_payload["model"] = model_name
+
+            await backend_ws.send(json.dumps(native_payload))
+
+            async for message in backend_ws:
+                if isinstance(message, bytes):
+                    message = message.decode("utf-8")
+
+                try:
+                    event_dict = json.loads(message)
+                except json.JSONDecodeError as e:
+                    logger.error("Failed to decode backend message: %s", type(e).__name__)
+                    continue
+
+                await websocket.send_json(event_dict)
+                if self._is_terminal_event(event_dict):
+                    break
+
+        except websockets.exceptions.WebSocketException as e:
+            logger.error("Backend WebSocket error: %s", type(e).__name__)
+            await self.connection_pool.release_connection(client_id, provider_name)
+            error_msg = self.create_error(
+                "backend_connection_error",
+                "Backend service connection error"
+            )
+            await websocket.send_json(error_msg)
+
+    @staticmethod
+    def _build_fallback_payload(data: dict[str, Any], model_name: str) -> dict[str, Any]:
+        """Transform websocket request payload into AsyncOpenAI responses payload.
+
+        Args:
+            data: Incoming websocket message payload.
+            model_name: Provider-specific model name.
+
+        Returns:
+            Payload compatible with `client.responses.create`.
+        """
+        msg_type = data.get("type")
+        if msg_type == "response.create" and isinstance(data.get("response"), dict):
+            payload = dict(data["response"])
+        else:
+            payload = dict(data)
+            payload.pop("type", None)
+
+        payload["model"] = model_name
+        return payload
+
+    @staticmethod
+    def _is_terminal_event(event_dict: dict[str, Any]) -> bool:
+        """Check whether a websocket event is terminal.
+
+        Args:
+            event_dict: Event payload dictionary.
+
+        Returns:
+            True for terminal events.
+        """
+        event_type = event_dict.get("type")
+        return event_type in {
+            "response.done",
+            "response.completed",
+            "response.failed",
+            "error",
+        }
+
+    async def _forward_to_http_backend(
+        self,
+        websocket: WebSocket,
+        data: dict[str, Any],
+        provider_name: str,
+        model_name: str,
+    ) -> None:
+        """Forward request through AsyncOpenAI Responses API and emit websocket events.
+
+        Args:
+            websocket: Client websocket connection.
+            data: Client request payload.
+            provider_name: Selected provider name.
+            model_name: Model name without provider prefix.
+        """
+        if data.get("previous_response_id"):
+            error_msg = self.create_error(
+                "unsupported_feature",
+                "previous_response_id is not supported for non-websocket providers",
+                status=400,
+            )
+            await websocket.send_json(error_msg)
+            return
+
+        client: AsyncOpenAI = self._get_openai_factory().get_client(provider_name)
+        payload = self._build_fallback_payload(data, model_name)
+
+        try:
+            stream = await client.responses.create(stream=True, **payload)
+        except Exception as e:
+            logger.error("Fallback responses request failed: %s", type(e).__name__)
+            error_msg = self.create_error(
+                "backend_request_error",
+                "Backend request failed",
+                status=400,
+            )
+            await websocket.send_json(error_msg)
+            return
+
+        seen_terminal = False
+        async for event in stream:
+            event_dict = self._to_dict(event)
+            if "type" not in event_dict:
+                continue
+
+            await websocket.send_json(event_dict)
+            if self._is_terminal_event(event_dict):
+                seen_terminal = True
+                break
+
+        if not seen_terminal:
+            await websocket.send_json({"type": "response.done"})

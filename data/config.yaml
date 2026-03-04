@@ -38,6 +38,7 @@ auth:
 llm:
   # Example: OpenRouter LLM provider (disabled)
   - enabled: false # Set to true to enable this provider
+    websocket: false # Set true only if provider supports native /responses websocket
     provider: ort # Openrouter provider
     base_url: "https://openrouter.ai/api/v1"
     # API base URL for this provider
@@ -45,26 +46,31 @@ llm:
 
   # Example: OpenAI provider (enabled)
   - enabled: true # Set to true to enable this provider
+    websocket: true # OpenAI supports native /responses websocket
     provider: opi # OpenAI provider
     base_url: "https://api.openai.com/v1"
     # API base URL for this provider
     api_key: $OPENAI_API_KEY # API key (can use environment variable)
 
   - enabled: false # Set to true to enable this provider
+    websocket: false
     provider: oll # Ollama provider
     base_url: "http://host.docker.internal:11434/v1"
 
-  - enabled: false
+  - enabled: true
+    websocket: false
     provider: lms #LM Studio provider
     base_url: "http://host.docker.internal:1234/v1"
     api_key: sk-lm-qkz9kwNn:JgbOhGt5IHGGq90XbDi5
 
   - enabled: false
+    websocket: false
     provider: nvd #NVIDIA provider
     base_url: "https://integrate.api.nvidia.com/v1"
     api_key: $NVIDIA_API_KEY # API key (can use environment variable)
 
   - enabled: false
+    websocket: false
     provider: dok #Docker provider
     base_url: "http://model-runner.docker.internal"
 

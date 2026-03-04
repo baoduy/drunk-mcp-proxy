@@ -91,6 +91,7 @@ class TestLlmConfig:
         assert config.provider == "openai"
         assert config.base_url == "https://api.openai.com/v1"
         assert config.enabled is True
+        assert config.websocket is False
         assert config.api_key is None
 
     def test_llm_config_with_api_key(self) -> None:
@@ -101,6 +102,15 @@ class TestLlmConfig:
             api_key="sk-test-key",
         )
         assert config.api_key == "sk-test-key"
+
+    def test_llm_config_with_websocket_enabled(self) -> None:
+        """Test LlmConfig with websocket support flag."""
+        config = LlmConfig(
+            provider="openai",
+            base_url="https://api.openai.com/v1",
+            websocket=True,
+        )
+        assert config.websocket is True
 
     def test_llm_config_enabled_field(self) -> None:
         """Test LlmConfig enabled field."""

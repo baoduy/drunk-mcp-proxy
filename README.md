@@ -63,6 +63,7 @@ auth:
 # LLM provider configuration (optional)
 llm:
   - enabled: true
+    websocket: true
     provider: openai
     base_url: "https://api.openai.com/v1"
     api_key: $OPENAI_API_KEY
