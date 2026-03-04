@@ -7,8 +7,8 @@ Tests the AuthHeaderMiddleware for request path handling and token validation.
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-from src.middleware.auth_header_middleware import AuthHeaderMiddleware
-from src.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS
+from drunk_ai_proxy.middleware.auth_header_middleware import AuthHeaderMiddleware
+from drunk_ai_proxy.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS
 
 
 class TestAuthHeaderMiddlewareInit:
@@ -142,7 +142,7 @@ class TestShouldValidateAuth:
 class TestValidateAccessToken:
     """Test suite for _validate_access_token method."""
 
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     def test_validate_access_token_present(self, mock_get_token):
         """Test logging when access token is present."""
         mock_token = Mock()
@@ -158,7 +158,7 @@ class TestValidateAccessToken:
         middleware._logger.info.assert_called_once()
         assert "Access token present" in middleware._logger.info.call_args[0][0]
 
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     def test_validate_access_token_absent(self, mock_get_token):
         """Test logging when access token is not available."""
         mock_get_token.return_value = None
@@ -176,7 +176,7 @@ class TestOnMessage:
     """Test suite for on_message method."""
 
     @pytest.mark.asyncio
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     async def test_on_message_request_type_with_protected_path(self, mock_get_token):
         """Test on_message validates token for protected paths."""
         mock_token = Mock()
@@ -198,7 +198,7 @@ class TestOnMessage:
         call_next.assert_called_once_with(context)
 
     @pytest.mark.asyncio
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     async def test_on_message_request_type_with_anonymous_path(self, mock_get_token):
         """Test on_message skips validation for anonymous paths."""
         middleware = AuthHeaderMiddleware()
@@ -216,7 +216,7 @@ class TestOnMessage:
         call_next.assert_called_once_with(context)
 
     @pytest.mark.asyncio
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     async def test_on_message_non_request_type(self, mock_get_token):
         """Test on_message ignores non-request types."""
         middleware = AuthHeaderMiddleware()
@@ -232,7 +232,7 @@ class TestOnMessage:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    @patch("src.middleware.auth_header_middleware.get_access_token")
+    @patch("drunk_ai_proxy.middleware.auth_header_middleware.get_access_token")
     async def test_on_message_custom_anonymous_paths(self, mock_get_token):
         """Test on_message with custom anonymous paths."""
         middleware = AuthHeaderMiddleware(

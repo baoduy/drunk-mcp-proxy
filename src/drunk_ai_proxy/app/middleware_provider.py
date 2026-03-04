@@ -9,10 +9,10 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app.cache_provider import CacheProvider, TTLAsyncKeyValue
-from tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
+from drunk_ai_proxy.app.cache_provider import CacheProvider, TTLAsyncKeyValue
+from drunk_ai_proxy.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
 
-from tools.env import (
+from drunk_ai_proxy.tools.env import (
     CORS_ALLOW_ORIGINS,
     CORS_ALLOW_METHODS,
     CORS_ALLOW_HEADERS,

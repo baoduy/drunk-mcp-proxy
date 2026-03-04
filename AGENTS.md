@@ -400,6 +400,114 @@ class GoodClass:
             raise
 ```
 
+### Logging Sensitive Data Safely
+
+**When you need to log sensitive information** (for debugging, audit trails, or identifying which credential is being used), **never log the full value**. Use truncation to show only the last 4 characters.
+
+**What counts as sensitive data:**
+- API keys and authentication tokens
+- OAuth tokens and refresh tokens
+- Session IDs and cookies
+- Connection strings with credentials
+- Private keys and certificates
+- User passwords (never log, even truncated)
+- Personal data (emails, phone numbers, addresses)
+
+**❌ BAD - Logging Full Sensitive Values**:
+```python
+class BadService:
+    """Service with unsafe logging."""
+    
+    def __init__(self, api_key: str, auth_token: str):
+        self._logger: Logger = setup_logging(__name__)
+        self._api_key = api_key
+        
+        # DANGER: Exposes full API key in logs!
+        self._logger.info(f"Initialized with API key: {api_key}")
+        
+        # DANGER: Full token visible in logs!
+        self._logger.debug("Auth token: %s", auth_token)
+    
+    def authenticate(self, password: str) -> bool:
+        """Authenticate user."""
+        # DANGER: Password in logs!
+        self._logger.info(f"Authenticating with password: {password}")
+        return True
+```
+
+**✅ GOOD - Safe Logging with Truncation**:
+```python
+class GoodService:
+    """Service with safe logging practices."""
+    
+    def __init__(self, api_key: str, auth_token: str):
+        """Initialize service.
+        
+        Args:
+            api_key: API authentication key.
+            auth_token: Bearer authentication token.
+        """
+        self._logger: Logger = setup_logging(__name__)
+        self._api_key = api_key
+        self._auth_token = auth_token
+        
+        # Safe: Shows last 4 chars only
+        self._logger.info("Initialized with api_key=...%s", api_key[-4:])
+        self._logger.debug("Using auth_token=...%s", auth_token[-4:])
+    
+    def authenticate(self, password: str) -> bool:
+        """Authenticate user."""
+        # Safe: Never log passwords, even truncated
+        self._logger.info("Authentication attempt")
+        return True
+    
+    def _mask_sensitive(self, value: str | None, show_chars: int = 4) -> str:
+        """Mask sensitive value showing only last N characters.
+        
+        Args:
+            value: Sensitive string to mask.
+            show_chars: Number of characters to show at end.
+            
+        Returns:
+            Masked string like '...XXXX' or '[None]' if value is None.
+        """
+        if value is None:
+            return "[None]"
+        if len(value) <= show_chars:
+            return "..." + "*" * len(value)  # Don't expose short values
+        return "..." + value[-show_chars:]
+    
+    def process_request(self, session_id: str | None) -> dict[str, str]:
+        """Process request with session.
+        
+        Args:
+            session_id: User session identifier.
+            
+        Returns:
+            Response dictionary.
+        """
+        # Safe: Uses helper to handle None and truncation
+        masked = self._mask_sensitive(session_id)
+        self._logger.info("Processing request with session_id=%s", masked)
+        return {"status": "ok"}
+```
+
+**Key Rules for Logging Sensitive Data:**
+
+1. **Default to last 4 characters**: Use `value[-4:]` for tokens, API keys, session IDs
+2. **Use `...` prefix**: Format as `...XXXX` to clearly indicate truncation
+3. **Never log passwords**: Even truncated. Log "Authentication attempt" instead
+4. **Add descriptive context**: Use `"api_key=...1234"` not just `"...1234"`
+5. **Handle None gracefully**: Check for None before slicing: `value[-4:] if value else '[None]'`
+6. **Use helper methods**: Create `_mask_sensitive()` for consistent formatting
+7. **Consider data length**: For very short values (< 4 chars), mask entirely: `"...****"`
+8. **Be consistent**: Use the same pattern across all classes and modules
+
+**When to use truncation vs. complete omission:**
+- **Use truncation**: When you need to identify which credential ("using key ...1234 vs ...5678")
+- **Complete omission**: For passwords, PINs, or when the identifier isn't needed for debugging
+- **Never log**: Social security numbers, credit card numbers, health records
+
 ### Configuration Injection Pattern (Standard Convention)
 
 **All classes should receive dependencies via constructor injection:**
@@ -433,7 +541,8 @@ class ServiceClass:
         self._config = config
         self._api_key = api_key
         self._timeout = timeout
-        self._logger.debug("Service initialized")
+        # Safe: Log last 4 chars of API key for debugging
+        self._logger.debug("Service initialized with api_key=...%s", api_key[-4:])
     
     def execute(self) -> dict[str, str]:
         """Execute service operation."""
@@ -1236,11 +1345,12 @@ from tools.logging_config import setup_logging
 class MyNewClass:
     """Class docstring with description."""
     
-    def __init__(self, config: dict[str, str], timeout: int = 30):
+    def __init__(self, config: dict[str, str], api_token: str, timeout: int = 30):
         """Initialize MyNewClass.
         
         Args:
             config: Configuration dictionary.
+            api_token: API authentication token.
             timeout: Operation timeout in seconds.
         """
         # 1. Logger (always first)
@@ -1248,10 +1358,16 @@ class MyNewClass:
         
         # 2. Store dependencies as private attributes with type hints
         self._config = config
+        self._api_token = api_token
         self._timeout = timeout
         
         # 3. Log initialization (debug level)
-        self._logger.debug("Initialized with timeout=%d", timeout)
+        # Safe: Show last 4 chars of sensitive token
+        self._logger.debug(
+            "Initialized with timeout=%d, api_token=...%s",
+            timeout,
+            api_token[-4:]
+        )
     
     def public_method(self, data: dict[str, str]) -> str:
         """Public method with clear purpose.
@@ -1317,6 +1433,9 @@ class MyNewClass:
 - [ ] Error logging: `self._logger.error("Context: %s", type(e).__name__)`
 - [ ] Never log full exception messages
 - [ ] Never pass logger as constructor parameter
+- [ ] Sensitive data logged with truncation: `...%s", value[-4:]`
+- [ ] Never log full tokens, API keys, passwords, or secrets
+- [ ] Use descriptive context: `"api_key=...1234"` not just `"...1234"`
 
 ### ✅ SOLID Principles Checklist:
 
@@ -1340,6 +1459,8 @@ class MyNewClass:
 - [ ] Error messages are meaningful
 - [ ] Tests updated for new/changed code
 - [ ] No hardcoded paths, API keys, or secrets
+- [ ] Sensitive values logged safely (truncated to last 4 chars: `...XXXX`)
+- [ ] Passwords never logged (even truncated)
 - [ ] Imports grouped: stdlib, third-party, local
 
 ### ✅ Testing Checklist:

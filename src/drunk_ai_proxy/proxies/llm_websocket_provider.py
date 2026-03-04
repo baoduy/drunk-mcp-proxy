@@ -26,9 +26,9 @@ from typing import Protocol
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
-from proxies.llm_base_provider import LlmBaseProvider
-from tools import LlmConfig
-from tools.logging_config import setup_logging
+from drunk_ai_proxy.proxies.llm_base_provider import LlmBaseProvider
+from drunk_ai_proxy.tools import LlmConfig
+from drunk_ai_proxy.tools.logging_config import setup_logging
 from websockets.asyncio.client import ClientConnection
 
 
@@ -319,7 +319,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
             Shared AsyncOpenAI factory implementation.
         """
         if self.open_ai_factory is None:
-            from proxies.llm_proxies_provider import AsyncOpenAIFactory
+            from drunk_ai_proxy.proxies.llm_proxies_provider import AsyncOpenAIFactory
 
             self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         return self.open_ai_factory

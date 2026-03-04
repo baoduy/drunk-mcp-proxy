@@ -7,9 +7,9 @@ from logging import Logger
 
 from fastmcp import FastMCP
 
-from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
-from tools import McpConfig
-from tools.logging_config import setup_logging
+from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
+from drunk_ai_proxy.tools import McpConfig
+from drunk_ai_proxy.tools.logging_config import setup_logging
 
 
 def build_mcp_proxy_configs(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from app.app_config_provider import AppConfigProvider
+from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from logging import Logger
 from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, Request
@@ -12,11 +12,11 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
-from tools.env import SERVER_NAME, SERVER_VERSION
-from tools import LlmConfig
-from tools.logging_config import setup_logging
-from proxies.llm_base_provider import LlmBaseProvider
-from proxies.anthropic_provider import AnthropicProvider
+from drunk_ai_proxy.tools.env import SERVER_NAME, SERVER_VERSION
+from drunk_ai_proxy.tools import LlmConfig
+from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.proxies.llm_base_provider import LlmBaseProvider
+from drunk_ai_proxy.proxies.anthropic_provider import AnthropicProvider
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -108,8 +108,8 @@ class LlmProxiesProvider(LlmBaseProvider):
         if not providers or len(providers) == 0:
             raise ValueError("LLM proxy requires at least one provider configuration")
         self.providers = providers
-        from app.cache_provider import CacheProvider
-        from proxies.llm_websocket_provider import LlmWebSocketProvider
+        from drunk_ai_proxy.app.cache_provider import CacheProvider
+        from drunk_ai_proxy.proxies.llm_websocket_provider import LlmWebSocketProvider
         self.cache = CacheProvider.get_cache_store()
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self.websocket_provider = LlmWebSocketProvider(self.providers)

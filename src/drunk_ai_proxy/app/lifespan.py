@@ -8,7 +8,7 @@ from typing import AsyncContextManager
 
 from fastmcp.server.http import StarletteWithLifespan
 
-from tools.logging_config import setup_logging
+from drunk_ai_proxy.tools.logging_config import setup_logging
 
 
 class AppLifespanManager:

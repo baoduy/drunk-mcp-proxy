@@ -12,11 +12,11 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, Mock
 
-from proxies.llm_websocket_provider import (
+from drunk_ai_proxy.proxies.llm_websocket_provider import (
     LlmWebSocketProvider,
     WebSocketFactory,
 )
-from tools import LlmConfig
+from drunk_ai_proxy.tools import LlmConfig
 
 
 class TestLlmWebSocketProviderInit:

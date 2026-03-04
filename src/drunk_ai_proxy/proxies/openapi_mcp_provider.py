@@ -15,11 +15,11 @@ from fastmcp.server.providers.openapi import MCPType
 if TYPE_CHECKING:
     pass
 
-from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
-from tools import McpConfig
-from tools.env import SERVER_NAME
-from tools.logging_config import setup_logging
-from tools.mcp_proxy_builder import build_openapi_proxy_configs
+from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
+from drunk_ai_proxy.tools import McpConfig
+from drunk_ai_proxy.tools.env import SERVER_NAME
+from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.tools.mcp_proxy_builder import build_openapi_proxy_configs
 
 
 class OpenApiMcpProvider(McpBaseProvider):

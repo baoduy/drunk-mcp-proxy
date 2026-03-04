@@ -10,13 +10,13 @@ class TestAppPackageImports:
 
     def test_import_mcp_proxy_server(self):
         """Test importing MCPProxyServer from app package."""
-        from src.app import MCPProxyServer
+        from drunk_ai_proxy.app import MCPProxyServer
         assert MCPProxyServer is not None
         assert MCPProxyServer.__name__ == "MCPProxyServer"
 
     def test_app_all_exports(self):
         """Test __all__ contains expected exports."""
-        import src.app as app
+        import drunk_ai_proxy.app as app
         assert "MCPProxyServer" in app.__all__
         assert "CacheProvider" in app.__all__
         assert "AppConfigProvider" in app.__all__
@@ -30,19 +30,19 @@ class TestToolsPackageImports:
 
     def test_import_config_yaml(self):
         """Test importing ConfigYaml from tools package."""
-        from src.tools import ConfigYaml
+        from drunk_ai_proxy.tools import ConfigYaml
         assert ConfigYaml is not None
         assert ConfigYaml.__name__ == "ConfigYaml"
 
     def test_import_cache(self):
         """Test importing Cache from app package."""
-        from src.app.cache_provider import CacheProvider
+        from drunk_ai_proxy.app.cache_provider import CacheProvider
         assert CacheProvider is not None
         assert CacheProvider.__name__ == "CacheProvider"
 
     def test_tools_all_exports(self):
         """Test __all__ contains expected exports."""
-        import src.tools as tools
+        import drunk_ai_proxy.tools as tools
         assert "ConfigYaml" in tools.__all__
         assert "AuthConfig" in tools.__all__
         assert "AuthType" in tools.__all__

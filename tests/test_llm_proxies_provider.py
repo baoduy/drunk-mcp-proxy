@@ -17,12 +17,12 @@ from starlette.testclient import TestClient
 
 from fastapi.responses import JSONResponse
 
-from src.proxies.llm_proxies_provider import (
+from drunk_ai_proxy.proxies.llm_proxies_provider import (
     AsyncOpenAIFactory,
     LlmModel,
     LlmProxiesProvider,
 )
-from src.tools.config_yaml import LlmConfig
+from drunk_ai_proxy.tools.config_yaml import LlmConfig
 
 
 def _build_provider() -> LlmProxiesProvider:
@@ -41,7 +41,7 @@ def _build_app(provider: LlmProxiesProvider) -> Starlette:
     app = Starlette()
     # Patch the correct import path used in src/proxies/llm_proxies_provider.py
     with patch(
-        "src.proxies.llm_proxies_provider.AppConfigProvider.get_instance"
+        "drunk_ai_proxy.proxies.llm_proxies_provider.AppConfigProvider.get_instance"
     ) as mock_get_app_config:
         mock_app_config = Mock()
         mock_app_config.get_fast_mcp_auth_provider.return_value = None

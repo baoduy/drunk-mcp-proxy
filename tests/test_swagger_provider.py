@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from src.app.swagger_provider import SwaggerProvider
+from drunk_ai_proxy.app.swagger_provider import SwaggerProvider
 
 
 def _resolve_schema(openapi_schema: dict, schema_or_ref: dict) -> dict:

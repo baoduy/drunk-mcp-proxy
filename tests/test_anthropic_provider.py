@@ -14,8 +14,8 @@ import pytest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from proxies.anthropic_provider import AnthropicProvider
-from tools.serialization import to_dict
+from drunk_ai_proxy.proxies.anthropic_provider import AnthropicProvider
+from drunk_ai_proxy.tools.serialization import to_dict
 
 
 class TestAnthropicToOpenAIRequest:

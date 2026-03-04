@@ -12,11 +12,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, HTMLResponse
 from starlette.schemas import SchemaGenerator
 
-from tools.logging_config import setup_logging
+from drunk_ai_proxy.tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
     from fastmcp.server.http import StarletteWithLifespan
-    from proxies.llm_proxies_provider import LlmProxiesProvider
+    from drunk_ai_proxy.proxies.llm_proxies_provider import LlmProxiesProvider
 
 logger = setup_logging("SwaggerProvider")
 

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from app.app_config_provider import AppConfigProvider
+from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from dataclasses import dataclass
-from tools.env import SERVER_TRANSPORT
+from drunk_ai_proxy.tools.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
     from tools import McpConfig
@@ -97,7 +97,7 @@ class McpBaseProvider(ABC):
             return
 
         from pathlib import Path
-        from tools.env import CONFIG_DIR
+        from drunk_ai_proxy.tools.env import CONFIG_DIR
         from fastmcp.server.providers.skills import SkillsDirectoryProvider
 
         skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")

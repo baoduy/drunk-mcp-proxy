@@ -6,8 +6,8 @@ from cryptography.fernet import Fernet
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
 
-from tools.logging_config import setup_logging
-from tools.env import (
+from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.tools.env import (
     REDIS_CONNECTION_STRING,
     OAUTH_STORAGE_TYPE,
     CONFIG_DIR,

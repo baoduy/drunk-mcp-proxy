@@ -7,8 +7,8 @@ configurations using McpConfig from the CONFIG_DIR/config.json file.
 
 from typing import TYPE_CHECKING
 
-from tools.logging_config import setup_logging
-from tools import SpecType, McpConfig
+from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.tools import SpecType, McpConfig
 
 if TYPE_CHECKING:
     from .mcp_base_provider import McpProxyConfig

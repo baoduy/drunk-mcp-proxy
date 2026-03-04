@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.tools.config_yaml import (
+from drunk_ai_proxy.tools.config_yaml import (
     AuthConfig,
     BearerAuthConfig,
     ConfigYaml,
@@ -430,7 +430,7 @@ mcp:
             os.unlink(temp_file)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    @patch("src.tools.config_yaml.CONFIG_DIR", "/tmp")
+    @patch("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", "/tmp")
     def test_parse_config_with_complete_structure(self, monkeypatch) -> None:
         """Test parsing configuration with complete auth, llm, and mcp sections."""
         # Create a temporary spec file
@@ -443,7 +443,7 @@ mcp:
             f.write('{"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}')
         
         # Patch CONFIG_DIR to use temp directory
-        monkeypatch.setattr("src.tools.config_yaml.CONFIG_DIR", temp_dir)
+        monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", temp_dir)
         
         yaml_content = """
 auth:

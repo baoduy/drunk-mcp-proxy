@@ -11,20 +11,17 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+WORKDIR /build
 
-# Copy project metadata only (before source code, for better cache invalidation)
-COPY pyproject.toml ./
-
-# Copy application source code (needed before pip install)
+# Copy project files for building
+COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-# Install runtime dependencies with BuildKit persistent cache
+# Build the package as a wheel using build tool
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir . && \
-    pip install --no-cache-dir uv
+    pip install --no-cache-dir build && \
+    python -m build --wheel && \
+    ls -la dist/
 
 # ============================================================
 # Final stage - minimal runtime image
@@ -33,7 +30,7 @@ ARG PYTHON_VERSION
 ARG NODE_VERSION
 FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim AS runtime
 
-WORKDIR /drunk-proxy
+WORKDIR /drunk-ai-proxy
 
 # Create non-root user early
 RUN useradd -m -u 10001 appuser
@@ -45,29 +42,32 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Create virtual environment in runtime stage
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy pre-built virtual environment from builder
-COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
+# Copy built wheel from builder stage
+COPY --from=builder /build/dist/drunk_ai_proxy-*.whl /tmp/
 
-# Activate venv
-ENV PATH="/opt/venv/bin:$PATH" \
-    VIRTUAL_ENV="/opt/venv" \
-    PIP_NO_INPUT=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+# Install the built wheel package
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir /tmp/drunk_ai_proxy-*.whl
 
-# Copy application code
-COPY --chown=appuser:appuser src/ ./
+# Verify package installation and entry point
+RUN drunk-ai-proxy --help 2>&1 | head -5 || echo "Entry point verification skipped"
+
+# Copy application data and schemas directly from project
+COPY --chown=appuser:appuser data/ ./data/
 COPY --chown=appuser:appuser schemas/ ./schemas/
 
-# Create data directory and setup user directories in single layer
-RUN mkdir -p ./data /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/appuser/.cache/uv /home/appuser/.local/uv/tools && \
+# Setup user directories and environment in single layer
+RUN mkdir -p /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/appuser/.cache/uv /home/appuser/.local/uv/tools && \
     chown -R appuser:appuser ./data /tmp/pip-cache /home/appuser
 
 # Consolidate environment variables
-ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
-    FASTMCP_SCHEMA_DIR=/drunk-proxy/schemas \
+ENV FASTMCP_CONFIG_DIR=/drunk-ai-proxy/data \
+    FASTMCP_SCHEMA_DIR=/drunk-ai-proxy/schemas \
     FASTMCP_STATELESS_HTTP=true \
-    PYTHONPATH=/drunk-proxy \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser \
     NPM_CONFIG_PREFIX=/home/appuser/.npm-global \
@@ -75,7 +75,10 @@ ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
     UV_CACHE_DIR=/home/appuser/.cache/uv \
     UV_TOOL_DIR=/home/appuser/.local/uv/tools \
     PIP_CACHE_DIR=/tmp/pip-cache \
-    PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}"
+    PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}" \
+    VIRTUAL_ENV=/opt/venv \
+    PIP_NO_INPUT=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 EXPOSE $FASTMCP_PORT
 
@@ -85,7 +88,8 @@ RUN npx --version
 # Switch to non-root user
 USER appuser
 
-# Verify both npx and uvx are available (uv already in venv from builder)
-RUN npx --version && uvx --version
+# Verify npx is available as appuser
+RUN npx --version
 
-CMD ["python", "-m", "main"]
+# Run using the installed console script entry point
+CMD ["drunk-ai-proxy"]

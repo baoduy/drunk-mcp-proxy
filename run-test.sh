@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Script to run all unit tests with code coverage for drunk-mcp-proxy
-# Usage: ./test.sh [pytest options]
+# Script to run all unit tests with code coverage for drunk-ai-proxy
+# Usage: ./run-test.sh [pytest options]
 # Examples:
-#   ./test.sh              # Run all tests with coverage
-#   ./test.sh -v           # Run with verbose output
-#   ./test.sh --cov        # Show coverage report in terminal
-#   ./test.sh --html       # Generate HTML coverage report
-#   ./test.sh -k test_auth # Run specific test
+#   ./run-test.sh              # Run all tests with coverage
+#   ./run-test.sh -v           # Run with verbose output
+#   ./run-test.sh --cov        # Show coverage report in terminal
+#   ./run-test.sh --html       # Generate HTML coverage report
+#   ./run-test.sh -k test_auth # Run specific test
 
 set -e
 
@@ -80,7 +80,7 @@ for arg in "$@"; do
 done
 
 # Build pytest command with coverage
-PYTEST_CMD=".venv/bin/python -m pytest tests/ --cov=src --cov-report=json --cov-report=term"
+PYTEST_CMD=".venv/bin/python -m pytest tests/ --cov=drunk_ai_proxy --cov-report=json --cov-report=term"
 
 # Add HTML report if requested
 if [ "$COVERAGE_HTML" = true ]; then
@@ -130,10 +130,10 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
     echo "💡 Generate HTML report: ./test.sh --html"
 else
     echo "❌ Some tests failed (exit code: $TEST_EXIT_CODE)"
-    echo "💡 Run with -v for verbose output: ./test.sh -v"
-    echo "💡 Run specific test: ./test.sh -k test_name"
-    echo "💡 Generate coverage report: ./test.sh --cov"
-    echo "💡 Generate HTML coverage: ./test.sh --html"
+    echo "💡 Run with -v for verbose output: ./run-test.sh -v"
+    echo "💡 Run specific test: ./run-test.sh -k test_name"
+    echo "💡 Generate coverage report: ./run-test.sh --cov"
+    echo "💡 Generate HTML coverage: ./run-test.sh --html"
 fi
 
 exit $TEST_EXIT_CODE

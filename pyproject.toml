@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "drunk-mcp-proxy"
+name = "drunk-ai-proxy"
 version = "0.1.0"
-description = "MCP proxy server"
+description = "MCP proxy and model provider gateway"
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -27,6 +27,9 @@ dependencies = [
     "pyyaml>=6.0.0",
     "websockets>=12.0",
 ]
+
+[project.scripts]
+drunk-ai-proxy = "drunk_ai_proxy.main:main"
 
 [project.optional-dependencies]
 # Development-only dependencies
