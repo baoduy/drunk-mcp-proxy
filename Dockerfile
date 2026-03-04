@@ -1,5 +1,8 @@
+# syntax=docker/dockerfile:1.4
+ARG PYTHON_VERSION=3.14
+ARG NODE_VERSION=25
 ARG TARGETPLATFORM
-FROM python:3.14-slim AS builder
+FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -12,39 +15,39 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy project metadata and install runtime deps into venv
+# Copy project metadata only (before source code, for better cache invalidation)
 COPY pyproject.toml ./
+
+# Copy application source code (needed before pip install)
 COPY src/ ./src/
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir .
-
-# Install uv and related tools in venv
-RUN pip install --no-cache-dir uv
+# Install runtime dependencies with BuildKit persistent cache
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir . && \
+    pip install --no-cache-dir uv
 
 # ============================================================
 # Final stage - minimal runtime image
 # ============================================================
-FROM python:3.14-slim AS runtime
+ARG PYTHON_VERSION
+ARG NODE_VERSION
+FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim AS runtime
 
 WORKDIR /drunk-proxy
 
 # Create non-root user early
 RUN useradd -m -u 10001 appuser
 
-# Install only runtime dependencies (no build tools)
-# Include nodejs for npx availability
+# Install only runtime dependencies (nodejs/npm already in base image)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      nodejs \
-      npm \
       curl && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/*
+
 
 # Copy pre-built virtual environment from builder
 COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
-COPY schemas/ ./schemas/
 
 # Activate venv
 ENV PATH="/opt/venv/bin:$PATH" \
@@ -56,11 +59,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
 COPY --chown=appuser:appuser src/ ./
 COPY --chown=appuser:appuser schemas/ ./schemas/
 
-# Create data directory
-RUN mkdir -p ./data && chown appuser:appuser ./data
-
-# Create pip cache directory for runtime installations
-RUN mkdir -p /tmp/pip-cache && chown appuser:appuser /tmp/pip-cache
+# Create data directory and setup user directories in single layer
+RUN mkdir -p ./data /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/appuser/.cache/uv /home/appuser/.local/uv/tools && \
+    chown -R appuser:appuser ./data /tmp/pip-cache /home/appuser
 
 # Consolidate environment variables
 ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
@@ -75,13 +76,6 @@ ENV FASTMCP_CONFIG_DIR=/drunk-proxy/data \
     UV_TOOL_DIR=/home/appuser/.local/uv/tools \
     PIP_CACHE_DIR=/tmp/pip-cache \
     PATH="/opt/venv/bin:/home/appuser/.npm-global/bin:/home/appuser/.local/bin:${PATH}"
-
-# Setup user directories
-RUN mkdir -p /home/appuser/.npm-global \
-             /home/appuser/.npm \
-             /home/appuser/.cache/uv \
-             /home/appuser/.local/uv/tools && \
-    chown -R appuser:appuser /home/appuser
 
 EXPOSE $FASTMCP_PORT
 

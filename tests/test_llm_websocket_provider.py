@@ -112,10 +112,10 @@ class TestCreateError:
         error = LlmWebSocketProvider.create_error("test_code", "Test message")
         
         assert error["type"] == "error"
-        assert error["error"]["type"] == "invalid_request_error"
+        assert error["error"]["type"] == "llm_websocket_request_error"
         assert error["error"]["code"] == "test_code"
         assert error["error"]["message"] == "Test message"
-        assert error["status"] == 500
+        assert error["status"] == 400
 
     def test_create_error_custom_status(self) -> None:
         """Test creating error with custom status."""

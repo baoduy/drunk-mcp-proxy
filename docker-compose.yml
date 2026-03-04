@@ -1,6 +1,11 @@
 services:
   mcp-proxy:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # BuildKit is required for cache mount support in Dockerfile
+      # Ensure DOCKER_BUILDKIT=1 is set in your environment:
+      # export DOCKER_BUILDKIT=1 && docker-compose build
     image: drunk-mcp-proxy:latest
     container_name: mcp-proxy-server
     ports:

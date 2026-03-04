@@ -44,6 +44,7 @@ fi
 echo "${GREEN}✓ Docker Compose is available${NC}"
 echo ""
 
+export DOCKER_BUILDKIT=1
 # Get the action (default to up)
 ACTION=${1:-up}
 PORT=${2:-8000}

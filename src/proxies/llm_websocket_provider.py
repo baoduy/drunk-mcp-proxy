@@ -18,6 +18,7 @@ Message Flow:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -76,7 +77,7 @@ class WebSocketFactory:
         headers = {"Authorization": f"Bearer {api_key}"}
         logger.debug("Connecting to backend WebSocket: %s", ws_url)
         
-        return await websockets.connect(ws_url, extra_headers=headers)
+        return await websockets.connect(ws_url, additional_headers=headers)
     
     @staticmethod
     def _build_websocket_url(provider_config: LlmConfig) -> str:
@@ -107,6 +108,144 @@ class WebSocketFactory:
         return f"{ws_url}/responses"
 
 
+class BackendConnectionPool:
+    """Pool for managing backend WebSocket connections per client identity.
+    
+    Maintains a mapping of (client_id, provider_name) to backend WebSocket
+    connections, enabling connection reuse across multiple messages from the
+    same client until disconnection.
+    """
+    
+    def __init__(self) -> None:
+        """Initialize connection pool."""
+        self._connections: dict[tuple[str, str], Any] = {}  # (client_id, provider) -> backend_ws
+        self._locks: dict[tuple[str, str], asyncio.Lock] = {}  # Per-key locks for concurrency
+    
+    def _get_lock(self, client_id: str, provider_name: str) -> asyncio.Lock:
+        """Get or create lock for given client-provider pair.
+        
+        Args:
+            client_id: Client identifier
+            provider_name: Provider name
+            
+        Returns:
+            asyncio.Lock for the client-provider pair
+        """
+        key = (client_id, provider_name)
+        if key not in self._locks:
+            self._locks[key] = asyncio.Lock()
+        return self._locks[key]
+    
+    @staticmethod
+    def _check_connection_alive(backend_ws: Any) -> bool:
+        """Check if backend WebSocket connection is still alive.
+        
+        Args:
+            backend_ws: Backend WebSocket connection
+            
+        Returns:
+            True if connection is open, False otherwise
+        """
+        return backend_ws is not None and not backend_ws.closed
+    
+    async def get_connection(
+        self,
+        client_id: str,
+        provider_name: str,
+        ws_factory: WebSocketFactory,
+    ) -> Any:  # websockets.WebSocketClientProtocol
+        """Get existing or create new backend WebSocket connection.
+        
+        Args:
+            client_id: Client identifier (IP address or user ID)
+            provider_name: Provider name from model ID
+            ws_factory: Factory for creating new connections
+            
+        Returns:
+            Backend WebSocket connection
+            
+        Raises:
+            ValueError: If provider not found or not configured
+            websockets.exceptions.WebSocketException: If connection fails
+        """
+        key = (client_id, provider_name)
+        lock = self._get_lock(client_id, provider_name)
+        
+        async with lock:
+            # Check if we have an existing connection
+            existing_ws = self._connections.get(key)
+            if self._check_connection_alive(existing_ws):
+                logger.debug(
+                    "Reusing backend connection for client=%s, provider=%s",
+                    client_id, provider_name
+                )
+                return existing_ws
+            
+            # Clean up stale connection if present
+            if existing_ws is not None:
+                try:
+                    await existing_ws.close()
+                except Exception:
+                    pass
+                del self._connections[key]
+            
+            # Create new connection
+            logger.debug(
+                "Creating new backend connection for client=%s, provider=%s",
+                client_id, provider_name
+            )
+            new_ws = await ws_factory.create_connection(provider_name)
+            self._connections[key] = new_ws
+            return new_ws
+    
+    async def release_connection(self, client_id: str, provider_name: str) -> None:
+        """Close and remove backend connection for given client-provider pair.
+        
+        Args:
+            client_id: Client identifier
+            provider_name: Provider name
+        """
+        key = (client_id, provider_name)
+        lock = self._get_lock(client_id, provider_name)
+        
+        async with lock:
+            backend_ws = self._connections.get(key)
+            if backend_ws is not None:
+                try:
+                    await backend_ws.close()
+                except Exception:
+                    pass
+                del self._connections[key]
+                logger.debug(
+                    "Released backend connection for client=%s, provider=%s",
+                    client_id, provider_name
+                )
+    
+    async def release_all_for_client(self, client_id: str) -> None:
+        """Close and remove all backend connections for given client.
+        
+        Args:
+            client_id: Client identifier
+        """
+        # Find all keys for this client
+        keys_to_remove = [key for key in self._connections if key[0] == client_id]
+        
+        for key in keys_to_remove:
+            client_id, provider_name = key
+            await self.release_connection(client_id, provider_name)
+        
+        # Clean up locks for this client
+        locks_to_remove = [key for key in self._locks if key[0] == client_id]
+        for key in locks_to_remove:
+            del self._locks[key]
+        
+        if keys_to_remove:
+            logger.debug(
+                "Released %d backend connection(s) for client=%s",
+                len(keys_to_remove), client_id
+            )
+
+
 class LlmWebSocketProvider(LlmBaseProvider):
     """Provider for OpenAI WebSocket Mode (Responses API).
 
@@ -128,10 +267,11 @@ class LlmWebSocketProvider(LlmBaseProvider):
         """
         super().__init__()
         if not providers or len(providers) == 0:
-            raise ValueError("WebSocket proxy requires at least one provider configuration")
+            raise ValueError("Llm websocket proxy requires at least one provider configuration")
 
         self.providers = providers
         self.ws_factory = WebSocketFactory(providers)
+        self.connection_pool = BackendConnectionPool()
 
     def mount(self, app: Any, route_prefix: str) -> None:
         """Mount provider to Starlette application.
@@ -146,13 +286,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
         pass
 
     @staticmethod
-    def create_error(error_code: str, message: str, status: int = 500) -> dict[str, Any]:
+    def create_error(error_code: str, message: str, status: int = 400) -> dict[str, Any]:
         """Create standardized WebSocket error response.
         
         Args:
             error_code: Error code identifier (e.g., 'server_error', 'backend_connection_error')
             message: Human-readable error message
-            status: HTTP status code (default: 500)
+            status: HTTP status code (default: 400)
             
         Returns:
             Error response dictionary in OpenAI WebSocket format
@@ -160,12 +300,35 @@ class LlmWebSocketProvider(LlmBaseProvider):
         return {
             "type": "error",
             "error": {
-                "type": "invalid_request_error",
+                "type": "llm_websocket_request_error",
                 "code": error_code,
                 "message": message,
             },
             "status": status,
         }
+    
+    def _extract_client_identity(self, websocket: WebSocket) -> str:
+        """Extract stable client identifier from WebSocket connection.
+        
+        Uses authenticated user ID if available (via auth middleware),
+        otherwise falls back to client IP address.
+        
+        Args:
+            websocket: WebSocket connection object
+            
+        Returns:
+            Client identifier string (user ID or IP address)
+        """
+        # Check if auth middleware attached user ID
+        if hasattr(websocket, "state") and hasattr(websocket.state, "user_id"):
+            return str(websocket.state.user_id)
+        
+        # Fall back to IP address
+        if websocket.client and websocket.client.host:
+            return websocket.client.host
+        
+        # Last resort fallback
+        return "unknown"
     
     async def websocket_response_endpoint(self, websocket: WebSocket) -> None:
         """Handle WebSocket connection lifecycle.
@@ -176,13 +339,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
         Args:
             websocket: WebSocket connection object
         """
-        logger.info("WebSocket client connected: %s", websocket.client)
+        logger.info("Llm websocket client connected: %s", websocket.client)
         # Accept connection (auth already validated by middleware)
         await websocket.accept()
         
-        # Track backend connection for reuse across messages
-        backend_ws: Any = None  # websockets.WebSocketClientProtocol
-        current_provider: str | None = None
+        # Extract client identity for connection pooling
+        client_id = self._extract_client_identity(websocket)
+        logger.debug("Client identity: %s", client_id)
 
         try:
             while True:
@@ -190,14 +353,12 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 data = await websocket.receive_json()
 
                 # Forward message to backend
-                backend_ws, current_provider = await self._forward_to_backend(
-                    websocket, data, backend_ws, current_provider
-                )
+                await self._forward_to_backend(websocket, data, client_id)
 
         except WebSocketDisconnect:
-            logger.debug("WebSocket client disconnected")
+            logger.debug("Llm websocket client disconnected")
         except Exception as e:
-            logger.error("WebSocket error: %s", type(e).__name__)
+            logger.error("Llm websocket error: %s",str(e))
             try:
                 error_msg = self.create_error(
                     "server_error",
@@ -209,40 +370,32 @@ class LlmWebSocketProvider(LlmBaseProvider):
             finally:
                 await websocket.close(code=1011, reason="Server error")
         finally:
-            # Clean up backend WebSocket connection
-            if backend_ws is not None:
-                try:
-                    await backend_ws.close()
-                except Exception:
-                    pass
+            # Clean up all backend connections for this client
+            await self.connection_pool.release_all_for_client(client_id)
 
     async def _forward_to_backend(
         self,
         websocket: WebSocket,
         data: dict[str, Any],
-        backend_ws: Any,
-        current_provider: str | None,
-    ) -> tuple[Any, str | None]:
+        client_id: str,
+    ) -> None:
         """Forward client message to backend with model ID transformation.
 
         Args:
             websocket: Client WebSocket connection
             data: Client message data
-            backend_ws: Existing backend WebSocket (for reuse)
-            current_provider: Current provider name (for reuse check)
-            
-        Returns:
-            Tuple of (backend_ws, provider_name) for connection reuse.
-            Returns (None, None) on error.
+            client_id: Client identifier for connection pooling
         """
+        provider_name: str | None = None
+        
         try:
             # Extract and parse model ID to determine provider
             model = data.get("model", "")
             provider_name, model_name = self.parse_model_id(model)
             
-            # Get or establish backend WebSocket connection
-            backend_ws = await self._get_backend_websocket(
-                provider_name, backend_ws, current_provider
+            # Get or establish backend WebSocket connection from pool
+            backend_ws = await self.connection_pool.get_connection(
+                client_id, provider_name, self.ws_factory
             )
             
             # Transform model ID in message (provider_model -> model)
@@ -266,65 +419,23 @@ class LlmWebSocketProvider(LlmBaseProvider):
                         break
                         
                 except json.JSONDecodeError as je:
-                    logger.error("Failed to decode backend message: %s", type(je).__name__)
+                    logger.error("Failed to decode backend message: %s", str(je))
                     continue
-            
-            return backend_ws, provider_name
 
         except websockets.exceptions.WebSocketException as e:
-            logger.error("Backend WebSocket error: %s", type(e).__name__)
-            # Close backend connection on error
-            if backend_ws is not None:
-                try:
-                    await backend_ws.close()
-                except Exception:
-                    pass
+            logger.error("Backend WebSocket error: %s", str(e))
+            # Release backend connection on error
+            if provider_name is not None:
+                await self.connection_pool.release_connection(client_id, provider_name)
             error_msg = self.create_error(
                 "backend_connection_error",
                 "Backend service connection error"
             )
             await websocket.send_json(error_msg)
-            return None, None
         except Exception as e:
-            logger.error("Error forwarding message: %s", type(e).__name__)
+            logger.error("Error forwarding message: %s", str(e))
             error_msg = self.create_error(
                 "server_error",
                 "An error occurred while processing the request"
             )
             await websocket.send_json(error_msg)
-            return None, None
-
-    async def _get_backend_websocket(
-        self,
-        provider_name: str,
-        backend_ws: Any,
-        current_provider: str | None,
-    ) -> Any:  # websockets.WebSocketClientProtocol
-        """Get or establish backend WebSocket connection (Auth 2: Proxy -> Service).
-
-        Args:
-            provider_name: Provider name from model ID
-            backend_ws: Existing backend WebSocket (if any)
-            current_provider: Current provider name (for reuse check)
-
-        Returns:
-            WebSocket connection to backend
-
-        Raises:
-            ValueError: If provider not found or not configured
-            websockets.exceptions.WebSocketException: If connection fails
-        """
-        # Reuse existing connection if provider matches
-        if backend_ws is not None and current_provider == provider_name:
-            # Check if connection is still alive
-            if not backend_ws.closed:
-                return backend_ws
-            else:
-                # Connection closed, create new one below
-                try:
-                    await backend_ws.close()
-                except Exception:
-                    pass
-
-        # Create new connection using factory
-        return await self.ws_factory.create_connection(provider_name)
