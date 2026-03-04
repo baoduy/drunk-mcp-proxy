@@ -6,11 +6,12 @@ A proxy server for Model Context Protocol (MCP) that dynamically routes requests
 import sys
 from pathlib import Path
 
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+# Ensure the src directory is on sys.path when running as a script
+_project_root = Path(__file__).resolve().parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
-from app import MCPProxyServer  # type: ignore[import-not-found]
+from app import MCPProxyServer  # type: ignore[import-not-found]  # noqa: E402
 
 
 def main() -> None:

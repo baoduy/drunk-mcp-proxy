@@ -25,29 +25,37 @@ from tools.env import (
     RATE_LIMIT_WINDOW_SECONDS,
 )
 
+
 class AuthHeaderMiddleware(BaseHTTPMiddleware):
     """Middleware to validate that Authorization header is not empty when AUTH_ENABLED is true."""
+
     _AnonymousPaths = DEFAULT_ANONYMOUS_PATHS
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         # Skip authentication for anonymous paths
         if is_anonymous_path(request.url.path, self._AnonymousPaths):
             return await call_next(request)
-        
+
         authorization = request.headers.get("authorization", "").strip()
         if not authorization:
             return JSONResponse(
                 status_code=401,
                 content={"error": "Missing or empty Authorization header"},
             )
-        
+
         return await call_next(request)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Fixed-window rate limiter based on client IP address."""
 
-    def __init__(self, app:ASGIApp, cache: TTLAsyncKeyValue, max_requests: int, window_seconds: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        cache: TTLAsyncKeyValue,
+        max_requests: int,
+        window_seconds: int,
+    ) -> None:
         super().__init__(app)
         self._cache = cache
         self._max_requests = max_requests
@@ -101,31 +109,32 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return "unknown"
 
+
 def _parse_csv(value: str) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _create_cros_middleware() -> Middleware:
+def _create_cors_middleware() -> Middleware:
     # Parse allowed origins from environment
-    origins = _parse_csv(CORS_ALLOW_ORIGINS) if CORS_ALLOW_ORIGINS else ['*']  # Default: allow all origins
+    origins = _parse_csv(CORS_ALLOW_ORIGINS) if CORS_ALLOW_ORIGINS else ["*"]
 
     # Parse other CORS settings, with sensible defaults
-    methods = _parse_csv(CORS_ALLOW_METHODS) or ["*"]  # Default: allow all methods
-    headers = _parse_csv(CORS_ALLOW_HEADERS) or ["*"]  # Default: allow all headers
-    expose_headers = _parse_csv(CORS_EXPOSE_HEADERS)  # Only expose if specified
+    methods = _parse_csv(CORS_ALLOW_METHODS) or ["*"]
+    headers = _parse_csv(CORS_ALLOW_HEADERS) or ["*"]
+    expose_headers = _parse_csv(CORS_EXPOSE_HEADERS)
 
-    # Build and return CORS middleware
     return Middleware(
-            CORSMiddleware,
-            allow_origins=origins,  # Which origins can access
-            allow_methods=methods,  # Which HTTP methods are allowed
-            allow_headers=headers,  # Which request headers are allowed
-            allow_credentials=bool(CORS_ALLOW_CREDENTIALS),
-            max_age=CORS_MAX_AGE,
-            expose_headers=expose_headers,  # Which response headers to expose
-        )
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_methods=methods,
+        allow_headers=headers,
+        allow_credentials=bool(CORS_ALLOW_CREDENTIALS),
+        max_age=CORS_MAX_AGE,
+        expose_headers=expose_headers,
+    )
+
 
 def _create_auth_header_middleware() -> Middleware:
     """Create middleware to validate Authorization header when AUTH_ENABLED is true."""
@@ -140,16 +149,16 @@ def _create_rate_limit_middleware() -> Middleware:
         max_requests=RATE_LIMIT_REQUESTS,
         window_seconds=RATE_LIMIT_WINDOW_SECONDS,
     )
-    
+
+
 def get_middlewares() -> list[Middleware]:
     """Get the list of middlewares to apply to the FastMCP server.
 
     Returns:
         A list of Starlette Middleware instances.
     """
-
     middlewares = [
-        _create_cros_middleware(),
+        _create_cors_middleware(),
     ]
     if AUTH_ENABLED:
         middlewares.append(_create_auth_header_middleware())

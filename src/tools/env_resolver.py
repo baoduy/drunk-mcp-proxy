@@ -76,7 +76,7 @@ def resolve_env_vars_in_dict(data: dict[str, Any]) -> dict[str, Any]:
     Raises:
         ValueError: If a referenced environment variable is not set.
     """
-    resolved:dict[str, Any] = {}
+    resolved: dict[str, Any] = {}
 
     for key, value in data.items():
         if isinstance(value, str):
@@ -107,7 +107,7 @@ def resolve_env_vars_in_list(data: list[Any]) -> list[Any]:
     Raises:
         ValueError: If a referenced environment variable is not set.
     """
-    resolved:list[Any] = []
+    resolved: list[Any] = []
 
     for item in data:
         if isinstance(item, str):
@@ -145,6 +145,6 @@ def resolve_env_vars(
         return resolve_env_var(data)
     elif isinstance(data, dict):
         return resolve_env_vars_in_dict(data)
-    elif isinstance(data, list): # type: ignore
+    elif isinstance(data, list):  # type: ignore
         return resolve_env_vars_in_list(data)
     return data

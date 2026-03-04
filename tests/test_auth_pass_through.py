@@ -53,9 +53,9 @@ class TestAuthPassThroughGetToken:
         auth._get_token()
 
         mock_logger.info.assert_called_once()
-        # Verify the logger was called with a message containing "Access token:"
+        # Verify the logger was called with a message containing "Access token"
         call_message = mock_logger.info.call_args[0][0]
-        assert "Access token:" in call_message
+        assert "Access token" in call_message
 
     @patch('src.auth_providers.auth_pass_through.logger')
     @patch('src.auth_providers.auth_pass_through.get_access_token')

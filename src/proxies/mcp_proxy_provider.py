@@ -3,6 +3,7 @@
 This module provides a class for creating FastMCP instances from MCP configurations.
 """
 from __future__ import annotations
+
 from logging import Logger
 
 from fastmcp import FastMCP
@@ -12,16 +13,17 @@ from tools.env import SERVER_NAME, SERVER_VERSION
 from tools.logging_config import setup_logging
 from tools.mcp_proxy_builder import build_mcp_proxy_configs
 
+
 class McpProxyProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
 
-    def __init__(self, config: McpConfig, root_mcp:FastMCP|None=None) -> None:
+    def __init__(self, config: McpConfig, root_mcp: FastMCP | None = None) -> None:
         super().__init__(config)
         self.root_mcp = root_mcp
         self.mcp: FastMCP | None = None
         self._logger: Logger = setup_logging(__name__)
 
-    def _create_proxy(self, mcp:FastMCP):
+    def _create_proxy(self, mcp: FastMCP):
         if self.config.spec_data is None:
             self._logger.warning(
                 "spec_data or mcp_servers is required for MCP config '%s'",
@@ -31,7 +33,7 @@ class McpProxyProvider(McpBaseProvider):
         
         self._logger.info("Creating proxy for MCP config: %s", self.config.path)
         from fastmcp.server import create_proxy
-        proxy= create_proxy(self.config.spec_data, name=self.config.path)
+        proxy = create_proxy(self.config.spec_data, name=self.config.path)
         mcp.mount(proxy)
     
     def create_proxy(self) -> FastMCP:

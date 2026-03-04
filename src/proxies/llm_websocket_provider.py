@@ -31,12 +31,14 @@ from tools import LlmConfig
 from tools.logging_config import setup_logging
 from websockets.asyncio.client import ClientConnection
 
+
 class AsyncOpenAIFactoryProtocol(Protocol):
     """Protocol for AsyncOpenAI factory dependency."""
 
     def get_client(self, provider_name: str) -> AsyncOpenAI:
         """Get configured AsyncOpenAI client for provider."""
         ...
+
 
 class WebSocketFactory:
     """Factory for creating backend WebSocket connections with auth.

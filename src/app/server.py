@@ -115,10 +115,12 @@ class MCPProxyServer:
         server_port = PORT or 9123
 
         self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
-                             server_host, server_port, LOG_LEVEL.lower())
+                         server_host, server_port, LOG_LEVEL.lower())
 
         import uvicorn
-        config = uvicorn.Config(app, host=server_host, port=server_port, log_level=LOG_LEVEL.lower())
+        config = uvicorn.Config(
+            app, host=server_host, port=server_port, log_level=LOG_LEVEL.lower()
+        )
         server = uvicorn.Server(config)
 
         self.logger.info("Starting uvicorn server")
@@ -138,7 +140,7 @@ class MCPProxyServer:
         Called during server startup to provide visibility into the server configuration
         and aid in troubleshooting and monitoring.
         """
-        config:dict[str, str | bool | int] = {
+        config: dict[str, str | bool | int] = {
             "server_name": SERVER_NAME,
             "server_version": SERVER_VERSION,
             "host": HOST or "0.0.0.0",

@@ -39,7 +39,7 @@ class McpProxyConfig:
     def http_app(self, path: str = "/") -> "StarletteWithLifespan":
         """Return the underlying Web application for this MCP proxy."""
         return self.mcp_server.http_app(
-            path=path, transport=SERVER_TRANSPORT or "streamable-http" # type: ignore
+            path=path, transport=SERVER_TRANSPORT or "streamable-http"  # type: ignore
         )  # type: ignore
 
 
@@ -122,4 +122,4 @@ class McpBaseProvider(ABC):
         pass_through = self.config.auth.pass_through if self.config.auth else False
         provider_Name = self.config.auth.auth_provider if self.config.auth else None
 
-        return AppConfigProvider.get_instance().get_client_auth_handler(provider_Name,pass_through)
+        return AppConfigProvider.get_instance().get_client_auth_handler(provider_Name, pass_through)
