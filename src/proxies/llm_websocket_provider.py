@@ -25,8 +25,8 @@ from typing import Any
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 from proxies.llm_base_provider import LlmBaseProvider
-from tools import setup_logging
-from tools import LlmConfig
+from tools import LlmConfig, setup_logging
+from websockets.asyncio.client import ClientConnection
 
 logger = setup_logging(__name__)
 
@@ -47,7 +47,7 @@ class WebSocketFactory:
     
     async def create_connection(
         self, provider_name: str
-    ) -> Any:  # websockets.WebSocketClientProtocol
+    ) -> ClientConnection:
         """Create WebSocket connection to backend provider.
         
         Args:
@@ -118,7 +118,7 @@ class BackendConnectionPool:
     
     def __init__(self) -> None:
         """Initialize connection pool."""
-        self._connections: dict[tuple[str, str], Any] = {}  # (client_id, provider) -> backend_ws
+        self._connections: dict[tuple[str, str], ClientConnection] = {}  # (client_id, provider) -> backend_ws
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}  # Per-key locks for concurrency
     
     def _get_lock(self, client_id: str, provider_name: str) -> asyncio.Lock:
@@ -137,7 +137,7 @@ class BackendConnectionPool:
         return self._locks[key]
     
     @staticmethod
-    def _check_connection_alive(backend_ws: Any) -> bool:
+    def _check_connection_alive(backend_ws: ClientConnection | None) -> bool:
         """Check if backend WebSocket connection is still alive.
         
         Args:
@@ -146,14 +146,39 @@ class BackendConnectionPool:
         Returns:
             True if connection is open, False otherwise
         """
-        return backend_ws is not None and not backend_ws.closed
+        if backend_ws is None:
+            return False
+
+        # Legacy websocket clients expose `.closed`.
+        closed_attr = getattr(backend_ws, "closed", None)
+        if isinstance(closed_attr, bool):
+            return not closed_attr
+
+        # Newer websocket clients expose `.state` (OPEN/CLOSING/CLOSED).
+        state = getattr(backend_ws, "state", None)
+        if state is not None:
+            state_name = getattr(state, "name", str(state))
+            return str(state_name).upper() == "OPEN"
+
+        # Fallback for protocol objects exposing `.open`.
+        open_attr = getattr(backend_ws, "open", None)
+        if isinstance(open_attr, bool):
+            return open_attr
+
+        # If close code exists, connection is closed.
+        close_code = getattr(backend_ws, "close_code", None)
+        if close_code is not None:
+            return False
+
+        # Unknown client type: assume alive and let send/recv validate.
+        return True
     
     async def get_connection(
         self,
         client_id: str,
         provider_name: str,
         ws_factory: WebSocketFactory,
-    ) -> Any:  # websockets.WebSocketClientProtocol
+    ) -> ClientConnection:
         """Get existing or create new backend WebSocket connection.
         
         Args:
@@ -174,7 +199,7 @@ class BackendConnectionPool:
         async with lock:
             # Check if we have an existing connection
             existing_ws = self._connections.get(key)
-            if self._check_connection_alive(existing_ws):
+            if existing_ws is not None and self._check_connection_alive(existing_ws):
                 logger.debug(
                     "Reusing backend connection for client=%s, provider=%s",
                     client_id, provider_name

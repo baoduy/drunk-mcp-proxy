@@ -115,6 +115,7 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
 
 ### Typing
 - **Type Hints**: Mandatory for all function signatures (arguments and return types).
+- **Avoid broad `Any`**: Prefer concrete library types (e.g., FastAPI/Starlette/websockets classes) and `Protocol` for interface-style typing. Use `Any` only when dynamic data is unavoidable, and keep that scope minimal.
 - Use `Optional[Type]` or `Type | None` for nullable types.
 - Use `Any` sparingly.
 
