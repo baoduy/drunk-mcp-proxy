@@ -57,7 +57,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN drunk-ai-proxy --help 2>&1 | head -5 || echo "Entry point verification skipped"
 
 # Copy application data and schemas directly from project
-COPY --chown=appuser:appuser data/ ./data/
+RUN mkdir -p ./data && chown -R appuser:appuser ./data
 COPY --chown=appuser:appuser schemas/ ./schemas/
 
 # Setup user directories and environment in single layer
