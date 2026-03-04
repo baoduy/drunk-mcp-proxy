@@ -7,22 +7,28 @@
 - [github-docs](https://baoduy.github.io/drunk-mcp-proxy/)
 - [docker-hub](https://hub.docker.com/r/baoduy2412/mcp-proxy)
 
-A powerful, production-ready dynamic proxy server for the Model Context Protocol (MCP) built with Python and FastMCP. This service enables MCP clients to seamlessly connect to multiple backend MCP servers through a unified, scalable interface with advanced features including authentication, CORS support, and environment-based configuration.
+A powerful, production-ready dynamic proxy server for the Model Context Protocol (MCP) and LLM APIs, built with Python and FastMCP. This service enables MCP clients and LLM-compatible applications to seamlessly connect to multiple backend MCP servers and LLM providers through a unified, scalable interface with advanced features including authentication, CORS support, and environment-based configuration.
 
 ## 🎯 Overview
 
-drunk-mcp-proxy acts as a central gateway for Model Context Protocol (MCP) services, providing:
+drunk-mcp-proxy acts as a central gateway for both Model Context Protocol (MCP) services and LLM providers, providing:
 
-- **Unified Interface**: Single endpoint for multiple backend MCP servers
+- **Unified Interface**: Single endpoint for multiple backend MCP servers and LLM providers
 - **Dynamic Routing**: Automatic routing to configured backend services  
 - **Namespace Isolation**: Prevent tool name conflicts with per-server namespaces
 - **OpenAPI Integration**: Automatic conversion of OpenAPI specs to MCP tools
+- **LLM Proxy**: Multi-provider LLM API gateway with OpenAI-compatible endpoints
+- **Anthropic Compatibility**: Proxy Anthropic Messages API requests through OpenAI-compatible backends
+- **WebSocket Responses API**: Native WebSocket support for OpenAI Responses API streaming
 - **Enterprise Authentication**: 14+ pluggable auth providers (JWT, OAuth, GitHub, Azure, etc.)
 - **Production Ready**: Health checks, CORS, structured logging, Docker support
 
 ## ✨ Key Features
 
-- 🚀 **Dynamic Proxy Management**: Configure multiple MCP and OpenAPI services via JSON
+- 🚀 **Dynamic Proxy Management**: Configure multiple MCP and OpenAPI services via YAML
+- 🤖 **LLM Gateway**: Route requests to multiple LLM providers (OpenAI, Ollama, LM Studio, etc.)
+- 🔄 **Anthropic API Compatibility**: Use Anthropic/Claude clients with any OpenAI-compatible backend
+- 🔌 **WebSocket Responses API**: Full WebSocket support for OpenAI Responses API
 - 🐳 **Docker Support**: Multi-stage production Docker image with health checks
 - 🔐 **Enterprise Auth**: JWT, GitHub, Google, Discord, Azure OAuth, and custom auth providers
 - 🌐 **CORS Ready**: Full CORS middleware for web client integration
@@ -296,26 +302,36 @@ For comprehensive documentation, see the [Documentation Index](docs/INDEX.md).
 ## 🏗️ Architecture Overview
 
 ```
-MCP Client (e.g., Claude Desktop)
-        ↓ (HTTP/SSE + Authorization)
+MCP Client / LLM Client / Anthropic Client
+        ↓ (HTTP/SSE/WebSocket + Authorization)
         ↓
-┌─────────────────────────────────────┐
-│  drunk-mcp-proxy Server             │
-│ ┌───────────────────────────────┐  │
-│ │ Starlette ASGI Application    │  │
-│ │ • CORS Middleware             │  │
-│ │ • Auth Validation             │  │
-│ │ • Rate Limiting               │  │
-│ │ • Health Check: /health       │  │
-│ │ • Root FastMCP Server (/)     │  │
-│ │ • Sub-services:               │  │
-│ │   - /stock (MCP)              │  │
-│ │   - /wiki (MCP)               │  │
-│ │   - /api (OpenAPI)            │  │
-│ └───────────────────────────────┘  │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  drunk-mcp-proxy Server                      │
+│ ┌────────────────────────────────────────┐  │
+│ │ Starlette ASGI Application             │  │
+│ │ • CORS Middleware                      │  │
+│ │ • Auth Validation                      │  │
+│ │ • Rate Limiting                        │  │
+│ │ • Health Check: /health                │  │
+│ │ • Root FastMCP Server (/)              │  │
+│ │ • MCP Sub-services:                    │  │
+│ │   - /stock (MCP)                       │  │
+│ │   - /wiki (MCP)                        │  │
+│ │   - /api (OpenAPI)                     │  │
+│ │ • LLM Proxy (/api/v1):                │  │
+│ │   - POST /chat/completions             │  │
+│ │   - POST /messages (Anthropic API)     │  │
+│ │   - WS   /responses (WebSocket)        │  │
+│ │   - POST /embeddings                   │  │
+│ │   - POST /images/generations           │  │
+│ │   - POST /audio/transcriptions         │  │
+│ │   - POST /audio/translations           │  │
+│ │   - GET  /models                       │  │
+│ │   - GET  /providers                    │  │
+│ └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
         ↓ ↓ ↓
-   [Backend MCP/OpenAPI Services]
+   [Backend MCP/OpenAPI/LLM Services]
 ```
 
 See [System Architecture](docs/architecture/system-architecture.md) for detailed diagrams.
@@ -368,12 +384,160 @@ python -m pytest tests/test_server.py
 python -m pytest --cov=src --cov-report=html
 ```
 
-## Try with Claude Code
+## 🤖 LLM Proxy
+
+When LLM providers are configured, drunk-mcp-proxy exposes a full OpenAI-compatible LLM gateway at `/api/v1`. All endpoints use the model ID format `provider_modelname` (e.g., `openai_gpt-4o`, `lms_llama3.2`) to route requests to the appropriate backend.
+
+### LLM Provider Configuration
+
+Add providers to the `llm` section of `config.yaml`:
+
+```yaml
+llm:
+  - enabled: true
+    websocket: true       # Enable for providers that support native WebSocket Responses API
+                          # When false, HTTP Responses API is used as fallback
+    provider: openai      # Short provider name used as prefix in model IDs
+    base_url: "https://api.openai.com/v1"
+    api_key: $OPENAI_API_KEY
+
+  - enabled: true
+    websocket: false
+    provider: lms         # LM Studio
+    base_url: "http://host.docker.internal:1234/v1"
+
+  - enabled: false
+    provider: oll         # Ollama
+    base_url: "http://host.docker.internal:11434/v1"
+```
+
+### Model ID Format
+
+All LLM endpoints expect the model ID to include a provider prefix separated by an underscore:
+
+```
+{provider}_{model_name}
+```
+
+Examples:
+- `openai_gpt-4o` → routes to the `openai` provider, model `gpt-4o`
+- `lms_llama3.2` → routes to the `lms` (LM Studio) provider, model `llama3.2`
+- `ort_claude-3-5-sonnet` → routes to the `ort` (OpenRouter) provider, model `claude-3-5-sonnet`
+
+### Available Endpoints
+
+All endpoints are mounted at `/api/v1` (configurable via `FASTMCP_LLM_ROUTE_PREFIX`):
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/chat/completions` | OpenAI-compatible chat completions |
+| `POST` | `/api/v1/messages` | Anthropic Messages API (see below) |
+| `WS`   | `/api/v1/responses` | OpenAI WebSocket Responses API |
+| `POST` | `/api/v1/embeddings` | Text embeddings |
+| `POST` | `/api/v1/images/generations` | Image generation |
+| `POST` | `/api/v1/audio/transcriptions` | Audio transcription (Whisper) |
+| `POST` | `/api/v1/audio/translations` | Audio translation |
+| `GET`  | `/api/v1/models` | List all available models across providers |
+| `GET`  | `/api/v1/providers` | List all configured providers |
+
+### Chat Completions
+
+Standard OpenAI-compatible chat completions:
 
 ```bash
-export ANTHROPIC_BASE_URL=http://localhost:9123/api
+curl -X POST http://localhost:9123/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "openai_gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": false
+  }'
+```
+
+### Anthropic Messages API Compatibility
+
+The `/messages` endpoint accepts Anthropic Messages API format and transparently converts to/from the OpenAI format, letting Anthropic/Claude clients use any OpenAI-compatible backend:
+
+```bash
+curl -X POST http://localhost:9123/api/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "lms_llama3.2",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 1024
+  }'
+```
+
+**Supported conversions:**
+- System prompts (string and block array)
+- Multimodal content (text, base64 images, URL images)
+- Tool use and tool results
+- Streaming SSE events in Anthropic format
+- `stop_sequences` → `stop`, `metadata.user_id` → `user`, finish reason mapping
+
+#### Use with Claude Code CLI
+
+Point the Claude Code CLI at the proxy to use any backend model with the Anthropic-compatible endpoint:
+
+```bash
+export ANTHROPIC_BASE_URL=http://localhost:9123/api/v1
 export ANTHROPIC_AUTH_TOKEN=YOUR_API_KEY_HERE
-claude --model lms_openai/gpt-oss-20b
+claude --model lms_llama3.2
+```
+
+### WebSocket Responses API
+
+The `/responses` WebSocket endpoint provides OpenAI Responses API streaming. Clients connect via WebSocket and exchange JSON messages using the OpenAI Responses API protocol.
+
+**Connection URL:** `ws://localhost:9123/api/v1/responses`
+
+**Message flow:**
+1. Client connects with `Authorization: Bearer <token>` header
+2. Client sends a `response.create` event with `model: "provider_modelname"`
+3. Proxy routes to the configured backend and streams response events back
+4. For providers with `websocket: true`, native WebSocket is used for lowest latency
+5. For other providers, the HTTP Responses API is used as fallback
+
+```javascript
+const ws = new WebSocket("ws://localhost:9123/api/v1/responses", {
+  headers: { "Authorization": "Bearer YOUR_API_KEY" }
+});
+
+ws.send(JSON.stringify({
+  type: "response.create",
+  response: {
+    model: "openai_gpt-4o",
+    instructions: "You are a helpful assistant.",
+    input: [{ type: "message", role: "user", content: "Hello!" }]
+  }
+}));
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(data.type, data);  // response.created, response.output_text.delta, response.done, etc.
+};
+```
+
+**Provider WebSocket support:** Set `websocket: true` in the provider config for providers that natively support the `/responses` WebSocket endpoint (e.g., OpenAI). For all other providers, the HTTP Responses API is used as a fallback.
+
+> **Note:** The `previous_response_id` continuation feature is only supported for providers with native WebSocket (`websocket: true`). Using it with HTTP fallback providers returns an error.
+
+### List Models and Providers
+
+```bash
+# List all models across all configured providers
+curl http://localhost:9123/api/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# Filter by provider
+curl "http://localhost:9123/api/v1/models?provider=openai" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# List configured providers
+curl http://localhost:9123/api/v1/providers \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ## 🤝 Contributing
