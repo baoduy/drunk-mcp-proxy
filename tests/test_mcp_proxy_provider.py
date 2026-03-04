@@ -28,7 +28,7 @@ class TestMcpProxyProviderInit:
         assert provider.config == mock_config
         assert provider.root_mcp is None
         assert provider.mcp is None
-        assert provider.logger is not None
+        assert provider._logger is not None
 
     def test_init_with_root_mcp(self):
         """Test initialization with root_mcp parameter."""

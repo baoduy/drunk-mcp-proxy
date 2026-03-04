@@ -8,6 +8,7 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 from __future__ import annotations
 
 from functools import partial
+from logging import Logger
 from typing import TYPE_CHECKING
 
 from fastmcp.server.http import StarletteWithLifespan
@@ -18,6 +19,7 @@ from starlette.responses import JSONResponse
 from .lifespan import AppLifespanManager
 from .swagger_provider import SwaggerProvider
 from tools.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
+from tools.error_utils import sanitize_error_message
 from tools.logging_config import setup_logging
 
 if TYPE_CHECKING:
@@ -70,7 +72,7 @@ class StarletteApp:
             routes: Initial list of routes (health check will be added automatically)
             middleware: Optional list of Starlette middleware
         """
-        self._logger = setup_logging("StarletteApp")
+        self._logger: Logger = setup_logging(__name__)
         self.middleware = middleware
         self.lifespan_manager = AppLifespanManager()
         # Get configuration from environment variables
@@ -102,8 +104,11 @@ class StarletteApp:
             request: The incoming request that caused the exception
             exc: The exception that was raised
         """
-        self._logger.error("Unhandled exception: %s", exc, exc_info=True)
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        self._logger.error("Unhandled exception: %s", type(exc).__name__)
+        return JSONResponse(
+            {"error": sanitize_error_message(str(exc))},
+            status_code=500,
+        )
 
     def add_mcp_service(self, service: "McpProxyConfig"
                         ) -> None:

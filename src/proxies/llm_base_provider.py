@@ -8,10 +8,13 @@ and parameter validation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from logging import Logger
 from typing import Any, Mapping
 
 from fastapi.responses import JSONResponse
-from tools import setup_logging
+from tools.error_utils import sanitize_error_message
+from tools.logging_config import setup_logging
+from tools.serialization import to_dict
 
 
 class LlmBaseProvider(ABC):
@@ -27,7 +30,7 @@ class LlmBaseProvider(ABC):
 
     def __init__(self) -> None:
         """Initialize base provider with logger."""
-        self._logger = setup_logging(self.__class__.__name__)
+        self._logger: Logger = setup_logging(__name__)
 
     @staticmethod
     def parse_model_id(model_id: str) -> tuple[str, str]:
@@ -50,21 +53,6 @@ class LlmBaseProvider(ABC):
         # If no "_" found, treat the whole string as model_name with empty provider
         return "", model_id
 
-    @staticmethod
-    def _sanitize_error_message(message: str) -> str:
-        """Sanitize error message to prevent information exposure.
-
-        Removes sensitive details like API keys, paths, and internal error info
-        from error messages before returning them to clients.
-
-        Args:
-            message: The raw error message.
-
-        Returns:
-            Sanitized error message safe for client consumption.
-        """
-        return "An error occurred while processing the request"
-
     def handle_exception(self, e: Exception, context: str = "") -> JSONResponse:
         """Consistent error response and logging.
 
@@ -79,11 +67,11 @@ class LlmBaseProvider(ABC):
             JSONResponse with sanitized error message and 400 status code.
         """
         self._logger.error("%s: %s", context, type(e).__name__)
-        safe_message = self._sanitize_error_message(str(e))
+        safe_message = sanitize_error_message(str(e))
         return JSONResponse(content={"error": {"message": safe_message}}, status_code=400)
 
     @staticmethod
-    def _to_dict(obj: Any) -> dict[str, Any]:
+    def _to_dict(obj: object) -> dict[str, object]:
         """Convert a Pydantic model or dict to a dict.
 
         Handles conversion of Pydantic models, dataclasses, and regular dicts.
@@ -94,16 +82,11 @@ class LlmBaseProvider(ABC):
         Returns:
             Dictionary representation of the object.
         """
-        if isinstance(obj, dict):
-            return obj  # type: ignore
-        elif hasattr(obj, "model_dump"):
-            return obj.model_dump()
-        else:
-            return obj.__dict__
+        return to_dict(obj)
 
     @staticmethod
     def _json_response(
-        data: Any, status_code: int = 200
+        data: object, status_code: int = 200
     ) -> JSONResponse:
         """Wrap data in a JSONResponse, converting objects to dict first.
 

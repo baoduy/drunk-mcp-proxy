@@ -168,7 +168,7 @@ class TestMcpProxyProviderCreateProxyMethod:
         provider = McpProxyProvider(mock_config)
         mock_mcp = MagicMock()
 
-        with patch.object(provider.logger, "info") as mock_log_info:
+        with patch.object(provider._logger, "info") as mock_log_info:
             provider._create_proxy(mock_mcp)
             mock_log_info.assert_called_once()
             assert "Creating proxy for MCP config" in str(mock_log_info.call_args)
@@ -191,7 +191,7 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         assert result == []
 
     @patch("src.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("src.proxies.mcp_proxy_provider.FastMCP")
+    @patch("tools.mcp_proxy_builder.FastMCP")
     @patch("src.proxies.mcp_proxy_provider.SERVER_NAME", "test-server")
     @patch("src.proxies.mcp_proxy_provider.SERVER_VERSION", "1.0.0")
     def test_create_mcp_proxies_configs_creates_root_mcp(
@@ -218,7 +218,8 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         # Should have at least the root config
         assert len(result) >= 1
         assert result[0].path == "/"
-        assert result[0].mcp_server == mock_root
+        # Verify mock was returned by checking it was called
+        assert result[0].mcp_server is mock_root
 
     @patch("src.proxies.mcp_base_provider.AppConfigProvider.get_instance")
     @patch("src.proxies.mcp_proxy_provider.FastMCP")

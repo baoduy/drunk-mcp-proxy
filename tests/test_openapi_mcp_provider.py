@@ -22,7 +22,7 @@ class TestOpenApiMcpProviderInit:
 
         assert provider.config == mock_config
         assert provider.mcp is None
-        assert provider.logger is not None
+        assert provider._logger is not None
 
 
 class TestOpenApiMcpProviderCustomRouteMapper:

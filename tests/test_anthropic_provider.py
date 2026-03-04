@@ -15,6 +15,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from proxies.anthropic_provider import AnthropicProvider
+from tools.serialization import to_dict
 
 
 class TestAnthropicToOpenAIRequest:
@@ -604,16 +605,16 @@ class TestFormatAnthropicStreamingResponse:
 
 
 class TestToDict:
-    """Tests for _to_dict helper method."""
+    """Tests for to_dict helper function."""
 
     def test_to_dict_with_dict(self) -> None:
-        """Test _to_dict with plain dict."""
+        """Test to_dict with plain dict."""
         obj = {"key": "value"}
-        result = AnthropicProvider._to_dict(obj)
+        result = to_dict(obj)
         assert result == {"key": "value"}
 
     def test_to_dict_with_pydantic_model(self) -> None:
-        """Test _to_dict with Pydantic model."""
+        """Test to_dict with Pydantic model."""
         from pydantic import BaseModel
         
         class TestModel(BaseModel):
@@ -621,12 +622,12 @@ class TestToDict:
             value: int
         
         obj = TestModel(name="test", value=42)
-        result = AnthropicProvider._to_dict(obj)
+        result = to_dict(obj)
         
         assert result == {"name": "test", "value": 42}
 
     def test_to_dict_with_object_dict(self) -> None:
-        """Test _to_dict with object having __dict__."""
+        """Test to_dict with object having __dict__."""
         
         class TestObj:
             def __init__(self):
@@ -634,13 +635,13 @@ class TestToDict:
                 self.num = 123
         
         obj = TestObj()
-        result = AnthropicProvider._to_dict(obj)
+        result = to_dict(obj)
         
         assert result == {"foo": "bar", "num": 123}
 
     def test_to_dict_with_string(self) -> None:
-        """Test _to_dict with string (returns as-is in dict)."""
+        """Test to_dict with string (returns empty dict for non-dict-like objects)."""
         obj = "test string"
-        result = AnthropicProvider._to_dict(obj)
-        # Should wrap in dict or return as-is - based on implementation
-        assert isinstance(result, dict) or result == obj
+        result = to_dict(obj)
+        # String is not dict-like, should return empty dict
+        assert result == {}

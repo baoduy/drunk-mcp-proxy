@@ -4,7 +4,9 @@ This module provides a class for creating FastMCP instances from McpProxyConfig.
 """
 from __future__ import annotations
 
+from logging import Logger
 from typing import TYPE_CHECKING
+
 from fastmcp import FastMCP
 import httpx
 from fastmcp.utilities.openapi import HTTPRoute
@@ -17,15 +19,16 @@ from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
 from tools import McpConfig
 from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
+from tools.mcp_proxy_builder import build_openapi_proxy_configs
 
 
 class OpenApiMcpProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from McpProxyConfig."""
 
     def __init__(self, config: McpConfig) -> None:
+        super().__init__(config)
         self.mcp: FastMCP | None = None
-        self.config = config
-        self.logger = setup_logging(__name__)
+        self._logger: Logger = setup_logging(__name__)
 
     def custom_route_mapper(self, route: "HTTPRoute", mcp_type: "MCPType") -> "MCPType | None":
         if self.config.filters is not None:
@@ -70,11 +73,7 @@ class OpenApiMcpProvider(McpBaseProvider):
 
     @staticmethod
     def create_mcp_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
-        mcp_proxy_configs: list[McpProxyConfig] = []
-        for config in configs:
-            if config.spec_data is None:
-                continue
-
-            mcp = OpenApiMcpProvider(config)
-            mcp_proxy_configs.append(mcp.get_mcp_proxy_config())
-        return mcp_proxy_configs
+        return build_openapi_proxy_configs(
+            configs=configs,
+            provider_factory=lambda config: OpenApiMcpProvider(config),
+        )

@@ -6,7 +6,9 @@ Tests the AuthHeaderMiddleware for request path handling and token validation.
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
+
 from src.middleware.auth_header_middleware import AuthHeaderMiddleware
+from src.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS
 
 
 class TestAuthHeaderMiddlewareInit:
@@ -15,7 +17,7 @@ class TestAuthHeaderMiddlewareInit:
     def test_init_default_anonymous_paths(self):
         """Test initialization with default anonymous paths."""
         middleware = AuthHeaderMiddleware()
-        assert middleware.anonymous_paths == ["/health", "/docs"]
+        assert middleware.anonymous_paths == list(DEFAULT_ANONYMOUS_PATHS)
 
     def test_init_custom_anonymous_paths(self):
         """Test initialization with custom anonymous paths."""
@@ -24,15 +26,15 @@ class TestAuthHeaderMiddlewareInit:
         assert middleware.anonymous_paths == custom_paths
 
     def test_init_empty_anonymous_paths(self):
-        """Test initialization with empty anonymous paths list defaults to ['/health', '/docs']."""
+        """Test initialization with empty anonymous paths list defaults to shared defaults."""
         middleware = AuthHeaderMiddleware(anonymous_paths=[])
-        # Empty list is falsy, so defaults to ['/health', '/docs']
-        assert middleware.anonymous_paths == ["/health", "/docs"]
+        # Empty list is falsy, so defaults to shared defaults
+        assert middleware.anonymous_paths == list(DEFAULT_ANONYMOUS_PATHS)
 
     def test_init_none_anonymous_paths(self):
         """Test initialization with None uses defaults."""
         middleware = AuthHeaderMiddleware(anonymous_paths=None)
-        assert middleware.anonymous_paths == ["/health", "/docs"]
+        assert middleware.anonymous_paths == list(DEFAULT_ANONYMOUS_PATHS)
 
 
 class TestGetRequestPath:
@@ -109,6 +111,11 @@ class TestShouldValidateAuth:
         middleware = AuthHeaderMiddleware()
         assert middleware._should_validate_auth("/docs") is False
 
+    def test_should_validate_auth_anonymous_path_root(self):
+        """Test that / endpoint skips validation."""
+        middleware = AuthHeaderMiddleware()
+        assert middleware._should_validate_auth("/") is False
+
     def test_should_validate_auth_custom_anonymous_paths(self):
         """Test with custom anonymous paths."""
         middleware = AuthHeaderMiddleware(
@@ -124,11 +131,12 @@ class TestShouldValidateAuth:
         assert middleware._should_validate_auth(None) is True
 
     def test_should_validate_auth_empty_anonymous_list(self):
-        """Test with empty anonymous paths list defaults to ['/health', '/docs']."""
-        # Empty list is falsy and defaults to ['/health', '/docs']
+        """Test with empty anonymous paths list defaults to shared defaults."""
+        # Empty list is falsy and defaults to shared defaults
         middleware = AuthHeaderMiddleware(anonymous_paths=[])
         assert middleware._should_validate_auth("/health") is False
         assert middleware._should_validate_auth("/docs") is False
+        assert middleware._should_validate_auth("/") is False
 
 
 class TestValidateAccessToken:
@@ -148,7 +156,7 @@ class TestValidateAccessToken:
 
         mock_get_token.assert_called_once()
         middleware._logger.info.assert_called_once()
-        assert "test-client" in middleware._logger.info.call_args[0][0]
+        assert "Access token present" in middleware._logger.info.call_args[0][0]
 
     @patch("src.middleware.auth_header_middleware.get_access_token")
     def test_validate_access_token_absent(self, mock_get_token):

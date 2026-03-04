@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.cache_provider import CacheProvider, TTLAsyncKeyValue
+from tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
 
 from tools.env import (
     CORS_ALLOW_ORIGINS,
@@ -26,11 +27,11 @@ from tools.env import (
 
 class AuthHeaderMiddleware(BaseHTTPMiddleware):
     """Middleware to validate that Authorization header is not empty when AUTH_ENABLED is true."""
-    _AnonymousPaths = ["/","/health", "/docs", "/openapi.json"]
+    _AnonymousPaths = DEFAULT_ANONYMOUS_PATHS
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         # Skip authentication for anonymous paths
-        if request.url.path in self._AnonymousPaths:
+        if is_anonymous_path(request.url.path, self._AnonymousPaths):
             return await call_next(request)
         
         authorization = request.headers.get("authorization", "").strip()
@@ -147,12 +148,12 @@ def get_middlewares() -> list[Middleware]:
         A list of Starlette Middleware instances.
     """
 
-    list = [
+    middlewares = [
         _create_cros_middleware(),
     ]
     if AUTH_ENABLED:
-        list.append(_create_auth_header_middleware())
+        middlewares.append(_create_auth_header_middleware())
     if RATE_LIMIT_ENABLED:
-        list.append(_create_rate_limit_middleware())
+        middlewares.append(_create_rate_limit_middleware())
 
-    return list
+    return middlewares

@@ -3,14 +3,12 @@ Application Lifespan Management Module
 """
 
 from contextlib import asynccontextmanager
+from logging import Logger
 from typing import AsyncContextManager
 
 from fastmcp.server.http import StarletteWithLifespan
 
-from tools.env import SERVER_NAME
 from tools.logging_config import setup_logging
-
-logger = setup_logging(SERVER_NAME)
 
 
 class AppLifespanManager:
@@ -27,7 +25,7 @@ class AppLifespanManager:
 
     def __init__(self) -> None:
         """Initialize the AppLifespanManager."""
-        self.logger = logger
+        self._logger: Logger = setup_logging(__name__)
 
     @asynccontextmanager
     async def lifespans(self, _: object, mcp_apps: list[tuple[str | None, StarletteWithLifespan]]):
@@ -63,41 +61,64 @@ class AppLifespanManager:
         startup_errors: list[tuple[str | None, Exception]] = []
 
         try:
-            self.logger.info("Starting lifespans for %d MCP apps", len(mcp_apps))
+            self._logger.info("Starting lifespans for %d MCP apps", len(mcp_apps))
 
             for name, mcp_app in mcp_apps:
                 lifespan = getattr(mcp_app, "lifespan", None)
                 if lifespan is None:
-                    self.logger.warning("MCP app missing lifespan (name=%s)", name)
+                    self._logger.warning("MCP app missing lifespan (name=%s)", name)
                     continue
 
                 try:
                     ctx: AsyncContextManager[None] = lifespan(mcp_app)
                     await ctx.__aenter__()
                     lifespan_contexts.append(ctx)
-                    self.logger.debug("Successfully started lifespan for MCP app (name=%s)", name)
+                    self._logger.debug(
+                        "Successfully started lifespan for MCP app (name=%s)",
+                        name,
+                    )
                 except Exception as e:
-                    self.logger.error("Failed to start lifespan for MCP app (name=%s): %s", name, str(e), exc_info=True)
+                    self._logger.error(
+                        "Failed to start lifespan for MCP app (name=%s): %s",
+                        name,
+                        type(e).__name__,
+                    )
                     startup_errors.append((name, e))
 
             if startup_errors:
-                self.logger.error("Failed to start %d MCP app lifespan(s)", len(startup_errors))
+                self._logger.error(
+                    "Failed to start %d MCP app lifespan(s)",
+                    len(startup_errors),
+                )
                 raise RuntimeError(f"MCP app startup failed: {startup_errors}")
 
-            self.logger.info("All MCP app lifespans started successfully")
+            self._logger.info("All MCP app lifespans started successfully")
             yield
 
         finally:
-            self.logger.info("Shutting down %d MCP app lifespan(s)", len(lifespan_contexts))
+            self._logger.info(
+                "Shutting down %d MCP app lifespan(s)",
+                len(lifespan_contexts),
+            )
             shutdown_errors: list[tuple[int, Exception]] = []
 
             for idx, ctx in enumerate(reversed(lifespan_contexts)):
                 try:
                     await ctx.__aexit__(None, None, None)
-                    self.logger.debug("Successfully shutdown MCP app lifespan (index=%d)", idx)
+                    self._logger.debug(
+                        "Successfully shutdown MCP app lifespan (index=%d)",
+                        idx,
+                    )
                 except Exception as e:
-                    self.logger.error("Error during MCP app shutdown (index=%d): %s", idx, str(e), exc_info=True)
+                    self._logger.error(
+                        "Error during MCP app shutdown (index=%d): %s",
+                        idx,
+                        type(e).__name__,
+                    )
                     shutdown_errors.append((idx, e))
 
             if shutdown_errors:
-                self.logger.warning("Encountered %d error(s) during shutdown", len(shutdown_errors))
+                self._logger.warning(
+                    "Encountered %d error(s) during shutdown",
+                    len(shutdown_errors),
+                )

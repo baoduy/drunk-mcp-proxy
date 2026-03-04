@@ -23,9 +23,7 @@ import json
 from typing import Any
 
 from fastapi.responses import JSONResponse, StreamingResponse
-from tools import setup_logging
-
-logger = setup_logging(__name__)
+from tools.serialization import to_dict
 
 
 class AnthropicProvider:
@@ -57,26 +55,6 @@ class AnthropicProvider:
         "length": "max_tokens",
         "tool_calls": "tool_use",
     }
-
-    @staticmethod
-    def _to_dict(obj: Any) -> dict[str, Any]:
-        """Convert a Pydantic model or object to dict.
-
-        Args:
-            obj: Object to convert (Pydantic model, dict, or other).
-
-        Returns:
-            Dictionary representation of the object.
-        """
-        if isinstance(obj, dict):
-            return obj  # type: ignore
-        elif hasattr(obj, "model_dump"):
-            return obj.model_dump()
-        elif hasattr(obj, "__dict__"):
-            return obj.__dict__
-        else:
-            # Fallback for primitives or unknown types
-            return {}
 
     @staticmethod
     def anthropic_to_openai_request(body: dict[str, Any], model_name: str) -> dict[str, Any]:
@@ -252,7 +230,7 @@ class AnthropicProvider:
         Returns:
             Dict conforming to the Anthropic Messages API response schema.
         """
-        resp_dict: dict[str, Any] = AnthropicProvider._to_dict(response)
+        resp_dict: dict[str, Any] = to_dict(response)
 
         choices: list[Any] = resp_dict.get("choices") or []
         choice: dict[str, Any] = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
@@ -321,7 +299,7 @@ class AnthropicProvider:
             started: bool = False
 
             async for chunk in stream:
-                chunk_dict: dict[str, Any] = AnthropicProvider._to_dict(chunk)
+                chunk_dict: dict[str, Any] = to_dict(chunk)
 
                 if not started:
                     msg_id = str(chunk_dict.get("id") or "msg_stream")

@@ -1,6 +1,6 @@
 import time
 from collections.abc import Mapping
-from typing import Any, TypedDict, cast
+from typing import TypedDict, cast
 from cryptography.fernet import Fernet
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
@@ -12,7 +12,7 @@ logging = setup_logging(__name__)
 
 
 class CacheEntry(TypedDict):
-    value: Any
+    value: object
     expires_at: float
 
 
@@ -34,10 +34,10 @@ class TTLAsyncKeyValue:
         self.default_ttl_seconds = default_ttl_seconds
 
     @staticmethod
-    def _is_cache_entry(value: Any) -> bool:
+    def _is_cache_entry(value: object) -> bool:
         return isinstance(value, Mapping) and "value" in value and "expires_at" in value
 
-    async def set(self, key: str, value: Any, ttl_seconds: int | None = None) -> None:
+    async def set(self, key: str, value: object, ttl_seconds: int | None = None) -> None:
         """
         Set a value in the cache with optional TTL.
         
@@ -55,7 +55,7 @@ class TTLAsyncKeyValue:
 
         logging.debug(f"Cache SET: key={key}, ttl={ttl}s, expires_at={expiration_time}")
 
-    async def get(self, key: str) -> Any | None:
+    async def get(self, key: str) -> object | None:
         """
         Get a value from the cache, checking if it has expired.
         

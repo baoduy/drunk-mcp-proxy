@@ -3,11 +3,14 @@
 This module provides a class for creating FastMCP instances from MCP configurations.
 """
 from __future__ import annotations
+from logging import Logger
+
 from fastmcp import FastMCP
-from tools import McpConfig
 from proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
+from tools import McpConfig
 from tools.env import SERVER_NAME, SERVER_VERSION
 from tools.logging_config import setup_logging
+from tools.mcp_proxy_builder import build_mcp_proxy_configs
 
 class McpProxyProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
@@ -16,14 +19,17 @@ class McpProxyProvider(McpBaseProvider):
         super().__init__(config)
         self.root_mcp = root_mcp
         self.mcp: FastMCP | None = None
-        self.logger = setup_logging(__name__)
+        self._logger: Logger = setup_logging(__name__)
 
     def _create_proxy(self, mcp:FastMCP):
         if self.config.spec_data is None:
-            self.logger.warning(f"spec_data or mcp_servers is required for MCP config '{self.config.path}'")
+            self._logger.warning(
+                "spec_data or mcp_servers is required for MCP config '%s'",
+                self.config.path,
+            )
             return None
         
-        self.logger.info("Creating proxy for MCP config: %s", self.config.path)
+        self._logger.info("Creating proxy for MCP config: %s", self.config.path)
         from fastmcp.server import create_proxy
         proxy= create_proxy(self.config.spec_data, name=self.config.path)
         mcp.mount(proxy)
@@ -62,21 +68,12 @@ class McpProxyProvider(McpBaseProvider):
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
-        logger = setup_logging(__name__)
-        
-        if len(configs) == 0:
-            logger.warning("No MCP configurations found")
-            return []
-
-        root_mcp = FastMCP(SERVER_NAME, version=SERVER_VERSION)
-        mcp_proxy_configs: list[McpProxyConfig] = [McpProxyConfig(path="/", mcp_server=root_mcp)]
-
-        for config in configs:
-            if config.spec_data is None:
-                logger.warning(f"Skipping MCP config '{config.path}' because spec_data is None")
-                continue
-
-            mcp=McpProxyProvider(config, root_mcp=root_mcp)
-            mcp_proxy_configs.append(mcp.get_mcp_proxy_config())
-
-        return mcp_proxy_configs
+        return build_mcp_proxy_configs(
+            configs=configs,
+            provider_factory=lambda config, root_mcp: McpProxyProvider(
+                config,
+                root_mcp=root_mcp,
+            ),
+            server_name=SERVER_NAME,
+            server_version=SERVER_VERSION,
+        )

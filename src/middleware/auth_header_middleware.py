@@ -1,7 +1,9 @@
-import logging
+from logging import Logger
 from typing import Any
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+from tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
+from tools.logging_config import setup_logging
 
 class AuthHeaderMiddleware(Middleware):
     def __init__(self, anonymous_paths: list[str] | None = None) -> None:
@@ -12,8 +14,8 @@ class AuthHeaderMiddleware(Middleware):
                            Defaults to ["/health", "/docs"].
         """
         super().__init__()
-        self._logger = logging.getLogger(__name__)
-        self.anonymous_paths = anonymous_paths or ["/health", "/docs"]
+        self._logger: Logger = setup_logging(__name__)
+        self.anonymous_paths = anonymous_paths or list(DEFAULT_ANONYMOUS_PATHS)
 
     def _get_request_path(self, context: MiddlewareContext[Any]) -> str | None:
         """Extract the request path from the middleware context.
@@ -44,7 +46,7 @@ class AuthHeaderMiddleware(Middleware):
         Returns:
             True if auth validation is required, False if path is anonymous.
         """
-        return request_path not in self.anonymous_paths
+        return not is_anonymous_path(request_path, self.anonymous_paths)
 
     def _validate_access_token(self) -> None:
         """Validate and log the access token from the request.
@@ -54,7 +56,7 @@ class AuthHeaderMiddleware(Middleware):
         """
         token = get_access_token()
         if token:
-            self._logger.info(f"Access token: {token.client_id}")
+            self._logger.info("Access token present")
         else:
             self._logger.warning("No access token available")
 
@@ -68,11 +70,11 @@ class AuthHeaderMiddleware(Middleware):
         Returns:
             The result from the next middleware in the chain.
         """
-        self._logger.debug(f"Received message of type: {context.type}")
+        self._logger.debug("Received message of type: %s", context.type)
         
         if context.type == "request":
             request_path = self._get_request_path(context)
-            self._logger.debug(f"Request path: {request_path}")
+            self._logger.debug("Request path: %s", request_path)
             
             if self._should_validate_auth(request_path):
                 self._validate_access_token()

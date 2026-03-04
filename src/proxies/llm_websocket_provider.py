@@ -20,17 +20,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Protocol
+from logging import Logger
+from typing import Protocol
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
 from proxies.llm_base_provider import LlmBaseProvider
-from tools import LlmConfig, setup_logging
+from tools import LlmConfig
+from tools.logging_config import setup_logging
 from websockets.asyncio.client import ClientConnection
-
-logger = setup_logging(__name__)
-
 
 class AsyncOpenAIFactoryProtocol(Protocol):
     """Protocol for AsyncOpenAI factory dependency."""
@@ -52,6 +51,7 @@ class WebSocketFactory:
         Args:
             providers: List of provider configurations
         """
+        self._logger: Logger = setup_logging(__name__)
         self._provider_configs = {p.provider: p for p in providers}
     
     async def create_connection(
@@ -84,7 +84,7 @@ class WebSocketFactory:
         
         # Create connection with Authorization header
         headers = {"Authorization": f"Bearer {api_key}"}
-        logger.debug("Connecting to backend WebSocket: %s", ws_url)
+        self._logger.debug("Connecting to backend WebSocket: %s", ws_url)
         
         return await websockets.connect(ws_url, additional_headers=headers)
     
@@ -127,8 +127,9 @@ class BackendConnectionPool:
     
     def __init__(self) -> None:
         """Initialize connection pool."""
-        self._connections: dict[tuple[str, str], ClientConnection] = {}  # (client_id, provider) -> backend_ws
-        self._locks: dict[tuple[str, str], asyncio.Lock] = {}  # Per-key locks for concurrency
+        self._logger: Logger = setup_logging(__name__)
+        self._connections: dict[tuple[str, str], ClientConnection] = {}
+        self._locks: dict[tuple[str, str], asyncio.Lock] = {}
     
     def _get_lock(self, client_id: str, provider_name: str) -> asyncio.Lock:
         """Get or create lock for given client-provider pair.
@@ -209,7 +210,7 @@ class BackendConnectionPool:
             # Check if we have an existing connection
             existing_ws = self._connections.get(key)
             if existing_ws is not None and self._check_connection_alive(existing_ws):
-                logger.debug(
+                self._logger.debug(
                     "Reusing backend connection for client=%s, provider=%s",
                     client_id, provider_name
                 )
@@ -224,7 +225,7 @@ class BackendConnectionPool:
                 del self._connections[key]
             
             # Create new connection
-            logger.debug(
+            self._logger.debug(
                 "Creating new backend connection for client=%s, provider=%s",
                 client_id, provider_name
             )
@@ -250,7 +251,7 @@ class BackendConnectionPool:
                 except Exception:
                     pass
                 del self._connections[key]
-                logger.debug(
+                self._logger.debug(
                     "Released backend connection for client=%s, provider=%s",
                     client_id, provider_name
                 )
@@ -274,7 +275,7 @@ class BackendConnectionPool:
             del self._locks[key]
         
         if keys_to_remove:
-            logger.debug(
+            self._logger.debug(
                 "Released %d backend connection(s) for client=%s",
                 len(keys_to_remove), client_id
             )
@@ -350,7 +351,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
         provider_config = self._get_provider_config(provider_name)
         return provider_config.websocket
 
-    def mount(self, app: Any, route_prefix: str) -> None:
+    def mount(self, app: object, route_prefix: str) -> None:
         """Mount provider to Starlette application.
         
         Note: WebSocket endpoint is now registered directly on the LLM FastAPI app,
@@ -363,7 +364,11 @@ class LlmWebSocketProvider(LlmBaseProvider):
         pass
 
     @staticmethod
-    def create_error(error_code: str, message: str, status: int = 400) -> dict[str, Any]:
+    def create_error(
+        error_code: str,
+        message: str,
+        status: int = 400,
+    ) -> dict[str, object]:
         """Create standardized WebSocket error response.
         
         Args:
@@ -416,13 +421,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
         Args:
             websocket: WebSocket connection object
         """
-        logger.info("Llm websocket client connected: %s", websocket.client)
+        self._logger.info("Llm websocket client connected: %s", websocket.client)
         # Accept connection (auth already validated by middleware)
         await websocket.accept()
         
         # Extract client identity for connection pooling
         client_id = self._extract_client_identity(websocket)
-        logger.debug("Client identity: %s", client_id)
+        self._logger.debug("Client identity: %s", client_id)
 
         try:
             while True:
@@ -433,9 +438,9 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 await self._forward_to_backend(websocket, data, client_id)
 
         except WebSocketDisconnect:
-            logger.debug("Llm websocket client disconnected")
+            self._logger.debug("Llm websocket client disconnected")
         except Exception as e:
-            logger.error("Llm websocket error: %s", type(e).__name__)
+            self._logger.error("Llm websocket error: %s", type(e).__name__)
             try:
                 error_msg = self.create_error(
                     "server_error",
@@ -453,7 +458,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
     async def _forward_to_backend(
         self,
         websocket: WebSocket,
-        data: dict[str, Any],
+        data: dict[str, object],
         client_id: str,
     ) -> None:
         """Forward client message to backend with model ID transformation.
@@ -492,7 +497,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                     model_name=model_name,
                 )
         except Exception as e:
-            logger.error("Error forwarding message: %s", type(e).__name__)
+            self._logger.error("Error forwarding message: %s", type(e).__name__)
             error_msg = self.create_error(
                 "server_error",
                 "An error occurred while processing the request"
@@ -502,7 +507,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
     async def _forward_to_native_backend(
         self,
         websocket: WebSocket,
-        data: dict[str, Any],
+        data: dict[str, object],
         client_id: str,
         provider_name: str,
         model_name: str,
@@ -533,7 +538,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 try:
                     event_dict = json.loads(message)
                 except json.JSONDecodeError as e:
-                    logger.error("Failed to decode backend message: %s", type(e).__name__)
+                    self._logger.error("Failed to decode backend message: %s", type(e).__name__)
                     continue
 
                 await websocket.send_json(event_dict)
@@ -541,7 +546,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                     break
 
         except websockets.exceptions.WebSocketException as e:
-            logger.error("Backend WebSocket error: %s", type(e).__name__)
+            self._logger.error("Backend WebSocket error: %s", type(e).__name__)
             await self.connection_pool.release_connection(client_id, provider_name)
             error_msg = self.create_error(
                 "backend_connection_error",
@@ -550,7 +555,10 @@ class LlmWebSocketProvider(LlmBaseProvider):
             await websocket.send_json(error_msg)
 
     @staticmethod
-    def _build_fallback_payload(data: dict[str, Any], model_name: str) -> dict[str, Any]:
+    def _build_fallback_payload(
+        data: dict[str, object],
+        model_name: str,
+    ) -> dict[str, object]:
         """Transform websocket request payload into AsyncOpenAI responses payload.
 
         Args:
@@ -571,7 +579,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
         return payload
 
     @staticmethod
-    def _is_terminal_event(event_dict: dict[str, Any]) -> bool:
+    def _is_terminal_event(event_dict: dict[str, object]) -> bool:
         """Check whether a websocket event is terminal.
 
         Args:
@@ -591,7 +599,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
     async def _forward_to_http_backend(
         self,
         websocket: WebSocket,
-        data: dict[str, Any],
+        data: dict[str, object],
         provider_name: str,
         model_name: str,
     ) -> None:
@@ -618,7 +626,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
         try:
             stream = await client.responses.create(stream=True, **payload)
         except Exception as e:
-            logger.error("Fallback responses request failed: %s", type(e).__name__)
+            self._logger.error("Fallback responses request failed: %s", type(e).__name__)
             error_msg = self.create_error(
                 "backend_request_error",
                 "Backend request failed",

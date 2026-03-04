@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 from app.app_config_provider import AppConfigProvider
-from typing import TYPE_CHECKING, Any
+from logging import Logger
+from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase
@@ -12,7 +13,8 @@ from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
 from tools.env import SERVER_NAME, SERVER_VERSION
-from tools import setup_logging, LlmConfig
+from tools import LlmConfig
+from tools.logging_config import setup_logging
 from proxies.llm_base_provider import LlmBaseProvider
 from proxies.anthropic_provider import AnthropicProvider
 
@@ -21,7 +23,7 @@ if TYPE_CHECKING:
     
 class ModelBase(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: object | None = None) -> object | None:
         return getattr(self, key, default)
     
 class LlmModel(ModelBase):
@@ -53,11 +55,12 @@ class FastAuthMiddleware(HTTPBase):
     
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
-    def __init__(self,providers: list[LlmConfig]) -> None:
+    def __init__(self, providers: list[LlmConfig]) -> None:
+        self._logger: Logger = setup_logging(__name__)
         self.providers = providers
         self._clients: dict[str, AsyncOpenAI] = {}
 
-    def get_client(self,provider_name:str) -> AsyncOpenAI:
+    def get_client(self, provider_name: str) -> AsyncOpenAI:
         """Get or create an AsyncOpenAI client for the given provider."""
         provider = next((p for p in self.providers if p.provider == provider_name), None)
         if provider is None:
@@ -73,8 +76,6 @@ class AsyncOpenAIFactory:
             
         self._clients[provider.provider] = client
         return client
-
-logger = setup_logging(__name__)
 
 class LlmProxiesProvider(LlmBaseProvider):
     # _BLOCKED_FORWARD_HEADERS = {
@@ -172,16 +173,19 @@ class LlmProxiesProvider(LlmBaseProvider):
         return self._fastapi_app
 
     @staticmethod
-    def _transform_models(models: list[dict[str, Any]], provider: str) -> list[dict[str, Any]]:
+    def _transform_models(models: list[dict[str, object]], provider: str) -> list[dict[str, object]]:
         # This is a placeholder for any transformation logic you might want to apply to the models list.
         # For now, it just returns the input as-is.
         for model in models:
-            model['provider'] = provider
-            model['id'] = f"{provider}_{model.get('id', '')}"
+            model["provider"] = provider
+            model["id"] = f"{provider}_{model.get('id', '')}"
         return models
 
     @staticmethod
-    async def _format_response(response: Any, is_streaming: bool) -> JSONResponse | StreamingResponse:
+    async def _format_response(
+        response: object,
+        is_streaming: bool,
+    ) -> JSONResponse | StreamingResponse:
         """Format chat completion response as either streaming or JSON response.
         
         Args:
@@ -209,21 +213,24 @@ class LlmProxiesProvider(LlmBaseProvider):
         cache_key = f"models_{provider_name}"
         cached_models = await self.cache.get(cache_key)
         if cached_models is not None:
-            self._logger.info(f"Cache hit for models of provider '{provider_name}'")
+            self._logger.info("Cache hit for models of provider '%s'", provider_name)
             return cached_models
         
         # Cache miss, fetch from provider
-        self._logger.info(f"fetching models of provider '{provider_name}'")
+        self._logger.info("Fetching models of provider '%s'", provider_name)
         client = self._get_openai_client(provider_name)
         
         # Get models from provider
         response = await client.models.list()
         if not response or not hasattr(response, "data") or not response.data:
-            self._logger.warning(f"No models data found in response from provider '{provider_name}'")
+            self._logger.warning(
+                "No models data found in response from provider '%s'",
+                provider_name,
+            )
             return []
         # Transform models to dict and add provider info
         models = [self._to_dict(model) for model in response.data]
-        models= self._transform_models(models, provider_name)
+        models = self._transform_models(models, provider_name)
         
         # Cache the models list with TTL
         await self.cache.set(cache_key, models)
@@ -237,14 +244,14 @@ class LlmProxiesProvider(LlmBaseProvider):
             all_models.extend(models)
         return all_models
     
-    async def _get_models_endpoint(self,request: Request) -> dict[str, Any]:
+    async def _get_models_endpoint(self, request: Request) -> dict[str, object]:
         # For simplicity, we return a static list of models for each provider.
         # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
         models =await self._get_models_by_provider(provider) if provider else await self._get_all_models()
         return {"data": models}
 
-    def _get_providers_endpoint(self) -> dict[str, Any]:
+    def _get_providers_endpoint(self) -> dict[str, object]:
         providers_list = [ProviderModel(name=p.provider, slug=p.provider) for p in self.providers]
         return {"data": [self._to_dict(p) for p in providers_list]}
     
@@ -447,17 +454,26 @@ class LlmProxiesProvider(LlmBaseProvider):
     # Anthropic conversion handled by AnthropicProvider
 
     @staticmethod
-    def _anthropic_to_openai_request(body: dict[str, Any], model_name: str) -> dict[str, Any]:
+    def _anthropic_to_openai_request(
+        body: dict[str, object],
+        model_name: str,
+    ) -> dict[str, object]:
         """Delegate to AnthropicProvider for conversion."""
         return AnthropicProvider.anthropic_to_openai_request(body, model_name)
 
     @staticmethod
-    def _openai_to_anthropic_response(response: Any, model_id: str) -> dict[str, Any]:
+    def _openai_to_anthropic_response(
+        response: object,
+        model_id: str,
+    ) -> dict[str, object]:
         """Delegate to AnthropicProvider for conversion."""
         return AnthropicProvider.openai_to_anthropic_response(response, model_id)
 
     @staticmethod
-    async def _format_anthropic_streaming_response(stream: Any, model_id: str) -> StreamingResponse:
+    async def _format_anthropic_streaming_response(
+        stream: object,
+        model_id: str,
+    ) -> StreamingResponse:
         """Delegate to AnthropicProvider for streaming conversion."""
         return await AnthropicProvider.format_anthropic_streaming_response(stream, model_id)
 

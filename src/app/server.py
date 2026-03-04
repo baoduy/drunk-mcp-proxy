@@ -178,7 +178,7 @@ class MCPProxyServer:
       
         self.logger.info("Starting MCP Proxy Server")
         self._log_startup_configuration()
-        print("=" * 50)
+        self.logger.info("%s", "=" * 50)
 
         config_provider = AppConfigProvider.get_instance()
         provider = StaticProxiesProvider(config_provider.get_mcp_configs())
@@ -187,8 +187,8 @@ class MCPProxyServer:
         llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
         self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
 
-        print("MCP Proxy Server is ready!")
-        print("=" * 50)
+        self.logger.info("MCP Proxy Server is ready!")
+        self.logger.info("%s", "=" * 50)
 
         # Step 2: Start the MCP server
         # Starts the async server with the configured transport and middleware
