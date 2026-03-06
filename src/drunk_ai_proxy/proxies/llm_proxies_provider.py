@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
-from logging import Logger
 from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
@@ -14,9 +15,9 @@ from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
 from drunk_ai_proxy.tools.env import SERVER_NAME, SERVER_VERSION
 from drunk_ai_proxy.tools import LlmConfig
-from drunk_ai_proxy.tools.logging_config import setup_logging
 from drunk_ai_proxy.proxies.llm_base_provider import LlmBaseProvider
 from drunk_ai_proxy.proxies.anthropic_provider import AnthropicProvider
+from drunk_ai_proxy.proxies.llm_client_factory import AsyncOpenAIFactory
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -56,32 +57,6 @@ class FastAuthMiddleware(HTTPBase):
         if rs is not None and (rs.claims.__len__() > 0 or rs.scopes.__len__() > 0):
             return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
         raise self.make_not_authenticated_error()
-
-
-class AsyncOpenAIFactory:
-    """Factory for creating AsyncOpenAI clients with caching."""
-
-    def __init__(self, providers: list[LlmConfig]) -> None:
-        self._logger: Logger = setup_logging(__name__)
-        self.providers = providers
-        self._clients: dict[str, AsyncOpenAI] = {}
-
-    def get_client(self, provider_name: str) -> AsyncOpenAI:
-        """Get or create an AsyncOpenAI client for the given provider."""
-        provider = next((p for p in self.providers if p.provider == provider_name), None)
-        if provider is None:
-            raise ValueError(f"Provider '{provider_name}' not found in configuration")
-
-        if provider.provider in self._clients:
-            return self._clients[provider.provider]
-
-        if provider.api_key is not None and len(provider.api_key) > 0:
-            client = AsyncOpenAI(api_key=provider.api_key, base_url=provider.base_url)
-        else:
-            client = AsyncOpenAI(base_url=provider.base_url)
-
-        self._clients[provider.provider] = client
-        return client
 
 
 class LlmProxiesProvider(LlmBaseProvider):
@@ -245,11 +220,13 @@ class LlmProxiesProvider(LlmBaseProvider):
     
     async def _get_all_models(self) -> list[LlmModel]:
         # Fetch models from all providers and aggregate them
-        all_models: list[LlmModel] = []
-        for provider in self.providers:
-            models = await self._get_models_by_provider(provider.provider)
-            all_models.extend(models)
-        return all_models
+        results = await asyncio.gather(
+            *[
+                self._get_models_by_provider(provider.provider)
+                for provider in self.providers
+            ]
+        )
+        return [model for models in results for model in models]
     
     async def _get_models_endpoint(self, request: Request) -> dict[str, object]:
         # For simplicity, we return a static list of models for each provider.
@@ -269,16 +246,15 @@ class LlmProxiesProvider(LlmBaseProvider):
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        client = self._get_openai_client(provider_name)
-        try:
-            body["model"] = model_name
-            known_params, extra_body = self._split_params(body, self._EMBEDDINGS_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-            response = await client.embeddings.create(**known_params)
-            return self._json_response(response)
-        except Exception as e:
-            return self.handle_exception(e, f"embeddings for '{model_name}'")
+        return await self._call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=body,
+            known_params=self._EMBEDDINGS_KNOWN_PARAMS,
+            call_fn=lambda client, params: client.embeddings.create(**params),
+            context=f"embeddings for '{model_name}'",
+            response_builder=self._format_json_response,
+        )
     
     async def _audio_transcriptions_endpoint(self, request: Request):
         """Handle audio transcriptions requests."""
@@ -287,20 +263,21 @@ class LlmProxiesProvider(LlmBaseProvider):
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        client = self._get_openai_client(provider_name)
-        try:
-            file_error = self._require_form_field(form_data, "file")
-            if file_error:
-                return file_error
-            form_dict = self._form_data_to_dict(form_data)
-            form_dict["model"] = model_name
-            known_params, extra_body = self._split_params(form_dict, self._AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-            response = await client.audio.transcriptions.create(**known_params)  # type: ignore[arg-type]
-            return self._json_response(response)
-        except Exception as e:
-            return self.handle_exception(e, f"audio transcriptions for '{model_name}'")
+        file_error = self._require_form_field(form_data, "file")
+        if file_error:
+            return file_error
+        form_dict = self._form_data_to_dict(form_data)
+        return await self._call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=form_dict,
+            known_params=self._AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS,
+            call_fn=lambda client, params: client.audio.transcriptions.create(  # type: ignore[arg-type]
+                **params
+            ),
+            context=f"audio transcriptions for '{model_name}'",
+            response_builder=self._format_json_response,
+        )
     
     async def _audio_translations_endpoint(self, request: Request):
         """Handle audio translations requests."""
@@ -309,20 +286,21 @@ class LlmProxiesProvider(LlmBaseProvider):
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        client = self._get_openai_client(provider_name)
-        try:
-            file_error = self._require_form_field(form_data, "file")
-            if file_error:
-                return file_error
-            form_dict = self._form_data_to_dict(form_data)
-            form_dict["model"] = model_name
-            known_params, extra_body = self._split_params(form_dict, self._AUDIO_TRANSLATIONS_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-            response = await client.audio.translations.create(**known_params)  # type: ignore[arg-type]
-            return self._json_response(response)
-        except Exception as e:
-            return self.handle_exception(e, f"audio translations for '{model_name}'")
+        file_error = self._require_form_field(form_data, "file")
+        if file_error:
+            return file_error
+        form_dict = self._form_data_to_dict(form_data)
+        return await self._call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=form_dict,
+            known_params=self._AUDIO_TRANSLATIONS_KNOWN_PARAMS,
+            call_fn=lambda client, params: client.audio.translations.create(  # type: ignore[arg-type]
+                **params
+            ),
+            context=f"audio translations for '{model_name}'",
+            response_builder=self._format_json_response,
+        )
     
     async def _images_generations_endpoint(self, request: Request):
         """Handle image generations requests."""
@@ -331,16 +309,15 @@ class LlmProxiesProvider(LlmBaseProvider):
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        client = self._get_openai_client(provider_name)
-        try:
-            body["model"] = model_name
-            known_params, extra_body = self._split_params(body, self._IMAGES_GENERATE_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-            response = await client.images.generate(**known_params)
-            return self._json_response(response)
-        except Exception as e:
-            return self.handle_exception(e, f"images generations for '{model_name}'")
+        return await self._call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=body,
+            known_params=self._IMAGES_GENERATE_KNOWN_PARAMS,
+            call_fn=lambda client, params: client.images.generate(**params),
+            context=f"images generations for '{model_name}'",
+            response_builder=self._format_json_response,
+        )
     
     # Known parameters accepted by the OpenAI embeddings API.
     _EMBEDDINGS_KNOWN_PARAMS: set[str] = {
@@ -444,19 +421,61 @@ class LlmProxiesProvider(LlmBaseProvider):
                 content={"error": {"message": "messages is required"}},
                 status_code=400,
             )
+        return await self._call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=body,
+            known_params=self._CHAT_COMPLETION_KNOWN_PARAMS,
+            call_fn=lambda client, params: client.chat.completions.create(**params),
+            context=f"chat completions for '{model_name}'",
+            response_builder=self._format_chat_response,
+        )
+
+    def _build_openai_params(
+        self,
+        payload: dict[str, object],
+        model_name: str,
+        known_params: set[str],
+    ) -> dict[str, object]:
+        payload["model"] = model_name
+        known_params_dict, extra_body = self._split_params(payload, known_params)
+        if extra_body:
+            known_params_dict["extra_body"] = extra_body
+        return known_params_dict
+
+    async def _call_openai_endpoint(
+        self,
+        *,
+        provider_name: str,
+        model_name: str,
+        payload: dict[str, object],
+        known_params: set[str],
+        call_fn: Callable[[AsyncOpenAI, dict[str, object]], Awaitable[object]],
+        context: str,
+        response_builder: Callable[[object, dict[str, object]], Awaitable[JSONResponse | StreamingResponse]],
+    ) -> JSONResponse | StreamingResponse:
         client = self._get_openai_client(provider_name)
         try:
-            body["model"] = model_name
-            is_streaming = body.get("stream", False)
-
-            known_params, extra_body = self._split_params(body, self._CHAT_COMPLETION_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-
-            response = await client.chat.completions.create(**known_params)
-            return await self._format_response(response, is_streaming)
+            known_params_dict = self._build_openai_params(payload, model_name, known_params)
+            response = await call_fn(client, known_params_dict)
+            return await response_builder(response, payload)
         except Exception as e:
-            return self.handle_exception(e, f"chat completions for '{model_name}'")
+            return self.handle_exception(e, context)
+
+    @staticmethod
+    async def _format_json_response(
+        response: object,
+        _: dict[str, object],
+    ) -> JSONResponse:
+        return LlmBaseProvider._json_response(response)
+
+    async def _format_chat_response(
+        self,
+        response: object,
+        payload: dict[str, object],
+    ) -> JSONResponse | StreamingResponse:
+        is_streaming = bool(payload.get("stream", False))
+        return await self._format_response(response, is_streaming)
 
     # Anthropic conversion handled by AnthropicProvider
 

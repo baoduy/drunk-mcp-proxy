@@ -47,10 +47,11 @@ class ConfigBaseModel(BaseModel):
     """Base model with common validation logic for configuration models."""
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    def __getitem__(self, key: AuthType) -> dict[str, Any] | None:
+    def __getitem__(self, key: str | AuthType) -> object | None:
         """Access configuration fields using dict-like indexing."""
         try:
-            attr = getattr(self, key)
+            key_value = key.value if isinstance(key, Enum) else key
+            attr = getattr(self, key_value)
             if isinstance(attr, dict):
                 return cast(dict[str, Any], attr)
             elif isinstance(attr, ConfigBaseModel):
@@ -60,9 +61,14 @@ class ConfigBaseModel(BaseModel):
                 return attr.model_dump(exclude_none=True)
             elif hasattr(attr, "__dict__"):
                 return cast(dict[str, Any], vars(attr))  # Convert any object to dict
-            return None
+            return attr
         except AttributeError:
             return None
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, dict):
+            return self.model_dump(exclude_none=True) == other
+        return super().__eq__(other)
 
     def _resolve_env_vars(self) -> None:
         """Resolve environment variable references in all string attributes."""
@@ -101,6 +107,27 @@ class JwtAuthConfig(ConfigBaseModel):
     jwks_uri: Optional[str] = Field(default=None)
     issuer: Optional[str] = Field(default=None)
     audience: Optional[str] = Field(default=None)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_yaml_scalars(cls, data: object) -> object:
+        """Normalize single-key YAML mappings into scalar strings."""
+        if not isinstance(data, dict):
+            return data
+
+        raw_data = cast(dict[str, object], data)
+        normalized: dict[str, object] = {}
+        for key, value in raw_data.items():
+            if isinstance(value, dict):
+                inner_map = cast(dict[str, object], value)
+                if len(inner_map) == 1:
+                    [(inner_key, inner_value)] = inner_map.items()
+                    if inner_value is None:
+                        normalized[key] = inner_key
+                        continue
+            normalized[key] = value
+
+        return normalized
 
 
 class AuthConfig(ConfigBaseModel):

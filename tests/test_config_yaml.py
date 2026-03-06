@@ -319,6 +319,8 @@ class TestConfigYamlLoading:
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
                 "NVIDIA_API_KEY": "test-key",
+                "ALPHAVANTAGE_API_KEY": "test-key",
+                "OUTLINE_API_KEY": "test-key",
             },
         ):
             config = ConfigYaml.load_from_file(config_file)
