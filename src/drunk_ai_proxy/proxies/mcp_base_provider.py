@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from drunk_ai_proxy.tools.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
-    from tools import McpConfig
+    from drunk_ai_proxy.tools import McpConfig
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
     from fastmcp import FastMCP

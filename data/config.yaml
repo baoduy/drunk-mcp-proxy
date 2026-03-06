@@ -150,8 +150,11 @@ mcp:
     spec_type: mcp # Using Model Context Protocol
     base_url: null # Backend service URL (not used for HTTP transport)
     mcp_servers: # Define MCP servers
-      deepwiki: # Server name
-        url:
-          "https://mcp.deepwiki.com/mcp"
-          # HTTP endpoint for the MCP server
-        transport: http # Communication transport (http instead of stdio)
+      ts-wiki:
+        transport: stdio
+        command: "npx"
+        args:
+        - "@empoalp/outline-mcp-server"
+        env:
+          OUTLINE_BASE_URL: "https://wikiv2.transwap.dev"
+          OUTLINE_API_KEY: "$OUTLINE_API_KEY"

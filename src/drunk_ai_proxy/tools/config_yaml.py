@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 import json
 import os
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import jsonschema
 import yaml
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from drunk_ai_proxy.tools.env import CONFIG_DIR, SCHEMA_DIR
 
-from .env_resolver import resolve_env_var
+from .env_resolver import resolve_env_vars, resolve_env_vars_in_dict
 
 
 class AuthType(str, Enum):
@@ -52,14 +52,14 @@ class ConfigBaseModel(BaseModel):
         try:
             attr = getattr(self, key)
             if isinstance(attr, dict):
-                return attr
+                return cast(dict[str, Any], attr)
             elif isinstance(attr, ConfigBaseModel):
                 # Exclude None values and use field aliases
                 return attr.model_dump(exclude_none=True)
             elif hasattr(attr, "model_dump"):
                 return attr.model_dump(exclude_none=True)
             elif hasattr(attr, "__dict__"):
-                return vars(attr)  # Convert any object to dict
+                return cast(dict[str, Any], vars(attr))  # Convert any object to dict
             return None
         except AttributeError:
             return None
@@ -68,8 +68,8 @@ class ConfigBaseModel(BaseModel):
         """Resolve environment variable references in all string attributes."""
         for field_name in self.__class__.model_fields.keys():
             current_value = getattr(self, field_name, None)
-            if current_value is not None and isinstance(current_value, str):
-                resolved_value = resolve_env_var(current_value)
+            if current_value is not None:
+                resolved_value = resolve_env_vars(current_value)
                 setattr(self, field_name, resolved_value)
 
     @model_validator(mode="after")
@@ -132,6 +132,14 @@ class McpAuthConfig(ConfigBaseModel):
     pass_through: bool = Field(default=False)
     auth_provider: Optional[AuthType] = Field(default=None, alias="authProvider")
 
+class McpServerConfig(ConfigBaseModel):
+    """Individual MCP server configuration."""
+    enabled: bool = Field(default=True)
+    transport: Optional[str] = Field(default="stdio", description="Transport method for MCP server (stdio, http)")
+    url: Optional[str] = Field(default=None, description="URL for HTTP transport (required if transport is http)")
+    command: Optional[str] = Field(default=None, description="Command to start the MCP server (required if transport is stdio)")
+    args: Optional[list[str]] = Field(default=None, description="Arguments for the command (optional)")
+    env: Optional[dict[str, Any]] = Field(default=None, description="Environment variables for the MCP server process (optional)")
 
 class McpConfig(ConfigBaseModel):
     """MCP server configuration."""
@@ -143,7 +151,7 @@ class McpConfig(ConfigBaseModel):
     skill_dir: Optional[str] = Field(default=None)
     filters: Optional[McpFilters] = Field(default=None)
     auth: Optional[McpAuthConfig] = Field(default=None)
-    mcp_servers: Optional[dict[str, Any]] = Field(default=None, alias="mcpServers")
+    mcp_servers: Optional[dict[str, McpServerConfig]] = Field(default=None, alias="mcpServers")
     tags: Optional[set[str]] = Field(default=None)
     spec_data: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
@@ -208,7 +216,7 @@ class McpConfig(ConfigBaseModel):
             print(f"Loaded {len(spec_data)} server configurations")
         """
         if not self.spec_file:
-            self.spec_data = {"mcpServers": self.mcp_servers} if self.mcp_servers else None
+            self.spec_data = {"mcpServers": {k: v.model_dump(exclude_none=True) for k, v in self.mcp_servers.items()}} if self.mcp_servers else None
             return
             
         file = f"{CONFIG_DIR}/{self.spec_file}"
@@ -224,8 +232,12 @@ class McpConfig(ConfigBaseModel):
             else:
                 raise ValueError(f"Unsupported spec file format: {file}. Supported formats: .json, .yaml, .yml")
         
-        # Store the loaded data first, then validate
-        self.spec_data = data
+        if not isinstance(data, dict):
+            raise ValueError("Spec file must contain a mapping (dict)")
+
+        # Store the loaded data first, then resolve env vars and validate
+        resolved_data = resolve_env_vars_in_dict(cast(dict[str, Any], data))
+        self.spec_data = resolved_data
         if self.spec_type == SpecType.MCP:
             # Validate data against schema/mcp.schema.json
             self._validate_mcp_schema()
