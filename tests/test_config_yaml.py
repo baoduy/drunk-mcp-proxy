@@ -23,6 +23,7 @@ from drunk_ai_proxy.tools.config_yaml import (
     McpAuthConfig,
     McpConfig,
     McpFilters,
+    McpServerConfig,
 )
 
 
@@ -219,6 +220,55 @@ class TestMcpConfig:
         assert config.auth is not None
         assert config.auth.pass_through is True
 
+    @patch.dict(os.environ, {"SPEC_TITLE": "Test Spec"})
+    def test_mcp_config_resolves_env_vars_in_spec_file(self, monkeypatch) -> None:
+        """Test that McpConfig resolves env vars in loaded spec data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
+            openapi_dir = Path(tmpdir) / "openapi"
+            openapi_dir.mkdir(parents=True, exist_ok=True)
+            spec_file = openapi_dir / "test-spec.json"
+            spec_file.write_text(
+                '{"openapi":"3.0.0","info":{"title":"$SPEC_TITLE","version":"1.0"},"paths":{}}'
+            )
+
+            config = McpConfig(
+                path="/api",
+                spec_type="openapi",
+                spec_file="openapi/test-spec.json",
+                base_url="http://localhost:5000",
+            )
+
+            assert config.spec_data is not None
+            assert config.spec_data["info"]["title"] == "Test Spec"
+
+
+class TestMcpServerConfig:
+    """Tests for McpServerConfig model."""
+
+    @patch.dict(
+        os.environ,
+        {
+            "CMD": "npx",
+            "TOKEN": "secret-token",
+            "HOST": "example.com",
+        },
+    )
+    def test_mcp_server_config_resolves_env_vars(self) -> None:
+        """Test that McpServerConfig resolves env vars in args and env."""
+        config = McpServerConfig(
+            command="$CMD",
+            args=["$CMD", "--host", "$HOST"],
+            env={
+                "TOKEN": "$TOKEN",
+                "URL": "https://$HOST/api",
+            },
+        )
+
+        assert config.command == "npx"
+        assert config.args == ["npx", "--host", "example.com"]
+        assert config.env == {"TOKEN": "secret-token", "URL": "https://example.com/api"}
+
 
 class TestAuthConfig:
     """Tests for AuthConfig model."""
@@ -269,6 +319,8 @@ class TestConfigYamlLoading:
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
                 "NVIDIA_API_KEY": "test-key",
+                "ALPHAVANTAGE_API_KEY": "test-key",
+                "OUTLINE_API_KEY": "test-key",
             },
         ):
             config = ConfigYaml.load_from_file(config_file)

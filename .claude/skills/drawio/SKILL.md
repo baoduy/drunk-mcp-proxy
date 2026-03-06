@@ -1,7 +1,6 @@
 ---
 name: drawio
 description: Generate draw.io diagrams as .drawio files, optionally export to PNG/SVG/PDF with embedded XML
-allowed-tools: Bash, Write
 ---
 
 # Draw.io Diagram Skill

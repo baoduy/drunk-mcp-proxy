@@ -706,6 +706,44 @@ result = handler.handle({"url": "https://example.com"})
 
 ## 4. Design Principles: SOLID & DRY
 
+### OOP & Modularity Principles
+
+- **Guideline**: Prefer composition over inheritance unless the relationship is a strict is-a, and keep modules cohesive with small, intentional public interfaces.
+- **Bad Example**:
+  ```python
+  class ReportService:
+      def __init__(self):
+          self.db = Database()
+          self.mailer = Mailer()
+
+      def create_and_send(self, user_id: int) -> None:
+          report = self.db.fetch_report(user_id)
+          self.mailer.send(report)
+          self._cleanup_temp_files()
+
+      def _cleanup_temp_files(self) -> None:
+          pass
+  ```
+- **Good Example**:
+  ```python
+  class ReportRepository(Protocol):
+      def fetch_report(self, user_id: int) -> str: ...
+
+
+  class Mailer(Protocol):
+      def send(self, report: str) -> None: ...
+
+
+  class ReportService:
+      def __init__(self, repository: ReportRepository, mailer: Mailer) -> None:
+          self._repository = repository
+          self._mailer = mailer
+
+      def send_report(self, user_id: int) -> None:
+          report = self._repository.fetch_report(user_id)
+          self._mailer.send(report)
+  ```
+
 ### SOLID Principles
 
 #### 1. Single Responsibility Principle (SRP)
@@ -1222,6 +1260,9 @@ user = repo.find_by_id(1)
 - **One class per file** (with exceptions for small related classes).
 - **Group related methods** together within a class.
 - **Keep files under 500 lines** where possible.
+- **Keep public APIs minimal** and expose only what callers need.
+- **Favor composition** and small interfaces over deep inheritance chains.
+- **Aim for high cohesion** within modules and low coupling between modules.
 
 ### Performance
 - Use **list comprehensions** for simple transformations:
@@ -1444,6 +1485,8 @@ class MyNewClass:
 - [ ] **L**SP: Subclasses can substitute parent classes
 - [ ] **I**SP: Interfaces are small and focused
 - [ ] **D**IP: Depend on abstractions, inject dependencies
+- [ ] Composition over inheritance unless strict is-a
+- [ ] Public APIs are minimal and intentional
 
 ### ✅ Code Review Checklist:
 

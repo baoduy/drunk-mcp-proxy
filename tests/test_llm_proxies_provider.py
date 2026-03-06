@@ -17,11 +17,8 @@ from starlette.testclient import TestClient
 
 from fastapi.responses import JSONResponse
 
-from drunk_ai_proxy.proxies.llm_proxies_provider import (
-    AsyncOpenAIFactory,
-    LlmModel,
-    LlmProxiesProvider,
-)
+from drunk_ai_proxy.proxies.llm_client_factory import AsyncOpenAIFactory
+from drunk_ai_proxy.proxies.llm_proxies_provider import LlmModel, LlmProxiesProvider
 from drunk_ai_proxy.tools.config_yaml import LlmConfig
 
 

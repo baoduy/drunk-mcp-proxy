@@ -23,7 +23,7 @@ class McpProxyProvider(McpBaseProvider):
         self.mcp: FastMCP | None = None
         self._logger: Logger = setup_logging(__name__)
 
-    def _create_proxy(self, mcp: FastMCP):
+    def _create_proxy(self, mcp: FastMCP) -> None:
         if self.config.spec_data is None:
             self._logger.warning(
                 "spec_data or mcp_servers is required for MCP config '%s'",
