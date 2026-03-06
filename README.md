@@ -9,7 +9,7 @@
 
 A powerful, production-ready dynamic proxy server for the Model Context Protocol (MCP) and LLM APIs, built with Python and FastMCP. This service enables MCP clients and LLM-compatible applications to seamlessly connect to multiple backend MCP servers and LLM providers through a unified, scalable interface with advanced features including authentication, CORS support, and environment-based configuration.
 
-![diagram](diagram.svg)
+![diagram](https://raw.githubusercontent.com/baoduy/drunk-mcp-proxy/refs/heads/main/diagram.svg)
 
 ## 🎯 Overview
 
