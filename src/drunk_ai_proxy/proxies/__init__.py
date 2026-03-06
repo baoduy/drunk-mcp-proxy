@@ -1,13 +1,9 @@
 """
 Proxies package.
 
-This package contains loaders for creating MCP proxies and servers:
-- StaticProxyLoader: Creates proxies to remote MCP servers from local MCP definitions
-- OpenApiMcpProxyLoader: Creates MCP servers from OpenAPI specifications
-- AppConfigProvider: Loads configuration from data/config.yaml
-- AuthConfigProvider: Loads and manages authentication configurations
-- OpenApiMcpProvider: Creates FastMCP instances from McpProxyConfig
-- McpProxyConfig: Configuration model for MCP proxy instances
+This package contains proxy providers for MCP and LLM services:
+- llm: LLM proxy implementations (OpenAI, Anthropic, Mistral, etc.)
+- mcp: MCP proxy implementations (static, OpenAPI)
 """
 
 from __future__ import annotations
@@ -15,34 +11,43 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .static_proxies_provider import StaticProxiesProvider
-    from .auth_config_provider import AuthConfigProvider
-    from .mcp_base_provider import McpProxyConfig
-    from .openapi_mcp_provider import OpenApiMcpProvider
+    from .llm import LlmBaseProvider, LlmProxiesProvider
+    from .mcp import (
+        McpBaseProvider,
+        McpProxyConfig,
+        McpProxyProvider,
+        OpenApiMcpProvider,
+        StaticProxiesProvider,
+    )
 
 __all__ = [
+    # LLM
+    "LlmBaseProvider",
+    "LlmProxiesProvider",
+    # MCP
+    "McpBaseProvider",
     "McpProxyConfig",
+    "McpProxyProvider",
     "StaticProxiesProvider",
-    "AuthConfigProvider",
     "OpenApiMcpProvider",
 ]
 
 
-def __getattr__(name: str):
-    if name == "McpProxyConfig":
-        from .mcp_base_provider import McpProxyConfig
-        return McpProxyConfig
-    
-    if name == "StaticProxiesProvider":
-        from .static_proxies_provider import StaticProxiesProvider
-        return StaticProxiesProvider
-    
-    if name == "AuthConfigProvider":
-        from .auth_config_provider import AuthConfigProvider
-        return AuthConfigProvider
-    
-    if name == "OpenApiMcpProvider":
-        from .openapi_mcp_provider import OpenApiMcpProvider
-        return OpenApiMcpProvider
-    
+def __getattr__(name: str) -> object:
+    if name in {"LlmBaseProvider", "LlmProxiesProvider"}:
+        from . import llm
+
+        return getattr(llm, name)
+
+    if name in {
+        "McpBaseProvider",
+        "McpProxyConfig",
+        "McpProxyProvider",
+        "StaticProxiesProvider",
+        "OpenApiMcpProvider",
+    }:
+        from . import mcp
+
+        return getattr(mcp, name)
+
     raise AttributeError(f"module 'proxies' has no attribute {name!r}")

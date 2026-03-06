@@ -108,6 +108,11 @@ SWAGGER_ENABLED = get_env_bool("FASTMCP_SWAGGER_ENABLED", True)
 # Enable or disable request header validation (Authorization header must not be empty)
 AUTH_ENABLED = get_env_bool("FASTMCP_AUTH_ENABLED", False)
 
+# Code Mode Configuration
+# ========================
+# Enable or disable FastMCP Code Mode transforms
+CODEMODE_ENABLED = get_env_bool("FASTMCP_CODEMODE_ENABLED", True)
+
 # Rate Limiting Configuration
 # ===========================
 # Enable/disable rate limiting and configure fixed window limits

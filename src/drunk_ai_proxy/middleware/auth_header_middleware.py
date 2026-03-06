@@ -3,8 +3,8 @@ from typing import Any
 
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from drunk_ai_proxy.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 
 class AuthHeaderMiddleware(Middleware):

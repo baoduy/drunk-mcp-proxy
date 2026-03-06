@@ -709,6 +709,7 @@ result = handler.handle({"url": "https://example.com"})
 ### OOP & Modularity Principles
 
 - **Guideline**: Prefer composition over inheritance unless the relationship is a strict is-a, and keep modules cohesive with small, intentional public interfaces.
+- **Project Rule (Strict)**: New modules must be implemented with class-based design first. Avoid module-level procedural functions for core logic unless they are tiny pure utility helpers.
 - **Bad Example**:
   ```python
   class ReportService:
@@ -1258,6 +1259,7 @@ user = repo.find_by_id(1)
 
 ### Code Organization
 - **One class per file** (with exceptions for small related classes).
+- **Class-first modules**: For new development, structure each module around one primary class and keep orchestration logic in class methods.
 - **Group related methods** together within a class.
 - **Keep files under 500 lines** where possible.
 - **Keep public APIs minimal** and expose only what callers need.

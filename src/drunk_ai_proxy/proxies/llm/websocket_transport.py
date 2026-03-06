@@ -8,8 +8,8 @@ from logging import Logger
 import websockets
 from websockets.asyncio.client import ClientConnection
 
-from drunk_ai_proxy.tools import LlmConfig
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils import LlmConfig
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 
 class WebSocketFactory:

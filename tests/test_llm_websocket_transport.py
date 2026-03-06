@@ -12,11 +12,11 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, Mock, patch, MagicMock
 
-from drunk_ai_proxy.proxies.llm_websocket_transport import (
+from drunk_ai_proxy.proxies.llm.websocket_transport import (
     WebSocketFactory,
     BackendConnectionPool,
 )
-from drunk_ai_proxy.tools import LlmConfig
+from drunk_ai_proxy.utils import LlmConfig
 
 
 class TestWebSocketFactoryUrlBuilding:
@@ -117,7 +117,7 @@ class TestWebSocketFactoryCreation:
         assert "ollama" in factory._provider_configs
 
     @pytest.mark.asyncio
-    @patch("drunk_ai_proxy.proxies.llm_websocket_transport.websockets.connect")
+    @patch("drunk_ai_proxy.proxies.llm.websocket_transport.websockets.connect")
     async def test_create_connection_success(self, mock_connect: Mock) -> None:
         """Successfully create WebSocket connection with auth."""
         mock_ws = AsyncMock()
@@ -131,7 +131,7 @@ class TestWebSocketFactoryCreation:
         )
         factory = WebSocketFactory([config])
         
-        with patch("drunk_ai_proxy.proxies.llm_websocket_transport.websockets.connect", mock_connect):
+        with patch("drunk_ai_proxy.proxies.llm.websocket_transport.websockets.connect", mock_connect):
             ws = await factory.create_connection("openai")
             
             assert ws == mock_ws

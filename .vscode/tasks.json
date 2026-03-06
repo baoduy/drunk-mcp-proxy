@@ -1,0 +1,40 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "rewrite-test-imports",
+			"type": "shell",
+			"command": "set -e; cd /Users/steven/_CODE/drunk-mcp-proxy; files=$(rg --files tests); for f in $files; do sed -i '' 's|drunk_ai_proxy\\.tools|drunk_ai_proxy.utils|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.auth_providers|drunk_ai_proxy.auth|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.llm_proxies_provider|drunk_ai_proxy.proxies.llm.proxies_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.llm_client_factory|drunk_ai_proxy.proxies.llm.client_factory|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.llm_websocket_provider|drunk_ai_proxy.proxies.llm.websocket_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.llm_websocket_transport|drunk_ai_proxy.proxies.llm.websocket_transport|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.llm_base_provider|drunk_ai_proxy.proxies.llm.base_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.mcp_proxy_provider|drunk_ai_proxy.proxies.mcp.proxy_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.mcp_base_provider|drunk_ai_proxy.proxies.mcp.base_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.openapi_mcp_provider|drunk_ai_proxy.proxies.mcp.openapi_provider|g' \"$f\"; sed -i '' 's|drunk_ai_proxy\\.proxies\\.static_proxies_provider|drunk_ai_proxy.proxies.mcp.static_provider|g' \"$f\"; done; echo \"imports-updated\""
+		},
+		{
+			"label": "rewrite-test-imports-perl",
+			"type": "shell",
+			"command": "cd /Users/steven/_CODE/drunk-mcp-proxy && rg --files tests | xargs perl -pi -e 's|drunk_ai_proxy\\.tools|drunk_ai_proxy.utils|g; s|drunk_ai_proxy\\.auth_providers|drunk_ai_proxy.auth|g; s|drunk_ai_proxy\\.proxies\\.llm_proxies_provider|drunk_ai_proxy.proxies.llm.proxies_provider|g; s|drunk_ai_proxy\\.proxies\\.llm_client_factory|drunk_ai_proxy.proxies.llm.client_factory|g; s|drunk_ai_proxy\\.proxies\\.llm_websocket_provider|drunk_ai_proxy.proxies.llm.websocket_provider|g; s|drunk_ai_proxy\\.proxies\\.llm_websocket_transport|drunk_ai_proxy.proxies.llm.websocket_transport|g; s|drunk_ai_proxy\\.proxies\\.llm_base_provider|drunk_ai_proxy.proxies.llm.base_provider|g; s|drunk_ai_proxy\\.proxies\\.mcp_proxy_provider|drunk_ai_proxy.proxies.mcp.proxy_provider|g; s|drunk_ai_proxy\\.proxies\\.mcp_base_provider|drunk_ai_proxy.proxies.mcp.base_provider|g; s|drunk_ai_proxy\\.proxies\\.openapi_mcp_provider|drunk_ai_proxy.proxies.mcp.openapi_provider|g; s|drunk_ai_proxy\\.proxies\\.static_proxies_provider|drunk_ai_proxy.proxies.mcp.static_provider|g;' && echo imports-updated"
+		},
+		{
+			"label": "phase2-targeted-pytest",
+			"type": "shell",
+			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_mcp_proxy_provider.py tests/test_openapi_mcp_provider.py tests/test_llm_proxies_provider.py -q"
+		},
+		{
+			"label": "phase2-targeted-pytest-rerun",
+			"type": "shell",
+			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_mcp_proxy_provider.py tests/test_openapi_mcp_provider.py tests/test_llm_proxies_provider.py -q"
+		},
+		{
+			"label": "phase2-targeted-pytest-rerun-2",
+			"type": "shell",
+			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_mcp_proxy_provider.py tests/test_openapi_mcp_provider.py tests/test_llm_proxies_provider.py -q"
+		},
+		{
+			"label": "phase2-mcp-pytest",
+			"type": "shell",
+			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_mcp_proxy_provider.py tests/test_mcp_proxy_provider_extended.py -q"
+		},
+		{
+			"label": "phase2-broader-pytest",
+			"type": "shell",
+			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_openapi_mcp_provider.py tests/test_mcp_proxy_provider.py tests/test_mcp_proxy_provider_extended.py tests/test_llm_proxies_provider.py tests/test_llm_websocket_provider.py tests/test_llm_websocket_transport.py -q"
+		}
+	]
+}

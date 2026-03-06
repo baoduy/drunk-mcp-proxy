@@ -18,13 +18,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from .lifespan import AppLifespanManager
 from .swagger_provider import SwaggerProvider
-from drunk_ai_proxy.tools.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
-from drunk_ai_proxy.tools.error_utils import sanitize_error_message
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
+from drunk_ai_proxy.utils.error_utils import sanitize_error_message
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    from ..proxies.mcp_base_provider import McpProxyConfig
-    from ..proxies.llm_proxies_provider import LlmProxiesProvider
+    from ..proxies.mcp.base_provider import McpProxyConfig
+    from ..proxies.llm.proxies_provider import LlmProxiesProvider
 
 
 class StarletteApp:

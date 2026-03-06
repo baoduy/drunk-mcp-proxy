@@ -7,11 +7,11 @@ from __future__ import annotations
 from logging import Logger
 
 from fastmcp import FastMCP
-from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
-from drunk_ai_proxy.tools import McpConfig
-from drunk_ai_proxy.tools.env import SERVER_NAME, SERVER_VERSION
-from drunk_ai_proxy.tools.logging_config import setup_logging
-from drunk_ai_proxy.tools.mcp_proxy_builder import build_mcp_proxy_configs
+from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
+from drunk_ai_proxy.utils import McpConfig
+from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
+from drunk_ai_proxy.utils.logging_config import setup_logging
+from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
 
 
 class McpProxyProvider(McpBaseProvider):
@@ -46,9 +46,13 @@ class McpProxyProvider(McpBaseProvider):
         if self.mcp is not None:
             return self.mcp
 
-        self.mcp = self.root_mcp if self.config.path == "/" and self.root_mcp is not None else FastMCP(
-            f"{SERVER_NAME}{self.config.path}",
-            version=SERVER_VERSION
+        self.mcp = (
+            self.root_mcp
+            if self.config.path == "/" and self.root_mcp is not None
+            else McpProxyBuilder.create_fastmcp_server(
+                f"{SERVER_NAME}{self.config.path}",
+                SERVER_VERSION,
+            )
         )
         self.mcp.auth = self._get_app_auth_provider()
         self._create_proxy(self.mcp)
@@ -70,7 +74,7 @@ class McpProxyProvider(McpBaseProvider):
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
-        return build_mcp_proxy_configs(
+        return McpProxyBuilder.build_mcp_proxy_configs(
             configs=configs,
             provider_factory=lambda config, root_mcp: McpProxyProvider(
                 config,

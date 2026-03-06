@@ -58,10 +58,9 @@ llm:
     base_url: "http://host.docker.internal:11434/v1"
 
   - enabled: true
-    websocket: false
+    websocket: true
     provider: lms #LM Studio provider
     base_url: "http://host.docker.internal:1234/v1"
-    api_key: sk-lm-qkz9kwNn:JgbOhGt5IHGGq90XbDi5
 
   - enabled: false
     websocket: false

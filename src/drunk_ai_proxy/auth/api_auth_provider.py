@@ -1,7 +1,7 @@
 import hashlib
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from pydantic.v1 import AnyHttpUrl
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 
 class ApiKeyAuthProvider(TokenVerifier):

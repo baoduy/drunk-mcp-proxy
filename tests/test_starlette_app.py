@@ -7,7 +7,7 @@ from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 import drunk_ai_proxy.app.starlette_app as starlette_app
-from drunk_ai_proxy.proxies.mcp_base_provider import McpProxyConfig
+from drunk_ai_proxy.proxies.mcp.base_provider import McpProxyConfig
 
 
 class DummyMcpServer:

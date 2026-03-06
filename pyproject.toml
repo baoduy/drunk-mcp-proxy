@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 
 # Runtime dependencies (migrated from requirements.txt)
 dependencies = [
-    "fastmcp>=3.0.0rc1",
+    "fastmcp>=3.1.0",
     "jsonschema>=4.0.0",
     "uvicorn>=0.27.0",
     "pydantic>=2.0.0",
@@ -22,6 +22,7 @@ dependencies = [
     "botocore>=1.35.0",
     "starlette>=0.34.0",
     "httpx>=0.6.7",
+    "httpx-oauth>=0.14.1",
     "py-key-value-aio[disk,keyring,memory,redis]>=0.4.0",
     "key-value>=0.1.2",
     "pyyaml>=6.0.0",

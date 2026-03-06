@@ -23,7 +23,7 @@ import json
 from typing import Any
 
 from fastapi.responses import StreamingResponse
-from drunk_ai_proxy.tools.serialization import to_dict
+from drunk_ai_proxy.utils.serialization import to_dict
 
 
 class AnthropicProvider:

@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from drunk_ai_proxy.tools.config_yaml import ConfigYaml, McpConfig, AuthConfig, LlmConfig
+from drunk_ai_proxy.utils.config_yaml import ConfigYaml, McpConfig, AuthConfig, LlmConfig
 
 
 class TestConfigYamlIntegration:
@@ -31,7 +31,7 @@ class TestConfigYamlIntegration:
         # Create a temporary directory for the test
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch CONFIG_DIR to use temp directory
-            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
+            monkeypatch.setattr("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", tmpdir)
             
             # Create the openapi directory and spec file
             openapi_dir = Path(tmpdir) / "openapi"
@@ -326,7 +326,7 @@ mcp:
         # Old config.json had array of specs with spec_file and spec_type
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch CONFIG_DIR to use temp directory
-            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
+            monkeypatch.setattr("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", tmpdir)
             
             # Create the openapi directory and spec file
             openapi_dir = Path(tmpdir) / "openapi"

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
-from drunk_ai_proxy.tools import ConfigYaml, AuthType, McpConfig, LlmConfig
-from drunk_ai_proxy.tools.env import AUTH_ENABLED, CONFIG_DIR
+from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig
+from drunk_ai_proxy.utils.env import AUTH_ENABLED, CONFIG_DIR
 
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
@@ -47,7 +47,7 @@ class AppConfigProvider:
 
         match name:
             case AuthType.BASIC:
-                from drunk_ai_proxy.auth_providers.api_auth_provider import ApiKeyAuthProvider
+                from drunk_ai_proxy.auth.api_auth_provider import ApiKeyAuthProvider
                 return ApiKeyAuthProvider(**config)
             case AuthType.JWT:
                 from fastmcp.server.auth.providers.jwt import JWTVerifier
@@ -62,7 +62,7 @@ class AppConfigProvider:
     ) -> "Auth | None":
         """Get the client authentication handler configuration."""
         if auth_passthrough:
-            from drunk_ai_proxy.auth_providers import AuthPassThrough
+            from drunk_ai_proxy.auth import AuthPassThrough
             return AuthPassThrough()
 
         name, config = self.get_auth_config(provider_name)
@@ -74,8 +74,8 @@ class AppConfigProvider:
                 from fastmcp.client.auth import BearerAuth
                 return BearerAuth(**config)
             case AuthType.AZURE:
-                from drunk_ai_proxy.auth_providers import AzureOauth
-                return AzureOauth(**config, scope=" ".join(config.get("scopes", [])))
+                from drunk_ai_proxy.auth import HttpxAzureOauth
+                return HttpxAzureOauth(**config, scope=" ".join(config.get("scopes", [])))
             case _:
                 raise ValueError(f"Unsupported authentication provider type: {name}")
 

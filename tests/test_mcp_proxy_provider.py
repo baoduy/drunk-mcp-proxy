@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch, call, MagicMock
 
 import pytest
 
-from drunk_ai_proxy.proxies.mcp_proxy_provider import McpProxyProvider
-from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider
-from drunk_ai_proxy.tools.config_yaml import McpConfig
+from drunk_ai_proxy.proxies.mcp.proxy_provider import McpProxyProvider
+from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider
+from drunk_ai_proxy.utils.config_yaml import McpConfig
 
 
 class TestMcpProxyProviderInit:
@@ -61,7 +61,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         assert result is None
         mock_mcp.add_provider.assert_not_called()
 
-    @patch("drunk_ai_proxy.tools.env.CONFIG_DIR", "/test/config")
+    @patch("drunk_ai_proxy.utils.env.CONFIG_DIR", "/test/config")
     def test_create_skill_proxy_with_nonexistent_directory(self):
         """Test that _create_skill_proxy returns early when skill_dir doesn't exist."""
         mock_config = Mock(spec=McpConfig)
@@ -261,13 +261,13 @@ class TestMcpProxyProviderCreateSkillProxy:
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_calls_create_skill_proxy(
         self,
-        mock_fastmcp_cls,
+        mock_create_fastmcp_server,
         mock_create_skill_proxy,
         mock_create_proxy,
         mock_get_app_config,
@@ -279,7 +279,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.auth = None  # Add auth attribute
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
-        mock_fastmcp_cls.return_value = mock_mcp
+        mock_create_fastmcp_server.return_value = mock_mcp
         
         # Mock AppConfigProvider
         mock_app_config = Mock()
@@ -293,13 +293,13 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_mcp)
         assert result == mock_mcp
 
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_uses_root_mcp_for_root_path(
         self,
-        mock_fastmcp_cls,
+        mock_create_fastmcp_server,
         mock_create_skill_proxy,
         mock_create_proxy,
         mock_get_app_config,
@@ -322,16 +322,16 @@ class TestMcpProxyProviderCreateProxy:
 
         # Should use root_mcp instead of creating new one
         assert result == mock_root_mcp
-        mock_fastmcp_cls.assert_not_called()
+        mock_create_fastmcp_server.assert_not_called()
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.McpProxyProvider._create_skill_proxy")
-    @patch("drunk_ai_proxy.proxies.mcp_proxy_provider.FastMCP")
+    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_returns_cached_mcp(
         self,
-        mock_fastmcp_cls,
+        mock_create_fastmcp_server,
         mock_create_skill_proxy,
         mock_create_proxy,
         mock_get_app_config,
@@ -343,7 +343,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.auth = None  # Add auth attribute
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
-        mock_fastmcp_cls.return_value = mock_mcp
+        mock_create_fastmcp_server.return_value = mock_mcp
         
         # Mock AppConfigProvider
         mock_app_config = Mock()
@@ -357,7 +357,7 @@ class TestMcpProxyProviderCreateProxy:
         result2 = provider.create_proxy()
 
         # Should only create once
-        assert mock_fastmcp_cls.call_count == 1
+        assert mock_create_fastmcp_server.call_count == 1
         assert result1 == result2
         assert mock_create_skill_proxy.call_count == 1
 

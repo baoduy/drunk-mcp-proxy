@@ -12,9 +12,9 @@ from logging import Logger
 from typing import Any, Mapping
 
 from fastapi.responses import JSONResponse
-from drunk_ai_proxy.tools.error_utils import sanitize_error_message
-from drunk_ai_proxy.tools.logging_config import setup_logging
-from drunk_ai_proxy.tools.serialization import to_dict
+from drunk_ai_proxy.utils.error_utils import sanitize_error_message
+from drunk_ai_proxy.utils.logging_config import setup_logging
+from drunk_ai_proxy.utils.serialization import to_dict
 
 
 class LlmBaseProvider(ABC):

@@ -15,11 +15,11 @@ from fastmcp.server.providers.openapi import MCPType
 if TYPE_CHECKING:
     pass
 
-from drunk_ai_proxy.proxies.mcp_base_provider import McpBaseProvider, McpProxyConfig
-from drunk_ai_proxy.tools import McpConfig
-from drunk_ai_proxy.tools.env import SERVER_NAME
-from drunk_ai_proxy.tools.logging_config import setup_logging
-from drunk_ai_proxy.tools.mcp_proxy_builder import build_openapi_proxy_configs
+from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
+from drunk_ai_proxy.utils import McpConfig
+from drunk_ai_proxy.utils.env import SERVER_NAME
+from drunk_ai_proxy.utils.logging_config import setup_logging
+from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
 
 
 class OpenApiMcpProvider(McpBaseProvider):
@@ -73,7 +73,7 @@ class OpenApiMcpProvider(McpBaseProvider):
 
     @staticmethod
     def create_mcp_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
-        return build_openapi_proxy_configs(
+        return McpProxyBuilder.build_openapi_proxy_configs(
             configs=configs,
             provider_factory=lambda config: OpenApiMcpProvider(config),
         )

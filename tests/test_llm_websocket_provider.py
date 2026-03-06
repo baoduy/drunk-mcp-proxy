@@ -14,9 +14,9 @@ import pytest
 from unittest.mock import AsyncMock, Mock
 
 from fastapi import WebSocketDisconnect
-from drunk_ai_proxy.proxies.llm_websocket_provider import LlmWebSocketProvider
-from drunk_ai_proxy.proxies.llm_websocket_transport import WebSocketFactory
-from drunk_ai_proxy.tools import LlmConfig
+from drunk_ai_proxy.proxies.llm.websocket_provider import LlmWebSocketProvider
+from drunk_ai_proxy.proxies.llm.websocket_transport import WebSocketFactory
+from drunk_ai_proxy.utils import LlmConfig
 
 
 class TestLlmWebSocketProviderInit:

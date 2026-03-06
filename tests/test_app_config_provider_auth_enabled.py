@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
-from drunk_ai_proxy.auth_providers.api_auth_provider import ApiKeyAuthProvider
-from drunk_ai_proxy.tools import AuthType
+from drunk_ai_proxy.auth.api_auth_provider import ApiKeyAuthProvider
+from drunk_ai_proxy.utils import AuthType
 
 
 def test_get_fast_mcp_auth_provider_returns_none_when_auth_disabled(

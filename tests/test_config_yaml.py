@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from drunk_ai_proxy.tools.config_yaml import (
+from drunk_ai_proxy.utils.config_yaml import (
     AuthConfig,
     BearerAuthConfig,
     ConfigYaml,
@@ -224,7 +224,7 @@ class TestMcpConfig:
     def test_mcp_config_resolves_env_vars_in_spec_file(self, monkeypatch) -> None:
         """Test that McpConfig resolves env vars in loaded spec data."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", tmpdir)
+            monkeypatch.setattr("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", tmpdir)
             openapi_dir = Path(tmpdir) / "openapi"
             openapi_dir.mkdir(parents=True, exist_ok=True)
             spec_file = openapi_dir / "test-spec.json"
@@ -482,7 +482,7 @@ mcp:
             os.unlink(temp_file)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
-    @patch("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", "/tmp")
+    @patch("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", "/tmp")
     def test_parse_config_with_complete_structure(self, monkeypatch) -> None:
         """Test parsing configuration with complete auth, llm, and mcp sections."""
         # Create a temporary spec file
@@ -495,7 +495,7 @@ mcp:
             f.write('{"openapi": "3.0.0", "info": {"title": "Test API", "version": "1.0.0"}, "paths": {}}')
         
         # Patch CONFIG_DIR to use temp directory
-        monkeypatch.setattr("drunk_ai_proxy.tools.config_yaml.CONFIG_DIR", temp_dir)
+        monkeypatch.setattr("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", temp_dir)
         
         yaml_content = """
 auth:

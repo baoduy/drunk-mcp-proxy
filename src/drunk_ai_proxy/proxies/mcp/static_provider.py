@@ -7,11 +7,11 @@ configurations using McpConfig from the CONFIG_DIR/config.json file.
 
 from typing import TYPE_CHECKING
 
-from drunk_ai_proxy.tools.logging_config import setup_logging
-from drunk_ai_proxy.tools import SpecType, McpConfig
+from drunk_ai_proxy.utils.logging_config import setup_logging
+from drunk_ai_proxy.utils import SpecType, McpConfig
 
 if TYPE_CHECKING:
-    from .mcp_base_provider import McpProxyConfig
+    from .base_provider import McpProxyConfig
 
 
 class StaticProxiesProvider:
@@ -58,7 +58,7 @@ class StaticProxiesProvider:
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
-        from .mcp_proxy_provider import McpProxyProvider
+        from .proxy_provider import McpProxyProvider
         
         mcp_configs = self.mcp_configs
         if len(mcp_configs) == 0:
@@ -82,7 +82,7 @@ class StaticProxiesProvider:
             self._logger.warning("No OpenAPI configurations found in config file")
             return []
         
-        from .openapi_mcp_provider import OpenApiMcpProvider
+        from .openapi_provider import OpenApiMcpProvider
         return OpenApiMcpProvider.create_mcp_proxies_configs(openapi_configs)
         
     def get_config_services(self) -> list["McpProxyConfig"]:

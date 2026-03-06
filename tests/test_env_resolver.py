@@ -6,7 +6,7 @@ Tests environment variable resolution in strings, dicts, and lists.
 
 import os
 import pytest
-from drunk_ai_proxy.tools.env_resolver import (
+from drunk_ai_proxy.utils.env_resolver import (
     resolve_env_var,
     resolve_env_vars_in_dict,
     resolve_env_vars_in_list,

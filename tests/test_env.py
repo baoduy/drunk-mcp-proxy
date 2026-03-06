@@ -19,7 +19,7 @@ class TestEnvConfiguration:
         try:
             # Reimport to get fresh defaults
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.CONFIG_DIR == "data"
@@ -34,7 +34,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.CONFIG_DIR == "/custom/path"
@@ -47,7 +47,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.SCHEMA_DIR == "schemas"
@@ -61,7 +61,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.LOG_LEVEL == "INFO"
@@ -75,7 +75,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.LOG_LEVEL == "DEBUG"
@@ -88,7 +88,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.SERVER_NAME == "drunk-ai-proxy"
@@ -102,7 +102,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.SERVER_NAME == "my-server"
@@ -115,7 +115,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.SERVER_VERSION == "1.0.0"
@@ -129,7 +129,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.CORS_ALLOW_ORIGINS == ""
@@ -143,7 +143,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.CORS_ALLOW_ORIGINS == "https://example.com"
@@ -156,7 +156,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.HOST == "0.0.0.0"
@@ -170,7 +170,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.PORT == 9123
@@ -184,7 +184,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.PORT == 8080
@@ -197,7 +197,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.PORT == 9123
@@ -210,7 +210,7 @@ class TestEnvConfiguration:
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.OAUTH_STORAGE_ENCRYPTION_KEY == ""
@@ -218,13 +218,40 @@ class TestEnvConfiguration:
             if env_backup is not None:
                 os.environ["FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY"] = env_backup
 
+    def test_codemode_enabled_default(self):
+        """Test CODEMODE_ENABLED defaults to False when not set."""
+        env_backup = os.environ.pop("FASTMCP_CODEMODE_ENABLED", None)
+
+        try:
+            import importlib
+            import drunk_ai_proxy.utils.env as env_module
+            importlib.reload(env_module)
+
+            assert env_module.CODEMODE_ENABLED is False
+        finally:
+            if env_backup is not None:
+                os.environ["FASTMCP_CODEMODE_ENABLED"] = env_backup
+
+    def test_codemode_enabled_custom_true(self):
+        """Test CODEMODE_ENABLED reads true values from environment."""
+        os.environ["FASTMCP_CODEMODE_ENABLED"] = "true"
+
+        try:
+            import importlib
+            import drunk_ai_proxy.utils.env as env_module
+            importlib.reload(env_module)
+
+            assert env_module.CODEMODE_ENABLED is True
+        finally:
+            os.environ.pop("FASTMCP_CODEMODE_ENABLED", None)
+
     def test_oauth_storage_encryption_key_custom(self):
         """Test OAUTH_STORAGE_ENCRYPTION_KEY reads from environment and strips whitespace."""
         os.environ["FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY"] = "  test-key-123  "
         
         try:
             import importlib
-            import drunk_ai_proxy.tools.env as env_module
+            import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
             
             assert env_module.OAUTH_STORAGE_ENCRYPTION_KEY == "test-key-123"
@@ -233,7 +260,7 @@ class TestEnvConfiguration:
 
     def test_get_env_bool_false_values(self):
         """Test get_env_bool with false values."""
-        from drunk_ai_proxy.tools.env import get_env_bool
+        from drunk_ai_proxy.utils.env import get_env_bool
 
         os.environ["TEST_BOOL"] = "0"
         assert get_env_bool("TEST_BOOL", True) is False
@@ -251,7 +278,7 @@ class TestEnvConfiguration:
 
     def test_get_env_bool_default_for_invalid(self):
         """Test get_env_bool returns default for invalid/empty values."""
-        from drunk_ai_proxy.tools.env import get_env_bool
+        from drunk_ai_proxy.utils.env import get_env_bool
 
         os.environ["TEST_BOOL"] = "maybe"
         assert get_env_bool("TEST_BOOL", True) is True

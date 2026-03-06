@@ -25,12 +25,12 @@ Supported Transports:
 """
 
 from typing import TYPE_CHECKING, Any
-from drunk_ai_proxy.proxies.llm_proxies_provider import LlmProxiesProvider
+from drunk_ai_proxy.proxies.llm.proxies_provider import LlmProxiesProvider
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from drunk_ai_proxy.proxies import StaticProxiesProvider
-from drunk_ai_proxy.tools.env import (
+from drunk_ai_proxy.utils.env import (
     CONFIG_DIR,
     LLM_ROUTE_PREFIX,
     LOG_LEVEL,
@@ -39,10 +39,10 @@ from drunk_ai_proxy.tools.env import (
     SERVER_NAME,
     SERVER_VERSION,
 )
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 if TYPE_CHECKING:
-    from drunk_ai_proxy.proxies.mcp_base_provider import McpProxyConfig
+    from drunk_ai_proxy.proxies.mcp.base_provider import McpProxyConfig
 
 # Initialize logging with server name from environment
 # Can be controlled via FASTMCP_LOG_LEVEL environment variable

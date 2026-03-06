@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
 from drunk_ai_proxy.middleware.auth_header_middleware import AuthHeaderMiddleware
-from drunk_ai_proxy.tools.auth_header_policy import DEFAULT_ANONYMOUS_PATHS
+from drunk_ai_proxy.utils.auth_header_policy import DEFAULT_ANONYMOUS_PATHS
 
 
 class TestAuthHeaderMiddlewareInit:

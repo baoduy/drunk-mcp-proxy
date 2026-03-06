@@ -16,7 +16,7 @@ import jsonschema
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from drunk_ai_proxy.tools.env import CONFIG_DIR, SCHEMA_DIR
+from drunk_ai_proxy.utils.env import CONFIG_DIR, SCHEMA_DIR
 
 from .env_resolver import resolve_env_vars, resolve_env_vars_in_dict
 

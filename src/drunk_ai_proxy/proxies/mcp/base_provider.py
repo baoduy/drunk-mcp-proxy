@@ -9,10 +9,10 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from dataclasses import dataclass
-from drunk_ai_proxy.tools.env import SERVER_TRANSPORT
+from drunk_ai_proxy.utils.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
-    from drunk_ai_proxy.tools import McpConfig
+    from drunk_ai_proxy.utils import McpConfig
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
     from fastmcp import FastMCP
@@ -97,7 +97,7 @@ class McpBaseProvider(ABC):
             return
 
         from pathlib import Path
-        from drunk_ai_proxy.tools.env import CONFIG_DIR
+        from drunk_ai_proxy.utils.env import CONFIG_DIR
         from fastmcp.server.providers.skills import SkillsDirectoryProvider
 
         skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")

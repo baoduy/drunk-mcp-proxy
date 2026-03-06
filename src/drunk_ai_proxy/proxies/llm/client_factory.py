@@ -6,8 +6,8 @@ from logging import Logger
 
 from openai import AsyncOpenAI
 
-from drunk_ai_proxy.tools import LlmConfig
-from drunk_ai_proxy.tools.logging_config import setup_logging
+from drunk_ai_proxy.utils import LlmConfig
+from drunk_ai_proxy.utils.logging_config import setup_logging
 
 
 class AsyncOpenAIFactory:
