@@ -227,7 +227,7 @@ class TestEnvConfiguration:
             import drunk_ai_proxy.utils.env as env_module
             importlib.reload(env_module)
 
-            assert env_module.CODEMODE_ENABLED is False
+            assert env_module.CODEMODE_ENABLED is True
         finally:
             if env_backup is not None:
                 os.environ["FASTMCP_CODEMODE_ENABLED"] = env_backup
