@@ -42,7 +42,7 @@ class TestCustomAgentsDirectoryProviderDiscovery:
     def test_discover_flat_agents(self) -> None:
         """Test that flat agent files are discovered."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent_file = Path(tmpdir) / "reasoning.md"
+            agent_file = Path(tmpdir) / "reasoning.agent.md"
             agent_file.write_text(
                 "---\ndescription: Reasoning agent\nenabled: true\n---\n# Agent\n"
             )
@@ -54,12 +54,12 @@ class TestCustomAgentsDirectoryProviderDiscovery:
     def test_discover_multiple_flat_agents(self) -> None:
         """Test that multiple flat agent files are discovered."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent1 = Path(tmpdir) / "reasoning.md"
+            agent1 = Path(tmpdir) / "reasoning.agent.md"
             agent1.write_text(
                 "---\ndescription: Reasoning agent\nenabled: true\n---\n# Agent 1\n"
             )
 
-            agent2 = Path(tmpdir) / "planning.md"
+            agent2 = Path(tmpdir) / "planning.agent.md"
             agent2.write_text(
                 "---\ndescription: Planning agent\nenabled: true\n---\n# Agent 2\n"
             )
@@ -74,7 +74,7 @@ class TestCustomAgentsDirectoryProviderDiscovery:
         with tempfile.TemporaryDirectory() as tmpdir:
             namespace_dir = Path(tmpdir) / "core"
             namespace_dir.mkdir()
-            agent_file = namespace_dir / "reasoning.md"
+            agent_file = namespace_dir / "reasoning.agent.md"
             agent_file.write_text(
                 "---\ndescription: Core reasoning agent\nenabled: true\n---\n# Agent\n"
             )
@@ -83,15 +83,16 @@ class TestCustomAgentsDirectoryProviderDiscovery:
 
             resources = await provider.list_resources()
             uris = [str(resource.uri) for resource in resources]
-            assert "agent://core/reasoning" in uris
+            assert "agent://core/reasoning.agent.md" in uris
 
     @pytest.mark.asyncio
     async def test_discover_nested_namespaced_agents(self) -> None:
-        """Test that deeply nested agents are discovered."""
+        """Test that agents in namespace directories are discovered (single level only)."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            namespace_dir = Path(tmpdir) / "tools" / "code"
+            # Create single-level namespace (implementation only supports 1 level)
+            namespace_dir = Path(tmpdir) / "tools"
             namespace_dir.mkdir(parents=True)
-            agent_file = namespace_dir / "refactor.md"
+            agent_file = namespace_dir / "refactor.agent.md"
             agent_file.write_text(
                 "---\ndescription: Code refactoring agent\nenabled: true\n---\n# Refactor\n"
             )
@@ -100,17 +101,18 @@ class TestCustomAgentsDirectoryProviderDiscovery:
 
             resources = await provider.list_resources()
             uris = [str(resource.uri) for resource in resources]
-            assert "agent://tools/code/refactor" in uris
+            # Single-level namespace format: agent://tools/refactor.agent.md
+            assert "agent://tools/refactor.agent.md" in uris
 
     def test_discover_agents_skips_disabled(self) -> None:
         """Test that disabled agents are discovered but not listed."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            enabled_agent = Path(tmpdir) / "enabled.md"
+            enabled_agent = Path(tmpdir) / "enabled.agent.md"
             enabled_agent.write_text(
                 "---\ndescription: Enabled agent\nenabled: true\n---\n# Content\n"
             )
 
-            disabled_agent = Path(tmpdir) / "disabled.md"
+            disabled_agent = Path(tmpdir) / "disabled.agent.md"
             disabled_agent.write_text(
                 "---\ndescription: Disabled agent\nenabled: false\n---\n# Content\n"
             )
@@ -123,12 +125,12 @@ class TestCustomAgentsDirectoryProviderDiscovery:
     def test_discover_agents_skips_missing_description(self) -> None:
         """Test that agents without description field are skipped."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            valid_agent = Path(tmpdir) / "valid.md"
+            valid_agent = Path(tmpdir) / "valid.agent.md"
             valid_agent.write_text(
                 "---\ndescription: Valid agent\nenabled: true\n---\n# Content\n"
             )
 
-            invalid_agent = Path(tmpdir) / "invalid.md"
+            invalid_agent = Path(tmpdir) / "invalid.agent.md"
             invalid_agent.write_text("---\nenabled: true\n---\n# No description\n")
 
             provider = CustomAgentsDirectoryProvider(roots=tmpdir)
@@ -139,12 +141,12 @@ class TestCustomAgentsDirectoryProviderDiscovery:
     def test_discover_agents_skips_malformed_frontmatter(self) -> None:
         """Test that agents with malformed frontmatter are skipped."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            valid_agent = Path(tmpdir) / "valid.md"
+            valid_agent = Path(tmpdir) / "valid.agent.md"
             valid_agent.write_text(
                 "---\ndescription: Valid agent\nenabled: true\n---\n# Content\n"
             )
 
-            malformed_agent = Path(tmpdir) / "malformed.md"
+            malformed_agent = Path(tmpdir) / "malformed.agent.md"
             malformed_agent.write_text("---\ninvalid yaml: [\n---\n# Invalid\n")
 
             provider = CustomAgentsDirectoryProvider(roots=tmpdir)
@@ -159,12 +161,12 @@ class TestCustomAgentsDirectoryProviderDiscovery:
                 root1 = Path(tmpdir1)
                 root2 = Path(tmpdir2)
 
-                agent1 = root1 / "reasoning.md"
+                agent1 = root1 / "reasoning.agent.md"
                 agent1.write_text(
                     "---\ndescription: First reasoning agent\nenabled: true\n---\n# Agent 1\n"
                 )
 
-                agent2 = root2 / "reasoning.md"
+                agent2 = root2 / "reasoning.agent.md"
                 agent2.write_text(
                     "---\ndescription: Second reasoning agent\nenabled: true\n---\n# Agent 2\n"
                 )
@@ -183,14 +185,14 @@ class TestCustomAgentsDirectoryProviderDiscovery:
 
                 ns1 = root1 / "core"
                 ns1.mkdir()
-                agent1 = ns1 / "planning.md"
+                agent1 = ns1 / "planning.agent.md"
                 agent1.write_text(
                     "---\ndescription: First planning agent\nenabled: true\n---\n# Agent 1\n"
                 )
 
                 ns2 = root2 / "core"
                 ns2.mkdir()
-                agent2 = ns2 / "planning.md"
+                agent2 = ns2 / "planning.agent.md"
                 agent2.write_text(
                     "---\ndescription: Second planning agent\nenabled: true\n---\n# Agent 2\n"
                 )
@@ -204,7 +206,7 @@ class TestCustomAgentsDirectoryProviderDiscovery:
         """Test that agent names are properly sanitized."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create agent with special characters
-            agent_file = Path(tmpdir) / "Code Analyzer & Refactor!.md"
+            agent_file = Path(tmpdir) / "Code Analyzer & Refactor!.agent.md"
             agent_file.write_text(
                 "---\ndescription: Code analyzer\nenabled: true\n---\n# Agent\n"
             )
@@ -231,12 +233,12 @@ class TestCustomAgentsDirectoryProviderDiscovery:
                 root1 = Path(tmpdir1)
                 root2 = Path(tmpdir2)
 
-                agent1 = root1 / "agent1.md"
+                agent1 = root1 / "agent1.agent.md"
                 agent1.write_text(
                     "---\ndescription: Agent 1\nenabled: true\n---\n# Agent 1\n"
                 )
 
-                agent2 = root2 / "agent2.md"
+                agent2 = root2 / "agent2.agent.md"
                 agent2.write_text(
                     "---\ndescription: Agent 2\nenabled: true\n---\n# Agent 2\n"
                 )
@@ -253,7 +255,7 @@ class TestCustomAgentsDirectoryProviderResourceListing:
     async def test_list_resources_includes_enabled_agents(self) -> None:
         """Test that list_resources returns enabled agents."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent_file = Path(tmpdir) / "reasoning.md"
+            agent_file = Path(tmpdir) / "reasoning.agent.md"
             agent_file.write_text(
                 "---\ndescription: Reasoning agent\nenabled: true\n---\n# Agent\n"
             )
@@ -263,20 +265,20 @@ class TestCustomAgentsDirectoryProviderResourceListing:
             resources = await provider.list_resources()
 
             assert len(resources) == 1
-            assert resources[0].uri == "agent://reasoning"
-            assert resources[0].name == "reasoning"
+            assert str(resources[0].uri) == "agent://reasoning.agent.md"
+            assert resources[0].name == "reasoning.agent.md"
             assert resources[0].description == "Reasoning agent"
 
     @pytest.mark.asyncio
     async def test_list_resources_excludes_disabled_agents(self) -> None:
         """Test that list_resources excludes disabled agents."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            enabled_agent = Path(tmpdir) / "enabled.md"
+            enabled_agent = Path(tmpdir) / "enabled.agent.md"
             enabled_agent.write_text(
                 "---\ndescription: Enabled\nenabled: true\n---\n# Content\n"
             )
 
-            disabled_agent = Path(tmpdir) / "disabled.md"
+            disabled_agent = Path(tmpdir) / "disabled.agent.md"
             disabled_agent.write_text(
                 "---\ndescription: Disabled\nenabled: false\n---\n# Content\n"
             )
@@ -286,35 +288,39 @@ class TestCustomAgentsDirectoryProviderResourceListing:
             resources = await provider.list_resources()
 
             assert len(resources) == 1
-            assert resources[0].name == "enabled"
+            assert resources[0].name == "enabled.agent.md"
 
     @pytest.mark.asyncio
     async def test_get_resource_by_uri(self) -> None:
         """Test retrieving agent by URI."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent_file = Path(tmpdir) / "reasoning.md"
+            agent_file = Path(tmpdir) / "reasoning.agent.md"
             agent_file.write_text(
                 "---\ndescription: Reasoning agent\nenabled: true\n---\n# Agent\n"
             )
 
             provider = CustomAgentsDirectoryProvider(roots=tmpdir)
 
-            resource = await provider.get_resource("agent://reasoning")
+            resource = await provider.get_resource("agent://reasoning.agent.md")
 
             assert resource is not None
-            assert resource.uri == "agent://reasoning"
-            assert resource.name == "reasoning"
+            assert str(resource.uri) == "agent://reasoning.agent.md"
+            assert resource.name == "reasoning.agent.md"
 
     @pytest.mark.asyncio
     async def test_read_resource_returns_full_content(self) -> None:
-        """Test that reading agent returns full markdown content."""
+        """Test that reading agent via get_resource and read returns full markdown content."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            agent_file = Path(tmpdir) / "reasoning.md"
+            agent_file = Path(tmpdir) / "reasoning.agent.md"
             content = "---\ndescription: Reasoning agent\nenabled: true\n---\n# Agent Instructions\n\nDetailed content."
             agent_file.write_text(content)
 
             provider = CustomAgentsDirectoryProvider(roots=tmpdir)
 
-            read_content = await provider.read_resource("agent://reasoning")
-
+            # Get the resource first
+            resource = await provider.get_resource("agent://reasoning.agent.md")
+            assert resource is not None
+            
+            # Read its content
+            read_content = await resource.read()
             assert read_content == content

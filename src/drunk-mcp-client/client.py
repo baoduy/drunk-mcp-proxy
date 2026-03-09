@@ -104,7 +104,7 @@ def create_authenticated_client(config: ClientConfig) -> Client[Any]:
     return Client(config.url)
 
 
-async def sync_remote_skills_on_start(config: ClientConfig) -> None:
+async def sync_remote_skills(config: ClientConfig) -> None:
     """Sync all remote skills to local SKILL_DIR once at startup.
 
     Args:
@@ -128,8 +128,9 @@ def run_stdio_bridge() -> None:
     """
     config = ClientConfig.from_env()
 
-    # Sync skills from remote server once before exposing stdio proxy.
-    asyncio.run(sync_remote_skills_on_start(config))
+    if config.skill_dir is not None:
+        # Sync skills from remote server once before exposing stdio proxy.
+        asyncio.run(sync_remote_skills(config))
 
     # Create authenticated client
     client = create_authenticated_client(config)

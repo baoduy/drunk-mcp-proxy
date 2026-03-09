@@ -138,7 +138,7 @@ class AgentProvider(Provider):
         """Get a resource by URI.
 
         Args:
-            uri: The resource URI (e.g., "agent://agent_name").
+            uri: The resource URI (e.g., "agent://agent_name" or "agent://namespace/agent_name").
             version: Optional version specification (not used for static agents).
 
         Returns:
@@ -147,13 +147,13 @@ class AgentProvider(Provider):
         if not self._enabled:
             return None
 
-        # Parse URI: agent://{agent_name}
+        # Parse URI: agent://{agent_name} (may include namespace path)
         if not uri.startswith("agent://"):
             return None
 
         agent_name = uri[len("agent://") :]
 
-        # Check if this URI matches our agent
+        # Check if this URI matches our agent (exact match including any namespace path)
         if agent_name != self._agent_name:
             return None
 
@@ -183,7 +183,7 @@ class AgentProvider(Provider):
         Raises:
             FileNotFoundError: If the resource URI doesn't match this agent.
         """
-        # Parse URI and verify it matches
+        # Parse URI and verify it matches (may include namespace path)
         if not uri.startswith("agent://"):
             raise FileNotFoundError(f"Invalid agent URI: {uri}")
 

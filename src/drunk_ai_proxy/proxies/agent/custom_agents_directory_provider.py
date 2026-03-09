@@ -146,15 +146,15 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
 
         results: list[tuple[str | None, Path]] = []
 
-        # Check for flat structure: root/*.md
-        for md_file in sorted(root.glob("*.md")):
+        # Flat structure: root/*.agent.md
+        for md_file in sorted(root.glob("*.agent.md")):
             if md_file.is_file():
                 results.append((None, md_file))
 
-        # Check for namespaced structure: root/namespace/*.md
+        # Check for namespaced structure: root/namespace/*.agent.md
         for namespace_dir in sorted(root.iterdir()):
             if namespace_dir.is_dir() and not namespace_dir.name.startswith("."):
-                for md_file in sorted(namespace_dir.glob("*.md")):
+                for md_file in sorted(namespace_dir.glob("*.agent.md")):
                     if md_file.is_file():
                         results.append((namespace_dir.name, md_file))
 
@@ -172,13 +172,15 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     content = agent_file.read_text()
                     frontmatter = self._parse_frontmatter(content)
                     
-                    # Sanitize agent name from filename
-                    agent_name = self._sanitize_agent_name(agent_file.stem)
+                    # Build full agent name with namespace and .agent.md suffix
+                    # e.g., "core/analysis.agent.md" or "reasoning.agent.md"
+                    if namespace:
+                        full_agent_name = f"{namespace}/{agent_file.name}"
+                    else:
+                        full_agent_name = agent_file.name
                     
-                    # Build qualified name for deduplication
-                    qualified_name = (
-                        f"{namespace}/{agent_name}" if namespace else agent_name
-                    )
+                    # Build qualified name for deduplication (same as full_agent_name)
+                    qualified_name = full_agent_name
                     
                     # Skip duplicates
                     if qualified_name in seen_agent_names:
@@ -205,16 +207,13 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     # Create AgentProvider for this agent
                     provider = AgentProvider(
                         agent_path=agent_file,
-                        agent_name=agent_name,
+                        agent_name=full_agent_name,
                         description=description,
                         enabled=enabled,
                     )
 
-                    # Add to aggregate provider with optional namespace
-                    if namespace:
-                        self.add_provider(provider, namespace=namespace)
-                    else:
-                        self.add_provider(provider)
+                    # Add to aggregate provider (no namespace prefix needed)
+                    self.add_provider(provider)
 
                     seen_agent_names.add(qualified_name)
                     self._logger.info(
