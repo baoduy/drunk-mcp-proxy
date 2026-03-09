@@ -47,7 +47,7 @@ class ConfigBaseModel(BaseModel):
     """Base model with common validation logic for configuration models."""
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    def __getitem__(self, key: str | AuthType) -> object | None:
+    def __getitem__(self, key: str | AuthType) -> dict[str, Any] | None:
         """Access configuration fields using dict-like indexing."""
         try:
             key_value = key.value if isinstance(key, Enum) else key
@@ -61,7 +61,7 @@ class ConfigBaseModel(BaseModel):
                 return attr.model_dump(exclude_none=True)
             elif hasattr(attr, "__dict__"):
                 return cast(dict[str, Any], vars(attr))  # Convert any object to dict
-            return attr
+            return cast(dict[str, Any], attr)
         except AttributeError:
             return None
 
@@ -132,9 +132,45 @@ class JwtAuthConfig(ConfigBaseModel):
 
 class AuthConfig(ConfigBaseModel):
     """Authentication configuration section."""
-    default_provider: Optional[AuthType] = Field(default=None, alias="defaultProvider")
+    default_provider: Optional[AuthType] = Field(default=None)
     basic: Optional[BearerAuthConfig] = Field(default=None)
     jwt: Optional[JwtAuthConfig] = Field(default=None)
+
+    def _available_provider_names(self) -> list[str]:
+        auth_data = self.model_dump(exclude_none=True, by_alias=True)
+        auth_data.pop("default_provider", None)
+        return list(auth_data.keys())
+
+    def normalize_provider_name(
+        self,
+        provider_name: AuthType | str | None = None,
+    ) -> AuthType:
+        """Resolve and validate the authentication provider name.
+
+        Args:
+            provider_name: Optional provider name or enum. Falls back to default.
+
+        Returns:
+            Normalized provider enum.
+
+        Raises:
+            ValueError: If no provider is configured or the name is unsupported.
+        """
+        name = provider_name or self.default_provider
+        if name is None:
+            raise ValueError(
+                "No provider name specified and no default provider configured"
+            )
+
+        if isinstance(name, AuthType):
+            return name
+
+        try:
+            return AuthType(name)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unsupported authentication provider type: {name} in {self._available_provider_names()}"
+            ) from exc
 
 
 class LlmConfig(ConfigBaseModel):
@@ -157,7 +193,7 @@ class McpFilters(ConfigBaseModel):
 class McpAuthConfig(ConfigBaseModel):
     """Authentication configuration for MCP."""
     pass_through: bool = Field(default=False)
-    auth_provider: Optional[AuthType] = Field(default=None, alias="authProvider")
+    auth_provider: Optional[AuthType] = Field(default=None)
 
 class McpServerConfig(ConfigBaseModel):
     """Individual MCP server configuration."""

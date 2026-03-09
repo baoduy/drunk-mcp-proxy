@@ -30,7 +30,7 @@ def oauth_config() -> dict:
     return {
         "client_id": "test-client-id",
         "client_secret": "test-client-secret",
-        "token_url": "https://login.microsoftonline.com/test-tenant/oauth2/v2.0/token",
+        "tenant_id": "test-tenant",
         "scope": "https://graph.microsoft.com/.default",
     }
 
@@ -69,7 +69,10 @@ def test_azure_oauth_initialization(oauth_config):
 
     assert oauth.client_id == "test-client-id"
     assert oauth.client_secret == "test-client-secret"
-    assert oauth.token_url == oauth_config["token_url"]
+    assert (
+        oauth.token_url
+        == "https://login.microsoftonline.com/test-tenant/oauth2/v2.0/token"
+    )
     assert oauth.scope == "https://graph.microsoft.com/.default"
     assert oauth._cached_token is None
 

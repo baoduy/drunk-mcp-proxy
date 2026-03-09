@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from fastmcp.server.middleware import Middleware
     from fastmcp.server.http import StarletteWithLifespan
 
+from drunk_ai_proxy.utils.logging_config import setup_logging
+logger = setup_logging(__name__)
 
 @dataclass
 class McpProxyConfig:
@@ -89,8 +91,8 @@ class McpBaseProvider(ABC):
         Returns:
             An Authentication provider instance for the provider.
         """
-        provider_Name = self.config.auth.auth_provider if self.config.auth else None
-        return AppConfigProvider.get_instance().get_fast_mcp_auth_provider(provider_Name)
+        # calling AppConfigProvider get_fast_mcp_auth_provider without parameters to get the default auth provider for FastMCP servers
+        return AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
 
     def _create_skill_proxy(self, mcp: FastMCP):
         if self.config.skill_dir is None:

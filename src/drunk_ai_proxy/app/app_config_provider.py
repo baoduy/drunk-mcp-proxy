@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig
 from drunk_ai_proxy.utils.env import AUTH_ENABLED, CONFIG_DIR
-
+from drunk_ai_proxy.app.cache_provider import CacheProvider
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
@@ -14,25 +14,30 @@ class AppConfigProvider:
     _instance: "AppConfigProvider | None" = None
 
     def __init__(self) -> None:
-        self.config_path = ConfigYaml.load_from_file(f"{CONFIG_DIR}/config.yaml")
+        self._configs = ConfigYaml.load_from_file(f"{CONFIG_DIR}/config.yaml")
 
-    def get_auth_config(
+    def _get_auth_config(
         self,
-        provider_name: AuthType | None = None,
-    ) -> tuple[str, dict[str, Any] | None]:
+        provider_name: AuthType | str | None = None,
+    ) -> tuple[AuthType | None, dict[str, Any] | None]:
         """Get the authentication configuration for a given provider name."""
-        auth_config = self.config_path.auth
+        auth_config = self._configs.auth
         if auth_config is None:
-            return ("", None)
-        name = provider_name or auth_config.default_provider
-        if name is None:
-            raise ValueError(
-                "No provider name specified and no default provider configured"
-            )
+            return (None, None)
+        name = auth_config.normalize_provider_name(provider_name)
 
         config = auth_config[name]
         return (name, config)
 
+    def _get_auth_provider_names(self) -> list[str]:
+        """Get a list of available authentication provider names."""
+        auth_config = self._configs.auth
+        if auth_config is None:
+            return []
+        auth_data = auth_config.model_dump(exclude_none=True, by_alias=True)
+        auth_data.pop("default_provider", None)
+        return list(auth_data.keys())
+    
     def get_fast_mcp_auth_provider(
         self,
         provider_name: AuthType | None = None,
@@ -41,7 +46,7 @@ class AppConfigProvider:
         if not AUTH_ENABLED:
             return None
 
-        name, config = self.get_auth_config(provider_name)
+        name, config = self._get_auth_config(provider_name)
         if config is None:
             return None
 
@@ -52,8 +57,38 @@ class AppConfigProvider:
             case AuthType.JWT:
                 from fastmcp.server.auth.providers.jwt import JWTVerifier
                 return JWTVerifier(**config)
+            case AuthType.AZURE:
+                 from fastmcp.server.auth.providers.azure import AzureProvider
+                 return AzureProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.AUTH0:
+                 from fastmcp.server.auth.providers.auth0 import Auth0Provider
+                 return Auth0Provider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.AWS:
+                 from fastmcp.server.auth.providers.aws import AWSCognitoProvider
+                 return AWSCognitoProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.DISCORD:
+                from fastmcp.server.auth.providers.discord import DiscordProvider
+                return DiscordProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.GITHUB:
+                from fastmcp.server.auth.providers.github import GitHubProvider
+                return GitHubProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.GOOGLE:
+                from fastmcp.server.auth.providers.google import GoogleProvider
+                return GoogleProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.IN_MEMORY:
+                from fastmcp.server.auth.providers.in_memory import InMemoryOAuthProvider
+                return InMemoryOAuthProvider(**config)
+            case AuthType.INTROSPECTION:
+                from fastmcp.server.auth.providers.introspection import IntrospectionTokenVerifier
+                return IntrospectionTokenVerifier(**config)
+            case AuthType.OCI:
+                 from fastmcp.server.auth.providers.oci import OCIProvider
+                 return OCIProvider(**config,client_storage=CacheProvider.get_oauth_store())
+            case AuthType.SUPABASE:
+                from fastmcp.server.auth.providers.supabase import SupabaseProvider
+                return SupabaseProvider(**config)
             case _:
-                raise ValueError(f"Unsupported authentication provider type: {name}")
+                raise ValueError(f"Unsupported authentication provider type: {name} in {self._get_auth_provider_names()}")
 
     def get_client_auth_handler(
         self,
@@ -65,7 +100,7 @@ class AppConfigProvider:
             from drunk_ai_proxy.auth import AuthPassThrough
             return AuthPassThrough()
 
-        name, config = self.get_auth_config(provider_name)
+        name, config = self._get_auth_config(provider_name)
         if config is None:
             return None
 
@@ -75,17 +110,17 @@ class AppConfigProvider:
                 return BearerAuth(**config)
             case AuthType.AZURE:
                 from drunk_ai_proxy.auth import HttpxAzureOauth
-                return HttpxAzureOauth(**config, scope=" ".join(config.get("scopes", [])))
+                return HttpxAzureOauth(**config)
             case _:
-                raise ValueError(f"Unsupported authentication provider type: {name}")
+                raise ValueError(f"Unsupported authentication provider type: {name} in {self._get_auth_provider_names()}")
 
     def get_mcp_configs(self) -> list["McpConfig"]:
         """Get the list of MCP server configurations."""
-        return [mcp for mcp in self.config_path.mcp if mcp.enabled] if self.config_path.mcp else []
+        return [mcp for mcp in self._configs.mcp if mcp.enabled] if self._configs.mcp else []
 
     def get_llm_configs(self) -> list["LlmConfig"]:
         """Get the list of LLM provider configurations."""
-        return [llm for llm in self.config_path.llm if llm.enabled] if self.config_path.llm else []
+        return [llm for llm in self._configs.llm if llm.enabled] if self._configs.llm else []
 
     @classmethod
     def get_instance(cls) -> "AppConfigProvider":

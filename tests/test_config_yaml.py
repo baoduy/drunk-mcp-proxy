@@ -277,7 +277,7 @@ class TestAuthConfig:
     def test_auth_config_with_basic(self) -> None:
         """Test AuthConfig with Basic authentication."""
         config = AuthConfig(
-            defaultProvider="basic",
+            default_provider="basic",
             basic=BearerAuthConfig(token="$API_KEY"),
         )
         assert config.default_provider == "basic"
@@ -288,7 +288,7 @@ class TestAuthConfig:
     def test_auth_config_with_jwt(self) -> None:
         """Test AuthConfig with JWT authentication."""
         config = AuthConfig(
-            defaultProvider="jwt",
+            default_provider="jwt",
             jwt=JwtAuthConfig(
                 issuer="https://sts.windows.net/$TENANT_ID/",
             ),
@@ -499,7 +499,7 @@ mcp:
         
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     base_url: null
     token: null
@@ -569,7 +569,7 @@ class TestConfigYamlEnvVarResolution:
         """Test that missing environment variable raises error."""
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     token: $MISSING_API_KEY
 """
@@ -616,7 +616,7 @@ llm:
         with patch.dict(os.environ, {"TENANT_ID": "my-tenant"}):
             yaml_content = """
 auth:
-  defaultProvider: jwt
+  default_provider: jwt
   jwt:
     issuer: https://sts.windows.net/${TENANT_ID}/
 """

@@ -16,7 +16,7 @@ def test_get_fast_mcp_auth_provider_returns_none_when_auth_disabled(
     provider = AppConfigProvider.__new__(AppConfigProvider)
 
     get_auth_config = Mock(side_effect=AssertionError("Should not be called"))
-    monkeypatch.setattr(provider, "get_auth_config", get_auth_config)
+    monkeypatch.setattr(provider, "_get_auth_config", get_auth_config)
     monkeypatch.setattr("drunk_ai_proxy.app.app_config_provider.AUTH_ENABLED", False)
 
     auth_provider = provider.get_fast_mcp_auth_provider()
@@ -32,7 +32,7 @@ def test_get_fast_mcp_auth_provider_returns_basic_provider_when_enabled(
     provider = AppConfigProvider.__new__(AppConfigProvider)
 
     get_auth_config = Mock(return_value=(AuthType.BASIC, {"token": "test-token"}))
-    monkeypatch.setattr(provider, "get_auth_config", get_auth_config)
+    monkeypatch.setattr(provider, "_get_auth_config", get_auth_config)
     monkeypatch.setattr("drunk_ai_proxy.app.app_config_provider.AUTH_ENABLED", True)
 
     auth_provider = provider.get_fast_mcp_auth_provider()

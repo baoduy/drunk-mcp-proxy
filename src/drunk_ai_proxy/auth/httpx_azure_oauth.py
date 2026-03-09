@@ -38,8 +38,8 @@ class HttpxAzureOauth(HttpxOauthBase):
         oauth = HttpxAzureOauth(
             client_id="your-client-id",
             client_secret="your-client-secret",
-            token_url="https://login.microsoftonline.com/tenant/oauth2/v2.0/token",
-            scope="https://graph.microsoft.com/.default",
+            tenant_id="your-tenant-id",
+            scopes=["https://graph.microsoft.com/.default"],
         )
 
         async with httpx.AsyncClient(auth=oauth) as client:
@@ -53,8 +53,8 @@ class HttpxAzureOauth(HttpxOauthBase):
         oauth = HttpxAzureOauth(
             client_id="...",
             client_secret="...",
-            token_url="...",
-            scope="...",
+            tenant_id="...",
+            scopes=["..."],
             token_storage=encrypted_token_storage,
         )
     """
@@ -63,8 +63,9 @@ class HttpxAzureOauth(HttpxOauthBase):
         self,
         client_id: str,
         client_secret: str,
-        token_url: str,
+        tenant_id: str,
         scope: str | None = None,
+        scopes: list[str] | None = None,
         *,
         token_storage: AsyncKeyValue | None = None,
     ) -> None:
@@ -74,14 +75,18 @@ class HttpxAzureOauth(HttpxOauthBase):
         Args:
             client_id: Azure AD client ID (application ID).
             client_secret: Azure AD client secret.
-            token_url: Azure AD token endpoint URL.
+            tenant_id: Azure AD tenant ID.
             scope: OAuth2 scope(s), space-separated if multiple.
+            scopes: Optional list of OAuth2 scopes.
             token_storage: Optional token storage adapter (for persistence/encryption).
         """
+        resolved_scope = scope
+        if resolved_scope is None and scopes is not None:
+            resolved_scope = " ".join(scopes)
         super().__init__(
             client_id=client_id,
             client_secret=client_secret,
-            token_url=token_url,
-            scope=scope,
+            token_url=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            scope=resolved_scope,
             token_storage=token_storage,
         )

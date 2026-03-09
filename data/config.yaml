@@ -9,7 +9,7 @@
 #
 auth:
   # Which authentication provider to use by default (basic or jwt)
-  defaultProvider: basic
+  default_provider: basic
 
   # Basic authentication provider
   basic:
@@ -18,16 +18,16 @@ auth:
 
   # JWT authentication provider (validates JWT tokens from requests)
   jwt:
-    base_url: null # Optional: base URL for the backend service
-    jwks_uri:
-      "https://login.microsoftonline.com/common/discovery/keys"
-      # URI to fetch JSON Web Key Set for token validation
-    issuer:
-      "https://sts.windows.net/$AZURE_TENANT_ID/"
-      # Expected issuer claim in JWT tokens
-    audience:
-      "api://24d0c6c2-0786-4029-beca-1e98342bf5fb"
-      # Expected audience claim in JWT tokens
+    base_url: null
+    jwks_uri: "https://login.microsoftonline.com/common/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+    audience: "api://24d0c6c2-0786-4029-beca-1e98342bf5fb"
+    
+  azure:
+    base_url: "http://0.0.0.0:9123"
+    tenant_id: $AZURE_TENANT_ID
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
 
 # ============================================================================
 # LANGUAGE MODEL (LLM) CONFIGURATION
@@ -84,23 +84,24 @@ llm:
 #
 mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
-  - path: /deepsea # URL path where this service is available
+  - enabled: true # Set to false to disable this server 
+    path: /deepsea # URL path where this service is available
     spec_file:
       openapi/deepsea.openapi.json
       # Path to OpenAPI specification file
     spec_type: openapi # Type of specification (openapi or mcp)
     base_url:
-      "http://host.docker.internal:5000"
+      "https://deepsea-fxrate.tsv2.dev"
       # Backend service URL
     filters: # Filter which operations to expose
       methods: # Only expose these HTTP methods
         - GET
         - POST
         - PUT
-      tags: # Only expose operations with these tags
+      tags:
         - CurrencyPairs
-    auth: # How to handle authentication
-      pass_through: true # Pass auth headers through to backend
+    auth:
+      auth_provider: azure
 
   # ========== Example 2: MCP servers with skills directory ==========
   - path: / # Root path for these services
@@ -119,7 +120,7 @@ mcp:
   - path: /stock # All servers below available under /stock
     spec_type: mcp # Using Model Context Protocol
     mcp_servers: # Multiple servers can be configured
-      tradingview: # Server 1: TradingView data
+      trading_view: # Server 1: TradingView data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package
@@ -127,7 +128,7 @@ mcp:
           - tradingview-mcp
         transport: stdio # Communication transport (stdio or http)
 
-      alphavantage: # Server 2: Alpha Vantage stock data
+      alpha_vantage: # Server 2: Alpha Vantage stock data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package
@@ -136,7 +137,7 @@ mcp:
           - "${ALPHAVANTAGE_API_KEY}" # Pass API key as argument
         transport: stdio # Communication transport (stdio or http)
 
-      yahoo-finance: # Server 3: Yahoo Finance data
+      yahoo_finance: # Server 3: Yahoo Finance data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package

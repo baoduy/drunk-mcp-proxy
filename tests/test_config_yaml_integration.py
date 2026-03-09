@@ -41,7 +41,7 @@ class TestConfigYamlIntegration:
             
             yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     base_url: null
     token: $API_KEY
@@ -146,7 +146,7 @@ mcp:
         """Test that environment variables are resolved across all config sections."""
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     token: $TEST_TOKEN
 
@@ -249,7 +249,7 @@ mcp:
         """Test resolving multiple environment variables in a single value."""
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     token: ${VAR1}-${VAR2}
 
@@ -289,7 +289,7 @@ class TestConfigYamlMigrationFromJson:
         # New YAML format uses 'basic' instead of 'bearer'
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     token: $API_KEY
     
@@ -448,7 +448,7 @@ class TestConfigYamlEdgeCases:
         """Test config with only auth section."""
         yaml_content = """
 auth:
-  defaultProvider: basic
+  default_provider: basic
   basic:
     token: test-token
 """
