@@ -64,7 +64,6 @@ class HttpxAzureOauth(HttpxOauthBase):
         client_id: str,
         client_secret: str,
         tenant_id: str,
-        scope: str | None = None,
         scopes: list[str] | None = None,
         *,
         token_storage: AsyncKeyValue | None = None,
@@ -80,13 +79,12 @@ class HttpxAzureOauth(HttpxOauthBase):
             scopes: Optional list of OAuth2 scopes.
             token_storage: Optional token storage adapter (for persistence/encryption).
         """
-        resolved_scope = scope
-        if resolved_scope is None and scopes is not None:
-            resolved_scope = " ".join(scopes)
+        
         super().__init__(
             client_id=client_id,
             client_secret=client_secret,
-            token_url=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
-            scope=resolved_scope,
+            access_token_endpoint=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            authorize_endpoint=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize",
+            scopes=scopes or ["https://graph.microsoft.com/.default"],
             token_storage=token_storage,
         )

@@ -66,11 +66,14 @@ class HttpxOauthBase(httpx.Auth):
 
     def __init__(
         self,
+        
         client_id: str,
         client_secret: str,
-        token_url: str,
-        scope: str | None = None,
+        authorize_endpoint: str,
+        access_token_endpoint: str,
         *,
+        name: str ="httpx-oauth",
+        scopes: list[str] | None = None,
         token_storage: AsyncKeyValue | None = None,
         expires_in_buffer: int = 60,
         token_endpoint_auth_method: OAuth2ClientAuthMethod = "client_secret_post",
@@ -88,20 +91,39 @@ class HttpxOauthBase(httpx.Auth):
             token_endpoint_auth_method: httpx-oauth auth method for token endpoint.
         """
         self._logger: Logger = setup_logging(__name__)
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.token_url = token_url
-        self.scope = scope
-        self.storage = token_storage or CacheProvider.get_oauth_store()
-        self._cached_token: TokenPayload | None = None
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._storage = token_storage or CacheProvider.get_oauth_store()
         self._expires_in_buffer = expires_in_buffer
+        self._scope = " ".join(scopes) if scopes else None
         self._oauth_client = _ClientCredentialsOAuth2(
             client_id,
             client_secret,
-            token_url,
-            token_url,
+            authorize_endpoint=authorize_endpoint,
+            access_token_endpoint=access_token_endpoint,
             token_endpoint_auth_method=token_endpoint_auth_method,
+            name=name,
         )
+
+    @property
+    def client_id(self) -> str:
+        """Get the OAuth2 client ID."""
+        return self._client_id
+
+    @property
+    def client_secret(self) -> str:
+        """Get the OAuth2 client secret."""
+        return self._client_secret
+
+    @property
+    def storage(self) -> AsyncKeyValue:
+        """Get the token storage adapter."""
+        return self._storage
+
+    @property
+    def scope(self) -> str | None:
+        """Get the OAuth2 scope(s)."""
+        return self._scope
 
     def _build_token_request_data(self) -> dict[str, str]:
         """
@@ -111,8 +133,8 @@ class HttpxOauthBase(httpx.Auth):
             Token request form data.
         """
         data: dict[str, str] = {"grant_type": "client_credentials"}
-        if self.scope:
-            data["scope"] = self.scope
+        if self._scope:
+            data["scope"] = self._scope
         return data
 
     def _get_storage_key(self) -> str:
@@ -122,7 +144,7 @@ class HttpxOauthBase(httpx.Auth):
         Returns:
             Storage key string.
         """
-        return self.client_id
+        return self._client_id
 
     def _get_access_token(self, token: TokenPayload) -> str:
         """
@@ -149,7 +171,7 @@ class HttpxOauthBase(httpx.Auth):
         Returns:
             Token payload including expires_at.
         """
-        token = await self._oauth_client.get_client_credentials_token(self.scope)
+        token = await self._oauth_client.get_client_credentials_token(self._scope)
         raw_token: TokenPayload = dict(token)
 
         expires_in = raw_token.get("expires_in")
@@ -182,18 +204,13 @@ class HttpxOauthBase(httpx.Auth):
         Returns:
             Token payload with access_token key.
         """
-        if self._cached_token and not self._is_token_expired_dict(self._cached_token):
-            return self._cached_token
-
         storage_key = self._get_storage_key()
-        stored_token = await self.storage.get(storage_key)
+        stored_token = await self._storage.get(storage_key)
         if isinstance(stored_token, dict) and not self._is_token_expired_dict(stored_token):
-            self._cached_token = stored_token
             return stored_token
 
         token = await self._fetch_token()
-        await self.storage.put(storage_key, token)
-        self._cached_token = token
+        await self._storage.put(storage_key, token)
         return token
 
     def _get_token(self) -> TokenPayload:

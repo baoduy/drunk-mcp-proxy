@@ -318,6 +318,8 @@ class TestConfigYamlLoading:
                 "OPENROUTER_API_KEY": "test-key",
                 "OPENAI_API_KEY": "test-key",
                 "AZURE_TENANT_ID": "test-tenant",
+                "AZURE_CLIENT_ID": "test-client-id",
+                "AZURE_CLIENT_SECRET": "test-client-secret",
                 "NVIDIA_API_KEY": "test-key",
                 "ALPHAVANTAGE_API_KEY": "test-key",
                 "OUTLINE_API_KEY": "test-key",

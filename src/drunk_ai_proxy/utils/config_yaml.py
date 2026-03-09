@@ -72,11 +72,19 @@ class ConfigBaseModel(BaseModel):
 
     def _resolve_env_vars(self) -> None:
         """Resolve environment variable references in all string attributes."""
+        # Resolve explicitly defined fields
         for field_name in self.__class__.model_fields.keys():
             current_value = getattr(self, field_name, None)
             if current_value is not None:
                 resolved_value = resolve_env_vars(current_value)
                 setattr(self, field_name, resolved_value)
+        
+        # Resolve extra fields (for models with extra="allow")
+        if hasattr(self, "__pydantic_extra__") and self.__pydantic_extra__:
+            for extra_key, extra_value in self.__pydantic_extra__.items():
+                if extra_value is not None:
+                    resolved_value = resolve_env_vars(extra_value)
+                    self.__pydantic_extra__[extra_key] = resolved_value
 
     @model_validator(mode="after")
     def after_model_validator(self) -> "ConfigBaseModel":

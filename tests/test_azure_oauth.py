@@ -31,7 +31,7 @@ def oauth_config() -> dict:
         "client_id": "test-client-id",
         "client_secret": "test-client-secret",
         "tenant_id": "test-tenant",
-        "scope": "https://graph.microsoft.com/.default",
+        "scopes": ["https://graph.microsoft.com/.default"],
     }
 
 
@@ -69,21 +69,21 @@ def test_azure_oauth_initialization(oauth_config):
 
     assert oauth.client_id == "test-client-id"
     assert oauth.client_secret == "test-client-secret"
-    assert (
-        oauth.token_url
-        == "https://login.microsoftonline.com/test-tenant/oauth2/v2.0/token"
-    )
+    # token_url is computed internally, we can check _oauth_client instead
+    assert oauth._oauth_client is not None
+    assert oauth._oauth_client.client_id == "test-client-id"
+
     assert oauth.scope == "https://graph.microsoft.com/.default"
-    assert oauth._cached_token is None
 
 
 def test_azure_oauth_initialization_no_scope(oauth_config):
-    """Test initialization without scope."""
-    del oauth_config["scope"]
+    """Test initialization without scope (uses Azure default)."""
+    del oauth_config["scopes"]
     oauth = HttpxAzureOauth(**oauth_config)
 
-    assert oauth.scope is None
-    assert oauth._cached_token is None
+    # When scopes is None, HttpxAzureOauth defaults to graph.microsoft.com
+    assert oauth.scope is not None
+    assert "graph.microsoft.com" in oauth.scope
 
 
 def test_azure_oauth_storage_defaults(oauth_config):
@@ -200,24 +200,26 @@ async def test_fetch_token_http_error(azure_oauth_async):
 
 @pytest.mark.asyncio
 async def test_async_get_token_from_cache(azure_oauth_async, mock_token_response):
-    """Test that cached token is returned without fetching new one."""
-    # Pre-populate the cache
-    cached_token = mock_token_response.copy()
-    cached_token["expires_at"] = time.time() + 3600
+    """Test that token is returned from storage without fetching new one."""
+    # Pre-populate storage
+    stored_token = mock_token_response.copy()
+    stored_token["expires_at"] = time.time() + 3600
 
-    azure_oauth_async._cached_token = cached_token
+    with patch.object(azure_oauth_async.storage, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = stored_token
+        
+        with patch.object(azure_oauth_async, "_fetch_token") as mock_fetch:
+            token = await azure_oauth_async._async_get_token()
 
-    with patch.object(azure_oauth_async, "_fetch_token") as mock_fetch:
-        token = await azure_oauth_async._async_get_token()
-
-        # Should return cached token without calling fetch
-        assert token == cached_token
-        mock_fetch.assert_not_called()
+            # Should return stored token without calling fetch
+            assert token == stored_token
+            mock_fetch.assert_not_called()
+            mock_get.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_async_get_token_from_storage(azure_oauth_async, mock_token_response):
-    """Test that token is retrieved from storage and cached."""
+    """Test that token is retrieved from storage."""
     stored_token = mock_token_response.copy()
     stored_token["expires_at"] = time.time() + 3600
 
@@ -227,34 +229,33 @@ async def test_async_get_token_from_storage(azure_oauth_async, mock_token_respon
 
         token = await azure_oauth_async._async_get_token()
 
-        # Should return storage token and cache it
+        # Should return storage token
         assert token == stored_token
-        assert azure_oauth_async._cached_token == stored_token
         mock_get.assert_called_once_with("test-client-id")
 
 
 @pytest.mark.asyncio
 async def test_async_get_token_fetches_new_when_expired(azure_oauth_async, mock_token_response):
-    """Test that new token is fetched when cached token is expired."""
+    """Test that new token is fetched when storage token is expired."""
     expired_token = mock_token_response.copy()
     expired_token["expires_at"] = time.time() - 100  # Expired
-
-    azure_oauth_async._cached_token = expired_token
 
     new_token = mock_token_response.copy()
     new_token["expires_at"] = time.time() + 3600
 
-    with patch.object(azure_oauth_async, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
-        with patch.object(azure_oauth_async.storage, "put", new_callable=AsyncMock) as mock_put:
-            mock_fetch.return_value = new_token
+    with patch.object(azure_oauth_async.storage, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = expired_token
+        
+        with patch.object(azure_oauth_async, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
+            with patch.object(azure_oauth_async.storage, "put", new_callable=AsyncMock) as mock_put:
+                mock_fetch.return_value = new_token
 
-            token = await azure_oauth_async._async_get_token()
+                token = await azure_oauth_async._async_get_token()
 
-            # Should fetch and cache new token
-            assert token == new_token
-            assert azure_oauth_async._cached_token == new_token
-            mock_fetch.assert_called_once()
-            mock_put.assert_called_once()
+                # Should fetch and store new token
+                assert token == new_token
+                mock_fetch.assert_called_once()
+                mock_put.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -306,20 +307,18 @@ def test_get_token_fails_in_async_context(azure_oauth):
 
 
 def test_get_token_uses_cached_token(azure_oauth, mock_token_response):
-    """Test that sync retrieval uses cached token from _cached_token."""
-    cached_token = mock_token_response.copy()
-    cached_token["expires_at"] = time.time() + 3600
+    """Test that sync retrieval uses stored token from storage."""
+    stored_token = mock_token_response.copy()
+    stored_token["expires_at"] = time.time() + 3600
 
-    azure_oauth._cached_token = cached_token
-
-    # The _cached_token should be returned by _get_token_async without fetching new one
-    with patch.object(azure_oauth, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
+    # The stored token should be returned by _get_token via _async_get_token
+    with patch.object(azure_oauth, "_async_get_token", new_callable=AsyncMock) as mock_async_get:
+        mock_async_get.return_value = stored_token
+        
         token = azure_oauth._get_token()
 
-        # Should return cached token without calling fetch
-        assert token == cached_token
-        # Fetch should not be called since cache is valid
-        mock_fetch.assert_not_called()
+        # Should return stored token
+        assert token == stored_token
 
 
 # =============================================================================

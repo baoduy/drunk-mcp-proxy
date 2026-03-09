@@ -110,7 +110,7 @@ class AppConfigProvider:
                 return BearerAuth(**config)
             case AuthType.AZURE:
                 from drunk_ai_proxy.auth import HttpxAzureOauth
-                return HttpxAzureOauth(**config)
+                return HttpxAzureOauth(client_id=config["client_id"], client_secret=config["client_secret"], tenant_id=config["tenant_id"],token_storage=CacheProvider.get_oauth_store())
             case _:
                 raise ValueError(f"Unsupported authentication provider type: {name} in {self._get_auth_provider_names()}")
 
