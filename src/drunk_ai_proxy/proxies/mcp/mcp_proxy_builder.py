@@ -4,18 +4,36 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from logging import Logger
+from pathlib import Path
 
 from fastmcp import FastMCP
 from fastmcp.server.transforms import Transform
 
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
 from drunk_ai_proxy.utils import McpConfig
-from drunk_ai_proxy.utils.env import CODEMODE_ENABLED
+from drunk_ai_proxy.utils.env import CODEMODE_ENABLED, CONFIG_DIR
 from drunk_ai_proxy.utils.logging_config import setup_logging
 
 
 class McpProxyBuilder:
     """Class-based builders for MCP proxy configuration objects."""
+
+    @staticmethod
+    def _has_valid_prompt_dir(config: McpConfig) -> bool:
+        """Check whether prompt_dir exists and contains at least one markdown file."""
+        prompt_dir = getattr(config, "prompt_dir", None)
+        if not prompt_dir:
+            return False
+
+        prompt_path = Path(prompt_dir)
+        if not prompt_path.is_absolute():
+            prompt_path = Path(CONFIG_DIR) / prompt_path
+
+        if not prompt_path.exists() or not prompt_path.is_dir():
+            return False
+
+        md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
+        return md_file_count >= 1
 
     @staticmethod
     def _default_transforms() -> list[Transform]:
@@ -74,9 +92,10 @@ class McpProxyBuilder:
         proxy_configs: list[McpProxyConfig] = [McpProxyConfig(path="/", mcp_server=root_mcp)]
 
         for config in configs:
-            if config.spec_data is None:
+            has_prompt_dir = cls._has_valid_prompt_dir(config)
+            if config.spec_data is None and not has_prompt_dir:
                 logger.warning(
-                    "Skipping MCP config '%s' because spec_data is None",
+                    "Skipping MCP config '%s' because spec_data is None and prompt_dir is not ready",
                     config.path,
                 )
                 continue

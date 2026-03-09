@@ -158,3 +158,8 @@ mcp:
         env:
           OUTLINE_BASE_URL: "https://wikiv2.transwap.dev"
           OUTLINE_API_KEY: "$OUTLINE_API_KEY"
+
+  # ========== Example 5: Prompt provider with markdown templates ==========
+  - path: /prompts # URL path for prompt templates
+    spec_type: mcp # Using Model Context Protocol
+    prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)
