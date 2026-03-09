@@ -146,15 +146,15 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
 
         results: list[tuple[str | None, Path]] = []
 
-        # Flat structure: root/*.agent.md
-        for md_file in sorted(root.glob("*.agent.md")):
+        # Flat structure: root/*.md
+        for md_file in sorted(root.glob("*.md")):
             if md_file.is_file():
                 results.append((None, md_file))
 
-        # Check for namespaced structure: root/namespace/*.agent.md
+        # Check for namespaced structure: root/namespace/*.md
         for namespace_dir in sorted(root.iterdir()):
             if namespace_dir.is_dir() and not namespace_dir.name.startswith("."):
-                for md_file in sorted(namespace_dir.glob("*.agent.md")):
+                for md_file in sorted(namespace_dir.glob("*.md")):
                     if md_file.is_file():
                         results.append((namespace_dir.name, md_file))
 
@@ -174,10 +174,17 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     
                     # Build full agent name with namespace and .agent.md suffix
                     # e.g., "core/analysis.agent.md" or "reasoning.agent.md"
-                    if namespace:
-                        full_agent_name = f"{namespace}/{agent_file.name}"
+                    if agent_file.name.endswith(".agent.md"):
+                        agent_resource_name = agent_file.name
+                    elif agent_file.name.endswith(".md"):
+                        agent_resource_name = f"{agent_file.name[:-3]}.agent.md"
                     else:
-                        full_agent_name = agent_file.name
+                        agent_resource_name = f"{agent_file.name}.agent.md"
+
+                    if namespace:
+                        full_agent_name = f"{namespace}/{agent_resource_name}"
+                    else:
+                        full_agent_name = agent_resource_name
                     
                     # Build qualified name for deduplication (same as full_agent_name)
                     qualified_name = full_agent_name
