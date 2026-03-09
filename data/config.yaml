@@ -106,7 +106,6 @@ mcp:
   # ========== Example 2: MCP servers with skills directory ==========
   - path: / # Root path for these services
     spec_type: mcp # Using Model Context Protocol
-    skill_dir: skills # Directory containing skill subdirectories
     mcp_servers: # Define MCP servers
       server-memory: # Server name
         enabled: true # Enable this server
@@ -162,4 +161,5 @@ mcp:
   # ========== Example 5: Prompt provider with markdown templates ==========
   - path: /prompts # URL path for prompt templates
     spec_type: mcp # Using Model Context Protocol
+    skill_dir: skills # Directory containing skill subdirectories
     prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)

@@ -7,7 +7,7 @@ Tests MCP proxy provider functionality including SkillDirectoryProvider support.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, call, MagicMock
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
@@ -78,13 +78,20 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_mcp.add_provider.assert_not_called()
 
     @patch("pathlib.Path")
-    def test_create_skill_proxy_with_empty_directory(self, mock_path_cls):
-        """Test that _create_skill_proxy returns early when skill_dir has no subdirectories."""
-        # Setup mock path with empty directory
+    @patch(
+        "drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider.CustomSkillsDirectoryProvider"
+    )
+    def test_create_skill_proxy_with_empty_directory(
+        self, mock_skills_provider_cls, mock_path_cls
+    ):
+        """Test that _create_skill_proxy returns early when no skills are discovered."""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = True
-        mock_path_instance.iterdir.return_value = []  # Empty directory
         mock_path_cls.return_value = mock_path_instance
+
+        mock_provider = Mock()
+        mock_provider.providers = []
+        mock_skills_provider_cls.return_value = mock_provider
 
         mock_config = Mock(spec=McpConfig)
         mock_config.skill_dir = "skills"
@@ -93,42 +100,28 @@ class TestMcpProxyProviderCreateSkillProxy:
         provider = McpProxyProvider(mock_config)
         mock_mcp = Mock()
 
-        # Should return early because no subdirectories
         result = provider._create_skill_proxy(mock_mcp)
 
         assert result is None
+        mock_skills_provider_cls.assert_called_once_with(
+            roots=[mock_path_instance], reload=False
+        )
         mock_mcp.add_provider.assert_not_called()
 
     @patch("pathlib.Path")
-    @patch("fastmcp.server.providers.skills.SkillsDirectoryProvider")
+    @patch(
+        "drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider.CustomSkillsDirectoryProvider"
+    )
     def test_create_skill_proxy_with_valid_subdirectories(
         self, mock_skills_provider_cls, mock_path_cls
     ):
-        """Test that _create_skill_proxy creates and adds SkillsDirectoryProvider with valid subdirectories."""
-        # Create mock subdirectories
-        mock_skill1 = Mock()
-        mock_skill1.is_dir.return_value = True
-        mock_skill1.name = "skill1"
-        mock_skill1.__lt__ = lambda s, o: s.name < o.name
-        mock_skill2 = Mock()
-        mock_skill2.is_dir.return_value = True
-        mock_skill2.name = "skill2"
-        mock_skill2.__lt__ = lambda s, o: s.name < o.name
-        mock_skill3 = Mock()
-        mock_skill3.is_dir.return_value = True
-        mock_skill3.name = "skill3"
-        mock_skill3.__lt__ = lambda s, o: s.name < o.name
-
-        subdirs = [mock_skill1, mock_skill2, mock_skill3]
-
-        # Setup mock path
+        """Test that _create_skill_proxy adds provider when skills are discovered."""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = True
-        mock_path_instance.iterdir.return_value = subdirs
         mock_path_cls.return_value = mock_path_instance
 
-        # Create a mock provider instance
         mock_provider = Mock()
+        mock_provider.providers = [Mock()]
         mock_skills_provider_cls.return_value = mock_provider
 
         mock_config = Mock(spec=McpConfig)
@@ -141,121 +134,17 @@ class TestMcpProxyProviderCreateSkillProxy:
         # Execute
         provider._create_skill_proxy(mock_mcp)
 
-        # Verify SkillsDirectoryProvider was created with correct parameters
+        # Verify CustomSkillsDirectoryProvider was created with correct parameters
         assert mock_skills_provider_cls.call_count == 1
         call_args = mock_skills_provider_cls.call_args
 
-        # Check that roots parameter contains the subdirectories
+        # Check that roots parameter contains the parent skill directory
         roots = call_args[1]["roots"]
-        assert len(roots) == 3
+        assert roots == [mock_path_instance]
         assert call_args[1]["reload"] is False
 
         # Verify provider was added to mcp
         mock_mcp.add_provider.assert_called_once_with(mock_provider)
-
-    @patch("pathlib.Path")
-    @patch("fastmcp.server.providers.skills.SkillsDirectoryProvider")
-    def test_create_skill_proxy_subdirectories_sorted(
-        self, mock_skills_provider_cls, mock_path_cls
-    ):
-        """Test that subdirectories are sorted before being passed to SkillsDirectoryProvider."""
-        # Create mock subdirectories in non-alphabetical order
-        mock_zebra = Mock()
-        mock_zebra.is_dir.return_value = True
-        mock_zebra.name = "zebra"
-        mock_zebra.__lt__ = lambda s, o: s.name < o.name
-        mock_apple = Mock()
-        mock_apple.is_dir.return_value = True
-        mock_apple.name = "apple"
-        mock_apple.__lt__ = lambda s, o: s.name < o.name
-        mock_banana = Mock()
-        mock_banana.is_dir.return_value = True
-        mock_banana.name = "banana"
-        mock_banana.__lt__ = lambda s, o: s.name < o.name
-
-        # Setup mock path to return unsorted list
-        mock_path_instance = MagicMock()
-        mock_path_instance.exists.return_value = True
-        mock_path_instance.iterdir.return_value = [mock_zebra, mock_apple, mock_banana]
-        mock_path_cls.return_value = mock_path_instance
-
-        mock_provider = Mock()
-        mock_skills_provider_cls.return_value = mock_provider
-
-        mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = "skills"
-        mock_config.path = "/test"
-
-        provider = McpProxyProvider(mock_config)
-        mock_mcp = Mock()
-
-        provider._create_skill_proxy(mock_mcp)
-
-        # Get the roots argument
-        call_args = mock_skills_provider_cls.call_args
-        roots = call_args[1]["roots"]
-
-        # Verify they are sorted
-        names = [d.name for d in roots]
-        assert names == sorted(names)
-        assert names == ["apple", "banana", "zebra"]
-
-    @patch("pathlib.Path")
-    @patch("fastmcp.server.providers.skills.SkillsDirectoryProvider")
-    def test_create_skill_proxy_ignores_files(
-        self, mock_skills_provider_cls, mock_path_cls
-    ):
-        """Test that _create_skill_proxy ignores files and only includes subdirectories."""
-        # Create mock subdirectories and mock files
-        mock_skill1 = Mock()
-        mock_skill1.is_dir.return_value = True
-        mock_skill1.name = "skill1"
-        mock_skill1.__lt__ = lambda s, o: s.name < o.name
-        mock_file = Mock()
-        mock_file.is_dir.return_value = False
-        mock_file.name = "README.md"
-        mock_skill2 = Mock()
-        mock_skill2.is_dir.return_value = True
-        mock_skill2.name = "skill2"
-        mock_skill2.__lt__ = lambda s, o: s.name < o.name
-        mock_hidden = Mock()
-        mock_hidden.is_dir.return_value = True
-        mock_hidden.name = ".hidden"
-        mock_hidden.__lt__ = lambda s, o: s.name < o.name
-
-        # Setup mock path to return mixed list
-        mock_path_instance = MagicMock()
-        mock_path_instance.exists.return_value = True
-        mock_path_instance.iterdir.return_value = [
-            mock_skill1,
-            mock_file,
-            mock_skill2,
-            mock_hidden,
-        ]
-        mock_path_cls.return_value = mock_path_instance
-
-        mock_provider = Mock()
-        mock_skills_provider_cls.return_value = mock_provider
-
-        mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = "skills"
-        mock_config.path = "/test"
-
-        provider = McpProxyProvider(mock_config)
-        mock_mcp = Mock()
-
-        provider._create_skill_proxy(mock_mcp)
-
-        # Get the roots argument
-        call_args = mock_skills_provider_cls.call_args
-        roots = call_args[1]["roots"]
-
-        # Should only have 3 directories (skill1, skill2, .hidden)
-        assert len(roots) == 3
-
-        # Verify README.md was not included
-        names = [d.name for d in roots]
-        assert "README.md" not in names
 
 
 class TestMcpProxyProviderCreateProxy:

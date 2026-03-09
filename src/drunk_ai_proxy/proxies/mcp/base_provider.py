@@ -100,21 +100,18 @@ class McpBaseProvider(ABC):
 
         from pathlib import Path
         from drunk_ai_proxy.utils.env import CONFIG_DIR
-        from fastmcp.server.providers.skills import SkillsDirectoryProvider
+        from drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider import (
+            CustomSkillsDirectoryProvider,
+        )
 
         skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")
         if not skill_dir_path.exists():
             # self.logger.warning(f"Skill directory '{self.config.skill_dir}' does not exist for MCP config '{self.config.path}'")
             return
 
-        # Scan all subdirectories for skill providers
-        subdirs = sorted([d for d in skill_dir_path.iterdir() if d.is_dir()])
-
-        if not subdirs:
-            # self.logger.warning(f"No subdirectories found in skill directory '{self.config.skill_dir}' for MCP config '{self.config.path}'")
+        provider = CustomSkillsDirectoryProvider(roots=[skill_dir_path], reload=False)
+        if not provider.providers:
             return
-
-        provider = SkillsDirectoryProvider(roots=subdirs, reload=False)
 
         # self.logger.info("Adding skill provider for MCP config '%s' with %d skill directories: %s",
         #                self.config.path, len(subdirs), [d.name for d in subdirs])
