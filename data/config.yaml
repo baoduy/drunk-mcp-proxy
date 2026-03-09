@@ -163,3 +163,5 @@ mcp:
     spec_type: mcp # Using Model Context Protocol
     skill_dir: skills # Directory containing skill subdirectories
     prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)
+    agents_dir: agents # Directory containing agent files (relative to data/)
+

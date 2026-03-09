@@ -117,6 +117,58 @@ class McpBaseProvider(ABC):
         #                self.config.path, len(subdirs), [d.name for d in subdirs])
         mcp.add_provider(provider)
 
+    def _create_agent_proxy(self, mcp: FastMCP) -> None:
+        """Create and mount agent provider if agents_dir is configured.
+        
+        Args:
+            mcp: FastMCP instance to mount agent provider to.
+        """
+        agents_dir = getattr(self.config, "agents_dir", None)
+        if agents_dir is None:
+            return
+
+        from pathlib import Path
+        from drunk_ai_proxy.utils.env import CONFIG_DIR
+        from drunk_ai_proxy.proxies.agent.custom_agents_directory_provider import (
+            CustomAgentsDirectoryProvider,
+        )
+
+        agents_dir_path = Path(f"{CONFIG_DIR}/{agents_dir}")
+        if not agents_dir_path.exists():
+            self._logger.warning(
+                "Skipping agent provider for path '%s' because agents_dir does not exist: %s",
+                self.config.path,
+                agents_dir_path,
+            )
+            return
+
+        md_file_count = sum(1 for _ in agents_dir_path.rglob("*.md"))
+        if md_file_count < 1:
+            self._logger.warning(
+                "Skipping agent provider for path '%s' because agents_dir must contain at least 1 markdown file (found=%d)",
+                self.config.path,
+                md_file_count,
+            )
+            return
+
+        try:
+            provider = CustomAgentsDirectoryProvider(roots=[agents_dir_path], reload=False)
+            if not provider.providers:
+                return
+
+            mcp.add_provider(provider)
+            self._logger.info(
+                "Registered agent provider for path '%s' from directory: %s",
+                self.config.path,
+                agents_dir,
+            )
+        except Exception as e:
+            self._logger.error(
+                "Failed to create agent provider for path '%s': %s",
+                self.config.path,
+                type(e).__name__,
+            )
+
     def _create_client_auth(self) -> "Auth | None":
         pass_through = self.config.auth.pass_through if self.config.auth else False
         provider_Name = self.config.auth.auth_provider if self.config.auth else None

@@ -221,6 +221,7 @@ class McpConfig(ConfigBaseModel):
     base_url: Optional[str] = Field(default=None)
     skill_dir: Optional[str] = Field(default=None)
     prompt_dir: Optional[str] = Field(default=None, description="Directory containing markdown prompt templates (optional)")
+    agents_dir: Optional[str] = Field(default=None, description="Directory containing markdown agent definitions (optional)")
     filters: Optional[McpFilters] = Field(default=None)
     auth: Optional[McpAuthConfig] = Field(default=None)
     mcp_servers: Optional[dict[str, McpServerConfig]] = Field(default=None, alias="mcpServers")
@@ -263,9 +264,9 @@ class McpConfig(ConfigBaseModel):
             if not self.spec_file:
                 raise ValueError("spec_file is required for OpenAPI spec type")
         else:  # SpecType.MCP
-            if not self.spec_file and not self.mcp_servers and not self.prompt_dir:
+            if not self.spec_file and not self.mcp_servers and not self.prompt_dir and not self.agents_dir:
                 raise ValueError(
-                    "For MCP spec type, either spec_file, mcp_servers, or prompt_dir must be provided."
+                    "For MCP spec type, either spec_file, mcp_servers, prompt_dir, or agents_dir must be provided."
                 )
         
     def load_spec_data(self):

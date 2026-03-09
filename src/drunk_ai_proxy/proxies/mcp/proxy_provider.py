@@ -65,6 +65,7 @@ class McpProxyProvider(McpBaseProvider):
         self._create_proxy(self.mcp)
         self._create_skill_proxy(self.mcp)
         self._create_prompt_proxy(self.mcp)
+        self._create_agent_proxy(self.mcp)
 
         return self.mcp
     
