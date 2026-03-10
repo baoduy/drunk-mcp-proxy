@@ -31,6 +31,9 @@ from drunk_ai_proxy.proxies.llm.websocket_transport import (
     WebSocketFactory,
 )
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
+
 
 class AsyncOpenAIFactoryProtocol(Protocol):
     """Protocol for AsyncOpenAI factory dependency."""
