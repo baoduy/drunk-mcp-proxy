@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - 'src/drunk_ai_client/**'
       - '.github/workflows/publish-drunk-ai-client.yml'
