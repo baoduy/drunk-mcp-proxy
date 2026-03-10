@@ -7,7 +7,6 @@ and exposes them via MCP protocol using FastMCP's prompt decorator.
 from __future__ import annotations
 
 import inspect
-from logging import Logger
 from typing import Any
 
 from fastmcp import FastMCP
@@ -18,8 +17,9 @@ from drunk_ai_proxy.proxies.prompt.prompt_loader import PromptLoader
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
 from drunk_ai_proxy.utils import McpConfig
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
-from drunk_ai_proxy.utils.logging_config import setup_logging
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class McpPromptProvider(McpBaseProvider):
     """Provider for serving prompt templates via MCP protocol.
@@ -38,7 +38,6 @@ class McpPromptProvider(McpBaseProvider):
             ValueError: If prompt_dir is not configured or is invalid.
         """
         super().__init__(config)
-        self._logger: Logger = setup_logging(__name__)
         self._mcp: FastMCP | None = None
         self._templates: dict[str, PromptTemplate] = {}
         
@@ -51,13 +50,13 @@ class McpPromptProvider(McpBaseProvider):
         # Initialize the prompt loader
         try:
             self._loader = PromptLoader(self.config.prompt_dir)
-            self._logger.info(
+            logger.info(
                 "Initialized prompt provider for path '%s' with directory: %s",
                 self.config.path,
                 self.config.prompt_dir
             )
         except (FileNotFoundError, ValueError) as e:
-            self._logger.error(
+            logger.error(
                 "Failed to initialize prompt loader: %s",
                 type(e).__name__
             )
@@ -69,11 +68,11 @@ class McpPromptProvider(McpBaseProvider):
             # Already loaded
             return
         
-        self._logger.info("Loading prompt templates for path '%s'", self.config.path)
+        logger.info("Loading prompt templates for path '%s'", self.config.path)
         self._templates = self._loader.load_prompts()
         
         if not self._templates:
-            self._logger.warning(
+            logger.warning(
                 "No prompt templates loaded for path '%s'. "
                 "Check that markdown files exist in: %s",
                 self.config.path,
@@ -102,9 +101,9 @@ class McpPromptProvider(McpBaseProvider):
             try:
                 rendered_content = template.render(**kwargs)
                 # Return a list with a single Message using the template's role
-                return [Message(content=rendered_content, role=template.role)]
+                return [Message(content=rendered_content, role=template.role)] # type: ignore
             except (ValueError, KeyError) as e:
-                self._logger.error(
+                logger.error(
                     "Failed to render prompt '%s': %s",
                     template.name,
                     type(e).__name__
@@ -145,10 +144,10 @@ class McpPromptProvider(McpBaseProvider):
             mcp: FastMCP instance to register prompts with.
         """
         if not self._templates:
-            self._logger.info("No templates to register for path '%s'", self.config.path)
+            logger.info("No templates to register for path '%s'", self.config.path)
             return
         
-        self._logger.info(
+        logger.info(
             "Registering %d prompt(s) for path '%s'",
             len(self._templates),
             self.config.path
@@ -162,14 +161,14 @@ class McpPromptProvider(McpBaseProvider):
                 # Register with FastMCP using the prompt decorator
                 mcp.prompt(prompt_func)
                 
-                self._logger.debug(
+                logger.debug(
                     "Registered prompt '%s' with parameters: %s",
                     template_name,
                     list(template.parameters.keys())
                 )
                 
             except Exception as e:
-                self._logger.error(
+                logger.error(
                     "Failed to register prompt '%s': %s",
                     template_name,
                     type(e).__name__
@@ -177,7 +176,7 @@ class McpPromptProvider(McpBaseProvider):
                 # Continue with other prompts
                 continue
         
-        self._logger.info(
+        logger.info(
             "Successfully registered prompts for path '%s'",
             self.config.path
         )
@@ -207,7 +206,7 @@ class McpPromptProvider(McpBaseProvider):
         if self._mcp is not None:
             return self._mcp
         
-        self._logger.info("Creating FastMCP instance for path '%s'", self.config.path)
+        logger.info("Creating FastMCP instance for path '%s'", self.config.path)
         
         # Create FastMCP instance
         self._mcp = FastMCP(

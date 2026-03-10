@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from logging import Logger
 
 import websockets
 from websockets.asyncio.client import ClientConnection
 
 from drunk_ai_proxy.utils import LlmConfig
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class WebSocketFactory:
@@ -25,7 +26,6 @@ class WebSocketFactory:
         Args:
             providers: List of provider configurations.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._provider_configs = {p.provider: p for p in providers}
 
     async def create_connection(self, provider_name: str) -> ClientConnection:
@@ -51,7 +51,7 @@ class WebSocketFactory:
 
         ws_url = self._build_websocket_url(provider_config)
         headers = {"Authorization": f"Bearer {api_key}"}
-        self._logger.debug("Connecting to backend WebSocket: %s", ws_url)
+        logger.debug("Connecting to backend WebSocket: %s", ws_url)
 
         return await websockets.connect(ws_url, additional_headers=headers)
 
@@ -90,7 +90,6 @@ class BackendConnectionPool:
 
     def __init__(self) -> None:
         """Initialize connection pool."""
-        self._logger: Logger = setup_logging(__name__)
         self._connections: dict[tuple[str, str], ClientConnection] = {}
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}
 
@@ -167,7 +166,7 @@ class BackendConnectionPool:
         async with lock:
             existing_ws = self._connections.get(key)
             if existing_ws is not None and self._check_connection_alive(existing_ws):
-                self._logger.debug(
+                logger.debug(
                     "Reusing backend connection for client=%s, provider=%s",
                     client_id,
                     provider_name,
@@ -181,7 +180,7 @@ class BackendConnectionPool:
                     pass
                 del self._connections[key]
 
-            self._logger.debug(
+            logger.debug(
                 "Creating new backend connection for client=%s, provider=%s",
                 client_id,
                 provider_name,
@@ -208,7 +207,7 @@ class BackendConnectionPool:
                 except Exception:
                     pass
                 del self._connections[key]
-                self._logger.debug(
+                logger.debug(
                     "Released backend connection for client=%s, provider=%s",
                     client_id,
                     provider_name,
@@ -231,7 +230,7 @@ class BackendConnectionPool:
             del self._locks[key]
 
         if keys_to_remove:
-            self._logger.debug(
+            logger.debug(
                 "Released %d backend connection(s) for client=%s",
                 len(keys_to_remove),
                 client_id,

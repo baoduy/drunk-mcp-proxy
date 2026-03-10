@@ -8,14 +8,14 @@ and parameter validation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from logging import Logger
 from typing import Any, Mapping
 
 from fastapi.responses import JSONResponse
 from drunk_ai_proxy.utils.error_utils import sanitize_error_message
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from drunk_ai_proxy.utils.serialization import to_dict
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class LlmBaseProvider(ABC):
     """Abstract base class for LLM providers.
@@ -30,7 +30,6 @@ class LlmBaseProvider(ABC):
 
     def __init__(self) -> None:
         """Initialize base provider with logger."""
-        self._logger: Logger = setup_logging(__name__)
 
     @staticmethod
     def parse_model_id(model_id: str) -> tuple[str, str]:
@@ -66,7 +65,7 @@ class LlmBaseProvider(ABC):
         Returns:
             JSONResponse with sanitized error message and 400 status code.
         """
-        self._logger.error("%s: %s", context, type(e).__name__)
+        logger.error("%s: %s", context, type(e).__name__)
         safe_message = sanitize_error_message(str(e))
         return JSONResponse(content={"error": {"message": safe_message}}, status_code=400)
 

@@ -6,12 +6,12 @@ with YAML frontmatter parameter definitions.
 
 from __future__ import annotations
 
-from logging import Logger
 from typing import Any
 
 import yaml
 
-from drunk_ai_proxy.utils.logging_config import setup_logging
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class PromptTemplate:
@@ -69,7 +69,6 @@ class PromptTemplate:
         Raises:
             ValueError: If role is empty string or non-string type.
         """
-        self._logger: Logger = setup_logging(__name__)
         self.name = name
         self.description = description
         self.content = content
@@ -86,7 +85,7 @@ class PromptTemplate:
         # Normalize role: if it's in ALLOWED_ROLES but not FASTMCP_ROLES,
         # log a warning and fallback to 'user'
         if role not in self.ALLOWED_ROLES:
-            self._logger.warning(
+            logger.warning(
                 "Invalid role '%s' in template '%s' (not in %s), falling back to 'user'",
                 role,
                 name,
@@ -94,7 +93,7 @@ class PromptTemplate:
             )
             role = "user"
         elif role not in self.FASTMCP_ROLES:
-            self._logger.warning(
+            logger.warning(
                 "Role '%s' in template '%s' is not FastMCP-compatible, falling back to 'user'",
                 role,
                 name
@@ -108,7 +107,7 @@ class PromptTemplate:
         for param_name, type_name in parameters.items():
             param_type = self.TYPE_MAP.get(type_name.lower())
             if param_type is None:
-                self._logger.warning(
+                logger.warning(
                     "Unknown type '%s' for parameter '%s' in template '%s', defaulting to str",
                     type_name,
                     param_name,
@@ -117,7 +116,7 @@ class PromptTemplate:
                 param_type = str
             self.parameters[param_name] = param_type
         
-        self._logger.debug(
+        logger.debug(
             "Initialized template '%s' with parameters: %s, role='%s'",
             name,
             list(self.parameters.keys()),
@@ -148,7 +147,7 @@ class PromptTemplate:
         validated_params: dict[str, Any] = {}
         for param_name, param_value in kwargs.items():
             if param_name not in self.parameters:
-                self._logger.warning(
+                logger.warning(
                     "Ignoring unexpected parameter '%s' for template '%s'",
                     param_name,
                     self.name
@@ -171,7 +170,7 @@ class PromptTemplate:
                         converted_value = expected_type(param_value)
                     validated_params[param_name] = converted_value
                 except (ValueError, TypeError) as e:
-                    self._logger.error(
+                    logger.error(
                         "Type conversion failed for parameter '%s': %s",
                         param_name,
                         type(e).__name__
@@ -187,7 +186,7 @@ class PromptTemplate:
         try:
             return self.content.format(**validated_params)
         except KeyError as e:
-            self._logger.error("Template rendering failed: %s", type(e).__name__)
+            logger.error("Template rendering failed: %s", type(e).__name__)
             raise KeyError(
                 f"Template '{self.name}' references undefined parameter: {e}"
             ) from e
@@ -223,7 +222,6 @@ class PromptTemplate:
             ValueError: If file format is invalid or required fields are missing.
             FileNotFoundError: If the file doesn't exist.
         """
-        logger: Logger = setup_logging(__name__)
         
         try:
             with open(file_path, "r", encoding="utf-8") as f:

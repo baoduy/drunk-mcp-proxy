@@ -8,7 +8,6 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 from __future__ import annotations
 
 from functools import partial
-from logging import Logger
 from typing import TYPE_CHECKING
 
 from fastmcp.server.http import StarletteWithLifespan
@@ -20,7 +19,9 @@ from .lifespan import AppLifespanManager
 from .swagger_provider import SwaggerProvider
 from drunk_ai_proxy.utils.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
 from drunk_ai_proxy.utils.error_utils import sanitize_error_message
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 if TYPE_CHECKING:
     from ..proxies.mcp.base_provider import McpProxyConfig
@@ -73,7 +74,6 @@ class StarletteApp:
             routes: Initial list of routes (health check will be added automatically)
             middleware: Optional list of Starlette middleware
         """
-        self._logger: Logger = setup_logging(__name__)
         self.middleware = middleware
         self.lifespan_manager = AppLifespanManager()
         # Get configuration from environment variables
@@ -105,7 +105,7 @@ class StarletteApp:
             request: The incoming request that caused the exception
             exc: The exception that was raised
         """
-        self._logger.error("Unhandled exception: %s", type(exc).__name__)
+        logger.error("Unhandled exception: %s", type(exc).__name__)
         return JSONResponse(
             {"error": sanitize_error_message(str(exc))},
             status_code=500,
@@ -123,7 +123,7 @@ class StarletteApp:
         mount_path = "/mcp" if service.path == "/" else f"{service.path}/mcp"
         mcp_app = service.http_app()
         self.mcp_apps.append((mount_path, mcp_app))
-        self._logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
+        logger.info("Adding MCP mount (path=%s) at %s", service.path, mount_path)
 
     def add_mcp_services(
             self,
@@ -140,7 +140,7 @@ class StarletteApp:
         Raises:
             Exception: If any mount fails to be added
         """
-        self._logger.info("Adding %d MCP mount(s)", len(services))
+        logger.info("Adding %d MCP mount(s)", len(services))
 
         for service in services:
             self.add_mcp_service(service)
@@ -168,7 +168,7 @@ class StarletteApp:
         Raises:
             Exception: If any mount fails to be added
         """
-        self._logger.info("Adding %d LLM provider service(s)", len(services))
+        logger.info("Adding %d LLM provider service(s)", len(services))
 
         for path, service in services:
             self._add_llm_service(path, service)
@@ -178,7 +178,7 @@ class StarletteApp:
         Return the Starlette app with a custom lifespan function.
         Note: If a custom lifespan is provided, the app will be recreated with the new lifespan.
         """
-        self._logger.info(
+        logger.info(
             "Returning Starlette application with %d MCP mount(s)", len(self.mcp_apps))
 
         # Create new app with custom lifespan

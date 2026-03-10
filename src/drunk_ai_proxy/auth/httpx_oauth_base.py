@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncGenerator, Generator
-from logging import Logger
 
 import httpx
 from httpx_oauth.oauth2 import (
@@ -22,7 +21,9 @@ from httpx_oauth.oauth2 import (
 from key_value.aio.protocols import AsyncKeyValue
 
 from drunk_ai_proxy.app.cache_provider import CacheProvider
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 TokenPayload = dict[str, object]
 
@@ -90,7 +91,6 @@ class HttpxOauthBase(httpx.Auth):
             expires_in_buffer: Buffer in seconds subtracted from expiry.
             token_endpoint_auth_method: httpx-oauth auth method for token endpoint.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._client_id = client_id
         self._client_secret = client_secret
         self._storage = token_storage or CacheProvider.get_oauth_store()

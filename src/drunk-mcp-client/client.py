@@ -23,25 +23,22 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
-import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-
 import mcp.types
+
+# FastMCP reads log level during initialization, so set default before importing it.
+os.environ.setdefault("FASTMCP_LOG_LEVEL", "INFO")
+
 from fastmcp import Client, FastMCP
 from fastmcp.client.auth import BearerAuth
 from fastmcp.server import create_proxy
-from fastmcp.utilities.skills import sync_skills  # pyright: ignore[reportUnknownVariableType]
+from fastmcp.utilities import (skills,logging)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-)
-LOGGER = logging.getLogger(__name__)
-
+logger = logging.get_logger(__name__)
 
 @dataclass
 class ResourceSummary:
@@ -422,14 +419,12 @@ def create_authenticated_client(config: ClientConfig) -> Client[Any]:
         Client: Configured FastMCP Client instance.
     """
     if config.api_key:
-        LOGGER.info(
-            "Creating authenticated client for %s (api_key=...%s)",
-            config.url,
-            config.api_key[-4:],
+        logger.info(
+            f"Creating authenticated client for {config.url} (api_key=...{config.api_key[-4:]})"
         )
         return Client(config.url, auth=BearerAuth(config.api_key))
 
-    LOGGER.info("Creating unauthenticated client for %s", config.url)
+    logger.info(f"Creating unauthenticated client for {config.url}")
     return Client(config.url)
 
 
@@ -449,10 +444,10 @@ async def sync_remove_resources(config: ClientConfig) -> None:
     sync_client = create_authenticated_client(config)
     async with sync_client:
         if config.skill_dir is not None:
-            skill_paths = await sync_skills(
+            skill_paths = await skills.sync_skills( # pyright: ignore[reportUnknownMemberType]
                 sync_client, config.skill_dir, overwrite=config.allows_overwrite
             )
-            LOGGER.info("Synced %d skills into %s", len(skill_paths), config.skill_dir)
+            logger.info(f"Synced {len(skill_paths)} skills into {config.skill_dir}")
 
         if config.agents_dir is not None:
             agent_manager = ResourceSyncManager(
@@ -463,7 +458,7 @@ async def sync_remove_resources(config: ClientConfig) -> None:
             agent_paths = await agent_manager.sync(
                 config.agents_dir, overwrite=config.allows_overwrite
             )
-            LOGGER.info("Synced %d agents into %s", len(agent_paths), config.agents_dir)
+            logger.info(f"Synced {len(agent_paths)} agents into {config.agents_dir}")
 
 # https://gofastmcp.com/clients/client#creating-a-client
 def run_stdio_bridge() -> None:
@@ -485,10 +480,12 @@ def run_stdio_bridge() -> None:
     proxy = create_proxy(client)
 
     # Create local stdio server and mount the remote proxy
-    server = FastMCP(name="drunk-ai-client-stdio")
+    from fastmcp.server.transforms.search import (RegexSearchTransform, BM25SearchTransform)
+    transforms= [RegexSearchTransform(max_results=10),BM25SearchTransform(max_results=3)]
+    server = FastMCP(name="drunk-ai-client-stdio",transforms=transforms)
     server.mount(proxy)
 
-    LOGGER.info("Starting stdio bridge to %s", config.url)
+    logger.info(f"Starting stdio bridge to {config.url}")
     server.run(transport="stdio")
 
 
@@ -496,7 +493,7 @@ if __name__ == "__main__":
     try:
         run_stdio_bridge()
     except KeyboardInterrupt:
-        LOGGER.info("Shutting down")
+        logger.info("Shutting down")
     except Exception as exc:
-        LOGGER.error("Fatal error: %s", exc, exc_info=True)
+        logger.error(f"Fatal error: {exc}")
         raise

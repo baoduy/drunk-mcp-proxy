@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from fastmcp.server.middleware import Middleware
     from fastmcp.server.http import StarletteWithLifespan
 
-from drunk_ai_proxy.utils.logging_config import setup_logging
-logger = setup_logging(__name__)
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 @dataclass
 class McpProxyConfig:
@@ -135,7 +135,7 @@ class McpBaseProvider(ABC):
 
         agents_dir_path = Path(f"{CONFIG_DIR}/{agents_dir}")
         if not agents_dir_path.exists():
-            self._logger.warning(
+            logger.warning(
                 "Skipping agent provider for path '%s' because agents_dir does not exist: %s",
                 self.config.path,
                 agents_dir_path,
@@ -144,7 +144,7 @@ class McpBaseProvider(ABC):
 
         md_file_count = sum(1 for _ in agents_dir_path.rglob("*.md"))
         if md_file_count < 1:
-            self._logger.warning(
+            logger.warning(
                 "Skipping agent provider for path '%s' because agents_dir must contain at least 1 markdown file (found=%d)",
                 self.config.path,
                 md_file_count,
@@ -157,13 +157,13 @@ class McpBaseProvider(ABC):
                 return
 
             mcp.add_provider(provider)
-            self._logger.info(
+            logger.info(
                 "Registered agent provider for path '%s' from directory: %s",
                 self.config.path,
                 agents_dir,
             )
         except Exception as e:
-            self._logger.error(
+            logger.error(
                 "Failed to create agent provider for path '%s': %s",
                 self.config.path,
                 type(e).__name__,

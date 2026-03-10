@@ -8,16 +8,16 @@ import mimetypes
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from logging import Logger
 from pathlib import Path
 from typing import Any, cast
 
 from pydantic import AnyUrl, Field
-
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from fastmcp.resources.resource import Resource
 from fastmcp.server.providers.base import Provider
 from fastmcp.utilities.versions import VersionSpec
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 # Ensure .md is recognized as text/markdown on all platforms
 mimetypes.add_type("text/markdown", ".md")
@@ -40,8 +40,8 @@ class AgentInfo:
     description: str  # From frontmatter
     enabled: bool  # Whether agent is enabled
     path: Path  # Absolute path to agent file
-    files: list[AgentFileInfo] = field(default_factory=list)
-    frontmatter: dict[str, Any] = field(default_factory=dict)
+    files: list[AgentFileInfo] = field(default_factory=lambda: list[AgentFileInfo]())
+    frontmatter: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())
 
 
 def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
@@ -228,7 +228,6 @@ class AgentProvider(Provider):
             ValueError: If agent_name is empty.
         """
         super().__init__()
-        self._logger: Logger = setup_logging(__name__)
 
         if not agent_name:
             raise ValueError("agent_name cannot be empty")
@@ -262,7 +261,7 @@ class AgentProvider(Provider):
             frontmatter=frontmatter,
         )
 
-        self._logger.debug(
+        logger.debug(
             "Initialized AgentProvider for agent '%s' at %s (files=%d)",
             agent_name,
             self._agent_path,
@@ -273,7 +272,7 @@ class AgentProvider(Provider):
         """List agent resources including main file and manifest."""
         # Only return the agent resource if enabled
         if not self._enabled:
-            self._logger.debug("Agent '%s' is disabled, not listing", self._agent_name)
+            logger.debug("Agent '%s' is disabled, not listing", self._agent_name)
             return []
 
         resources: list[Resource] = []
@@ -306,7 +305,7 @@ class AgentProvider(Provider):
             )
         )
         
-        self._logger.debug(
+        logger.debug(
             "Listed agent resources: agent://%s and agent://%s/_manifest",
             self._agent_name,
             self._agent_name,
@@ -346,7 +345,7 @@ class AgentProvider(Provider):
                 agent_info=self._agent_info,
                 is_manifest=True,
             )
-            self._logger.debug("Retrieved agent manifest resource: %s", uri)
+            logger.debug("Retrieved agent manifest resource: %s", uri)
             return resource
         
         # Check if this URI matches our agent (exact match including any namespace path)
@@ -363,7 +362,7 @@ class AgentProvider(Provider):
             agent_info=self._agent_info,
             is_manifest=False,
         )
-        self._logger.debug("Retrieved agent resource: %s", uri)
+        logger.debug("Retrieved agent resource: %s", uri)
         return resource
 
     async def _read_resource(
@@ -398,7 +397,7 @@ class AgentProvider(Provider):
                     for f in self._agent_info.files
                 ],
             }
-            self._logger.debug("Generated manifest for: %s", uri)
+            logger.debug("Generated manifest for: %s", uri)
             return json.dumps(manifest, indent=2)
         
         # Check if URI matches main agent file
@@ -407,5 +406,5 @@ class AgentProvider(Provider):
 
         # Read and return the full markdown content
         content = self._agent_path.read_text()
-        self._logger.debug("Read agent markdown for: %s", uri)
+        logger.debug("Read agent markdown for: %s", uri)
         return content

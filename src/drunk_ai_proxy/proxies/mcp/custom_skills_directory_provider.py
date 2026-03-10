@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from logging import Logger
 from pathlib import Path
 from typing import Literal
-
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from fastmcp.resources.resource import Resource
 from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.aggregate import AggregateProvider
 from fastmcp.server.providers.skills.skill_provider import SkillProvider
 from fastmcp.utilities.versions import VersionSpec
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class CustomSkillsDirectoryProvider(AggregateProvider):
     """Discover skill folders and expose them with optional namespace paths.
@@ -42,7 +41,6 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
             supporting_files: How supporting files are exposed.
         """
         super().__init__()
-        self._logger: Logger = setup_logging(__name__)
         if isinstance(roots, (str, Path)):
             roots = [roots]
 
@@ -103,7 +101,7 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
                         self.add_provider(provider)
                     seen_skill_names.add(qualified_name)
                 except (FileNotFoundError, PermissionError, OSError) as exc:
-                    self._logger.error("Failed to load skill: %s", type(exc).__name__)
+                    logger.error("Failed to load skill: %s", type(exc).__name__)
 
         self._discovered = True
 

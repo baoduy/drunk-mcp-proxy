@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from logging import Logger
 from pathlib import Path
 
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from fastmcp.resources.resource import Resource
 from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.aggregate import AggregateProvider
 from fastmcp.utilities.versions import VersionSpec
-
 from .agent_provider import AgentProvider
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class CustomAgentsDirectoryProvider(AggregateProvider):
     """Discover agent markdown files and expose them with optional namespace paths.
@@ -53,7 +52,6 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
             reload: If True, re-discover agents on each request.
         """
         super().__init__()
-        self._logger: Logger = setup_logging(__name__)
         if isinstance(roots, (str, Path)):
             roots = [roots]
 
@@ -191,7 +189,7 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     
                     # Skip duplicates
                     if qualified_name in seen_agent_names:
-                        self._logger.warning(
+                        logger.warning(
                             "Duplicate agent name '%s' (from %s); skipping",
                             qualified_name,
                             agent_file,
@@ -201,7 +199,7 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     # Get description from frontmatter (required)
                     description = frontmatter.get("description", "")
                     if not description:
-                        self._logger.warning(
+                        logger.warning(
                             "Agent file missing 'description' field: %s; skipping",
                             agent_file,
                         )
@@ -223,21 +221,21 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     self.add_provider(provider)
 
                     seen_agent_names.add(qualified_name)
-                    self._logger.info(
+                    logger.info(
                         "Discovered agent: %s (enabled=%s)",
                         qualified_name,
                         enabled,
                     )
 
                 except ValueError as e:
-                    self._logger.error(
+                    logger.error(
                         "Failed to load agent %s: %s",
                         agent_file.name,
                         type(e).__name__,
                     )
                     continue
                 except Exception as e:
-                    self._logger.error(
+                    logger.error(
                         "Unexpected error loading agent %s: %s",
                         agent_file.name,
                         type(e).__name__,
@@ -245,7 +243,7 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     continue
 
         self._discovered = True
-        self._logger.info(
+        logger.info(
             "Agent discovery complete: %d agent(s) loaded",
             len(seen_agent_names),
         )

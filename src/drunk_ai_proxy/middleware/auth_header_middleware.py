@@ -1,10 +1,11 @@
-from logging import Logger
 from typing import Any
 
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from drunk_ai_proxy.utils.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class AuthHeaderMiddleware(Middleware):
@@ -16,7 +17,6 @@ class AuthHeaderMiddleware(Middleware):
                            Defaults to ["/health", "/docs"].
         """
         super().__init__()
-        self._logger: Logger = setup_logging(__name__)
         self.anonymous_paths = anonymous_paths or list(DEFAULT_ANONYMOUS_PATHS)
 
     def _get_request_path(self, context: MiddlewareContext[Any]) -> str | None:
@@ -58,9 +58,9 @@ class AuthHeaderMiddleware(Middleware):
         """
         token = get_access_token()
         if token:
-            self._logger.info("Access token present")
+            logger.info("Access token present")
         else:
-            self._logger.warning("No access token available")
+            logger.warning("No access token available")
 
     async def on_message(self, context: MiddlewareContext[Any], call_next: CallNext[Any, Any]) -> Any:
         """Process incoming message through the middleware chain.
@@ -72,11 +72,11 @@ class AuthHeaderMiddleware(Middleware):
         Returns:
             The result from the next middleware in the chain.
         """
-        self._logger.debug("Received message of type: %s", context.type)
+        logger.debug("Received message of type: %s", context.type)
         
         if context.type == "request":
             request_path = self._get_request_path(context)
-            self._logger.debug("Request path: %s", request_path)
+            logger.debug("Request path: %s", request_path)
             
             if self._should_validate_auth(request_path):
                 self._validate_access_token()

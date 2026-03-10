@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from logging import Logger
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -12,8 +11,9 @@ from fastmcp.server.transforms import Transform
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
 from drunk_ai_proxy.utils import McpConfig
 from drunk_ai_proxy.utils.env import CODEMODE_ENABLED, CONFIG_DIR
-from drunk_ai_proxy.utils.logging_config import setup_logging
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class McpProxyBuilder:
     """Class-based builders for MCP proxy configuration objects."""
@@ -46,7 +46,6 @@ class McpProxyBuilder:
         if not CODEMODE_ENABLED:
             return None
 
-        logger: Logger = setup_logging(__name__)
         from fastmcp.experimental.transforms.code_mode import CodeMode
         from fastmcp.experimental.transforms.code_mode import GetSchemas
         from fastmcp.experimental.transforms.code_mode import Search
@@ -83,7 +82,6 @@ class McpProxyBuilder:
         server_version: str,
     ) -> list[McpProxyConfig]:
         """Build MCP proxy configs with a shared root MCP server."""
-        logger: Logger = setup_logging(__name__)
         if not configs:
             logger.warning("No MCP configurations found")
             return []

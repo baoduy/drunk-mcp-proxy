@@ -4,7 +4,6 @@ This module provides a class for creating FastMCP instances from McpProxyConfig.
 """
 from __future__ import annotations
 
-from logging import Logger
 from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
@@ -18,9 +17,10 @@ if TYPE_CHECKING:
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
 from drunk_ai_proxy.utils import McpConfig
 from drunk_ai_proxy.utils.env import SERVER_NAME
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class OpenApiMcpProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from McpProxyConfig."""
@@ -28,7 +28,6 @@ class OpenApiMcpProvider(McpBaseProvider):
     def __init__(self, config: McpConfig) -> None:
         super().__init__(config)
         self.mcp: FastMCP | None = None
-        self._logger: Logger = setup_logging(__name__)
 
     def custom_route_mapper(self, route: "HTTPRoute", mcp_type: "MCPType") -> "MCPType | None":
         if self.config.filters is not None:

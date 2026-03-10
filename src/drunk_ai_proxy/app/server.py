@@ -39,15 +39,11 @@ from drunk_ai_proxy.utils.env import (
     SERVER_NAME,
     SERVER_VERSION,
 )
-from drunk_ai_proxy.utils.logging_config import setup_logging
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 if TYPE_CHECKING:
     from drunk_ai_proxy.proxies.mcp.base_provider import McpProxyConfig
-
-# Initialize logging with server name from environment
-# Can be controlled via FASTMCP_LOG_LEVEL environment variable
-logger = setup_logging(SERVER_NAME)
-
 
 class MCPProxyServer:
     """
@@ -63,7 +59,6 @@ class MCPProxyServer:
 
     def __init__(self):
         """Initialize the MCP Proxy Server."""
-        self.logger = logger
         self.mcp_services: list["McpProxyConfig"] = []
         self.llm_services: list[tuple[str, Any]] = []
 
@@ -114,7 +109,7 @@ class MCPProxyServer:
         server_host = HOST or "0.0.0.0"
         server_port = PORT or 9123
 
-        self.logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
+        logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
                          server_host, server_port, LOG_LEVEL.lower())
 
         import uvicorn
@@ -123,7 +118,7 @@ class MCPProxyServer:
         )
         server = uvicorn.Server(config)
 
-        self.logger.info("Starting uvicorn server")
+        logger.info("Starting uvicorn server")
         await server.serve()
 
     # Utility Methods
@@ -148,13 +143,13 @@ class MCPProxyServer:
             "log_level": LOG_LEVEL,
             "config_dir": CONFIG_DIR
         }
-        self.logger.info("MCP Proxy Server Configuration:")
-        self.logger.info("  Server Name: %s", config["server_name"])
-        self.logger.info("  Server Version: %s", config["server_version"])
-        self.logger.info("  Host: %s", config["host"])
-        self.logger.info("  Port: %s", config["port"])
-        self.logger.info("  Log Level: %s", config["log_level"])
-        self.logger.info("  Config Directory: %s", config["config_dir"])
+        logger.info("MCP Proxy Server Configuration:")
+        logger.info("  Server Name: %s", config["server_name"])
+        logger.info("  Server Version: %s", config["server_version"])
+        logger.info("  Host: %s", config["host"])
+        logger.info("  Port: %s", config["port"])
+        logger.info("  Log Level: %s", config["log_level"])
+        logger.info("  Config Directory: %s", config["config_dir"])
 
     # Application Entry Points
     # ========================
@@ -178,9 +173,9 @@ class MCPProxyServer:
             Exception: Various server startup errors
         """
       
-        self.logger.info("Starting MCP Proxy Server")
+        logger.info("Starting MCP Proxy Server")
         self._log_startup_configuration()
-        self.logger.info("%s", "=" * 50)
+        logger.info("%s", "=" * 50)
 
         config_provider = AppConfigProvider.get_instance()
         provider = StaticProxiesProvider(config_provider.get_mcp_configs())
@@ -189,8 +184,8 @@ class MCPProxyServer:
         llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
         self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
 
-        self.logger.info("MCP Proxy Server is ready!")
-        self.logger.info("%s", "=" * 50)
+        logger.info("MCP Proxy Server is ready!")
+        logger.info("%s", "=" * 50)
 
         # Step 2: Start the MCP server
         # Starts the async server with the configured transport and middleware

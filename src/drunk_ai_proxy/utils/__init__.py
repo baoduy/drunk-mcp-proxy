@@ -12,7 +12,6 @@ from .config_yaml import (
     LlmConfig,
 )
 from .env_resolver import resolve_env_vars
-from .logging_config import setup_logging
 
 __all__ = [
     # config_yaml
@@ -26,7 +25,5 @@ __all__ = [
     "McpFilters",
     "LlmConfig",
     # env_resolver
-    "resolve_env_vars",
-    # logging_config
-    "setup_logging",
+    "resolve_env_vars"
 ]

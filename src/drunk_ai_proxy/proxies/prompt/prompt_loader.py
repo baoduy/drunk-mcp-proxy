@@ -7,12 +7,13 @@ templates and load them into PromptTemplate instances.
 from __future__ import annotations
 
 import re
-from logging import Logger
 from pathlib import Path
 
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
 from drunk_ai_proxy.utils.env import CONFIG_DIR
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class PromptLoader:
@@ -33,8 +34,6 @@ class PromptLoader:
             ValueError: If prompt_dir is None or empty.
             FileNotFoundError: If the directory doesn't exist.
         """
-        self._logger: Logger = setup_logging(__name__)
-        
         if not prompt_dir:
             raise ValueError("prompt_dir cannot be None or empty")
         
@@ -56,7 +55,7 @@ class PromptLoader:
                 f"Prompt directory path is not a directory: {self._prompt_dir}"
             )
         
-        self._logger.info("Initialized PromptLoader with directory: %s", self._prompt_dir)
+        logger.info("Initialized PromptLoader with directory: %s", self._prompt_dir)
     
     @staticmethod
     def _sanitize_prompt_name(name: str) -> str:
@@ -102,13 +101,13 @@ class PromptLoader:
         md_files = list(self._prompt_dir.rglob("*.md"))
         
         if not md_files:
-            self._logger.warning(
+            logger.warning(
                 "No markdown files (*.md) found in prompt directory: %s",
                 self._prompt_dir
             )
             return prompts
         
-        self._logger.info(
+        logger.info(
             "Found %d markdown file(s) in %s",
             len(md_files),
             self._prompt_dir
@@ -134,7 +133,7 @@ class PromptLoader:
                 )
 
                 if not template.enabled:
-                    self._logger.info(
+                    logger.info(
                         "Prompt '%s' is disabled; skipping (file: %s)",
                         prompt_name,
                         md_file.relative_to(self._prompt_dir)
@@ -144,7 +143,7 @@ class PromptLoader:
                 # Check for name collisions
                 normalized_name = prompt_name.replace("-", "_")
                 if normalized_name in normalized_names:
-                    self._logger.warning(
+                    logger.warning(
                         "Duplicate prompt name '%s' conflicts with '%s' (file: %s). Skipping.",
                         prompt_name,
                         normalized_names[normalized_name],
@@ -154,7 +153,7 @@ class PromptLoader:
                 
                 prompts[prompt_name] = template
                 normalized_names[normalized_name] = prompt_name
-                self._logger.debug(
+                logger.debug(
                     "Loaded prompt '%s' from %s",
                     prompt_name,
                     md_file.relative_to(self._prompt_dir)
@@ -162,16 +161,16 @@ class PromptLoader:
                 
             except ValueError as e:
                 # Log parsing errors but continue with other files
-                self._logger.error(
+                logger.error(
                     "Failed to parse prompt file %s: %s",
                     md_file.name,
                     type(e).__name__
                 )
-                self._logger.debug("Parse error details: %s", str(e))
+                logger.debug("Parse error details: %s", str(e))
                 continue
             except Exception as e:
                 # Catch unexpected errors
-                self._logger.error(
+                logger.error(
                     "Unexpected error loading %s: %s",
                     md_file.name,
                     type(e).__name__
@@ -179,13 +178,13 @@ class PromptLoader:
                 continue
         
         if prompts:
-            self._logger.info(
+            logger.info(
                 "Successfully loaded %d prompt template(s): %s",
                 len(prompts),
                 ", ".join(prompts.keys())
             )
         else:
-            self._logger.warning(
+            logger.warning(
                 "No valid prompt templates loaded from %s",
                 self._prompt_dir
             )

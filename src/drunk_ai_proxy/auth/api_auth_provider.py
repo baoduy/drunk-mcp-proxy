@@ -1,7 +1,9 @@
 import hashlib
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from pydantic.v1 import AnyHttpUrl
-from drunk_ai_proxy.utils.logging_config import setup_logging
+
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class ApiKeyAuthProvider(TokenVerifier):
@@ -12,7 +14,6 @@ class ApiKeyAuthProvider(TokenVerifier):
             base_url=base_url,
             required_scopes=None,
         )
-        self.logger = setup_logging(__name__)
         self.token = token
 
     def _hash_token(self, token: str) -> str:
@@ -39,7 +40,7 @@ class ApiKeyAuthProvider(TokenVerifier):
         """
         if token == self.token:
             client_id = self._hash_token(token)
-            self.logger.info(
+            logger.info(
                 "Token verification successful (client_id: %s)", client_id[-4:]
             )
             return AccessToken(
@@ -49,5 +50,5 @@ class ApiKeyAuthProvider(TokenVerifier):
                 claims={"sub": client_id},
             )
 
-        self.logger.info("Token verification failed: %s", token[-4:])
+        logger.info("Token verification failed: %s", token[-4:])
         return None

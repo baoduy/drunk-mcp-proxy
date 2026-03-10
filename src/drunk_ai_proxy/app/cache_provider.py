@@ -5,8 +5,6 @@ from typing import TypedDict, cast
 from cryptography.fernet import Fernet
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
-
-from drunk_ai_proxy.utils.logging_config import setup_logging
 from drunk_ai_proxy.utils.env import (
     REDIS_CONNECTION_STRING,
     OAUTH_STORAGE_TYPE,
@@ -14,7 +12,8 @@ from drunk_ai_proxy.utils.env import (
     OAUTH_STORAGE_ENCRYPTION_KEY,
 )
 
-logger = setup_logging(__name__)
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class CacheEntry(TypedDict):

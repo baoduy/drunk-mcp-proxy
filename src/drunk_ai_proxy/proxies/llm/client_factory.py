@@ -1,14 +1,8 @@
 """Factory for creating configured AsyncOpenAI clients."""
 
 from __future__ import annotations
-
-from logging import Logger
-
 from openai import AsyncOpenAI
-
 from drunk_ai_proxy.utils import LlmConfig
-from drunk_ai_proxy.utils.logging_config import setup_logging
-
 
 class AsyncOpenAIFactory:
     """Factory for creating AsyncOpenAI clients with caching."""
@@ -19,7 +13,6 @@ class AsyncOpenAIFactory:
         Args:
             providers: List of LLM provider configurations.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._providers = providers
         self._clients: dict[str, AsyncOpenAI] = {}
 
