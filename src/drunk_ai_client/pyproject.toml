@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drunk-ai-client"
+version = "0.1.0"
+description = "STDIO MCP bridge client for Drunk AI Proxy"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=3.1.0",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+drunk_ai_client = "drunk_ai_client.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]

@@ -36,7 +36,7 @@ os.environ.setdefault("FASTMCP_LOG_LEVEL", "INFO")
 from fastmcp import Client, FastMCP
 from fastmcp.client.auth import BearerAuth
 from fastmcp.server import create_proxy
-from fastmcp.utilities import (skills,logging)
+from fastmcp.utilities import skills, logging
 
 logger = logging.get_logger(__name__)
 
@@ -375,7 +375,7 @@ class ClientConfig:
         args = parser.parse_args()
 
         # Prefer CLI args, fallback to env vars
-        url = args.url or os.getenv("API_URL")
+        url = args.url or cls._get_env_value("API_URL")
         if not url:
             raise ValueError("API_URL environment variable or --url argument required")
 
@@ -384,20 +384,22 @@ class ClientConfig:
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             raise ValueError(f"Invalid URL: {url} (must be http:// or https://)")
 
-        api_key = args.api_key or os.getenv("API_KEY")
+        api_key = args.api_key or cls._get_env_value("API_KEY")
         skill_dir: Path | None = None
-        skill_dir_value = os.getenv("SKILL_DIR")
+        skill_dir_value = cls._get_env_value("SKILL_DIR")
         if skill_dir_value:
             skill_dir = Path(skill_dir_value).expanduser()
             skill_dir.mkdir(parents=True, exist_ok=True)
 
         agents_dir: Path | None = None
-        agents_dir_value = os.getenv("AGENTS_DIR") or os.getenv("agents_dir")
+        agents_dir_value = cls._get_env_value("AGENTS_DIR")
         if agents_dir_value:
             agents_dir = Path(agents_dir_value).expanduser()
             agents_dir.mkdir(parents=True, exist_ok=True)
 
-        allows_overwrite_value = os.getenv("ALLOWS_OVERWRITE", "false").lower()
+        allows_overwrite_value = (
+            cls._get_env_value("ALLOWS_OVERWRITE") or "false"
+        ).lower()
         allows_overwrite = allows_overwrite_value in ("true", "1", "yes")
 
         return cls(
@@ -407,6 +409,27 @@ class ClientConfig:
             agents_dir=agents_dir,
             allows_overwrite=allows_overwrite,
         )
+
+    @staticmethod
+    def _get_env_value(name: str) -> str | None:
+        """Return the env value for a name, trying upper then lower.
+
+        Args:
+            name: Environment variable name to check.
+
+        Returns:
+            Env value if found, otherwise None.
+        """
+        value = os.getenv(name.upper())
+        if value:
+            return value
+
+        value = os.getenv(name.lower())
+        if value:
+            return value
+
+        return None
+
 
 
 def create_authenticated_client(config: ClientConfig) -> Client[Any]:
@@ -480,9 +503,16 @@ def run_stdio_bridge() -> None:
     proxy = create_proxy(client)
 
     # Create local stdio server and mount the remote proxy
-    from fastmcp.server.transforms.search import (RegexSearchTransform, BM25SearchTransform)
-    transforms= [RegexSearchTransform(max_results=10),BM25SearchTransform(max_results=3)]
-    server = FastMCP(name="drunk-ai-client-stdio",transforms=transforms)
+    from fastmcp.server.transforms.search import (
+        BM25SearchTransform,
+        RegexSearchTransform,
+    )
+
+    transforms = [
+        RegexSearchTransform(max_results=10),
+        BM25SearchTransform(max_results=3),
+    ]
+    server = FastMCP(name="drunk-ai-client-stdio", transforms=transforms)
     server.mount(proxy)
 
     logger.info(f"Starting stdio bridge to {config.url}")
@@ -495,5 +525,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Shutting down")
     except Exception as exc:
-        logger.error(f"Fatal error: {exc}")
+        logger.error("Fatal error: %s", type(exc).__name__)
         raise

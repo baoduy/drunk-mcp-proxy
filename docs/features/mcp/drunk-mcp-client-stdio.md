@@ -5,7 +5,7 @@
 
 ## Goal
 
-Create a local MCP client executable at `src/drunk-mcp-client/client.py` that:
+Create a local MCP client executable at `src/drunk_ai_client/client.py` that:
 
 1. Connects to a remote Drunk AI Proxy MCP endpoint (example: `http://0.0.0.0:9123/deepsea/mcp`).
 2. Detects available skills from the remote server and installs them into a user-provided folder automatically.
@@ -44,7 +44,7 @@ This preserves requirement (3) while still fulfilling requirement (1).
 
 ### 1. Add client module skeleton at requested path
 
-Target file: `src/drunk-mcp-client/client.py`
+Target file: `src/drunk_ai_client/client.py`
 
 - Add a class-first design:
   - `RemoteMcpClientConfig`
@@ -55,9 +55,8 @@ Target file: `src/drunk-mcp-client/client.py`
 - Add Google-style docstrings and full type hints.
 
 Note:
-- Directory name `drunk-mcp-client` contains `-` and is not importable as a standard Python package.
-- To keep your exact requested path while remaining runnable, execution should be path-based (`python src/drunk-mcp-client/client.py`) or via a launcher script.
-- Optional future hardening: move to `src/drunk_mcp_client/client.py` and keep a thin compatibility wrapper at requested path.
+- Directory name `drunk_ai_client` is importable as a standard Python package.
+- Execution can use module paths or a console script (`python -m drunk_ai_client.main`).
 
 ### 2. Define runtime configuration contract
 
@@ -172,9 +171,9 @@ Test cases:
   - troubleshooting (network/auth/path issues)
 - Include minimal quick-start examples:
   - Env-based (recommended):
-    - `API_URL=http://0.0.0.0:9123/deepsea/mcp SKILL_DIR=./data/skills python src/drunk-mcp-client/client.py`
+    - `API_URL=http://0.0.0.0:9123/deepsea/mcp SKILL_DIR=./data/skills python src/drunk_ai_client/client.py`
   - With auth:
-    - `API_URL=http://0.0.0.0:9123/deepsea/mcp API_KEY=your_token SKILL_DIR=./data/skills python src/drunk-mcp-client/client.py`
+    - `API_URL=http://0.0.0.0:9123/deepsea/mcp API_KEY=your_token SKILL_DIR=./data/skills python src/drunk_ai_client/client.py`
 
 ## Risks and Mitigations
 
@@ -194,7 +193,7 @@ Test cases:
 
 ## Acceptance Criteria
 
-- Running `python src/drunk-mcp-client/client.py ...` starts successfully in stdio mode.
+- Running `python src/drunk_ai_client/client.py ...` starts successfully in stdio mode.
 - Running with env vars (`API_URL`, `SKILL_DIR`) starts successfully in stdio mode.
 - Client can reach remote MCP endpoint and complete handshake/listing.
 - If remote skills exist, they are installed to provided folder automatically.
