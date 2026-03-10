@@ -22,6 +22,8 @@ from drunk_ai_proxy.proxies.llm.client_factory import AsyncOpenAIFactory
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
 
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 class ModelBase(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -91,7 +93,7 @@ class LlmProxiesProvider(LlmBaseProvider):
         self._fastapi_app: FastAPI | None = None
 
     def mount(self, app: Starlette, route_prefix: str) -> None:
-        self._logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
+        logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
         app.mount(route_prefix, self._get_fastapi_app())
 
     def _get_fastapi_app(self) -> FastAPI:
@@ -195,17 +197,17 @@ class LlmProxiesProvider(LlmBaseProvider):
         cache_key = f"models_{provider_name}"
         cached_models = await self.cache.get(cache_key)
         if cached_models is not None:
-            self._logger.info("Cache hit for models of provider '%s'", provider_name)
+            logger.info("Cache hit for models of provider '%s'", provider_name)
             return cached_models
         
         # Cache miss, fetch from provider
-        self._logger.info("Fetching models of provider '%s'", provider_name)
+        logger.info("Fetching models of provider '%s'", provider_name)
         client = self._get_openai_client(provider_name)
         
         # Get models from provider
         response = await client.models.list()
         if not response or not hasattr(response, "data") or not response.data:
-            self._logger.warning(
+            logger.warning(
                 "No models data found in response from provider '%s'",
                 provider_name,
             )

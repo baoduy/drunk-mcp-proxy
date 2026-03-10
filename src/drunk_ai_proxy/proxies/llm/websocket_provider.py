@@ -180,13 +180,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
         Args:
             websocket: WebSocket connection object
         """
-        self._logger.info("Llm websocket client connected: %s", websocket.client)
+        logger.info("Llm websocket client connected: %s", websocket.client)
         # Accept connection (auth already validated by middleware)
         await websocket.accept()
         
         # Extract client identity for connection pooling
         client_id = self._extract_client_identity(websocket)
-        self._logger.debug("Client identity: %s", client_id)
+        logger.debug("Client identity: %s", client_id)
 
         try:
             while True:
@@ -197,9 +197,9 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 await self._forward_to_backend(websocket, data, client_id)
 
         except WebSocketDisconnect:
-            self._logger.debug("Llm websocket client disconnected")
+            logger.debug("Llm websocket client disconnected")
         except Exception as e:
-            self._logger.error("Llm websocket error: %s", type(e).__name__)
+            logger.error("Llm websocket error: %s", type(e).__name__)
             try:
                 error_msg = self.create_error(
                     "server_error",
@@ -256,7 +256,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                     model_name=model_name,
                 )
         except Exception as e:
-            self._logger.error("Error forwarding message: %s", type(e).__name__)
+            logger.error("Error forwarding message: %s", type(e).__name__)
             error_msg = self.create_error(
                 "server_error",
                 "An error occurred while processing the request"
@@ -297,7 +297,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 try:
                     event_dict = json.loads(message)
                 except json.JSONDecodeError as e:
-                    self._logger.error("Failed to decode backend message: %s", type(e).__name__)
+                    logger.error("Failed to decode backend message: %s", type(e).__name__)
                     continue
 
                 await websocket.send_json(event_dict)
@@ -305,7 +305,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
                     break
 
         except websockets.exceptions.WebSocketException as e:
-            self._logger.error("Backend WebSocket error: %s", type(e).__name__)
+            logger.error("Backend WebSocket error: %s", type(e).__name__)
             await self.connection_pool.release_connection(client_id, provider_name)
             error_msg = self.create_error(
                 "backend_connection_error",
@@ -385,7 +385,7 @@ class LlmWebSocketProvider(LlmBaseProvider):
         try:
             stream = await client.responses.create(stream=True, **payload)
         except Exception as e:
-            self._logger.error("Fallback responses request failed: %s", type(e).__name__)
+            logger.error("Fallback responses request failed: %s", type(e).__name__)
             error_msg = self.create_error(
                 "backend_request_error",
                 "Backend request failed",

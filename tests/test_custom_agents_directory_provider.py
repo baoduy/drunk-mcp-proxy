@@ -264,10 +264,13 @@ class TestCustomAgentsDirectoryProviderResourceListing:
 
             resources = await provider.list_resources()
 
-            assert len(resources) == 1
-            assert str(resources[0].uri) == "agent://reasoning.agent.md"
-            assert resources[0].name == "reasoning.agent.md"
-            assert resources[0].description == "Reasoning agent"
+            # Each agent returns 2 resources: main file + manifest
+            assert len(resources) == 2
+            # Check main agent resource
+            main_resource = [r for r in resources if not r.name.endswith("/_manifest")][0]
+            assert str(main_resource.uri) == "agent://reasoning.agent.md"
+            assert main_resource.name == "reasoning.agent.md"
+            assert main_resource.description == "Reasoning agent"
 
     @pytest.mark.asyncio
     async def test_list_resources_excludes_disabled_agents(self) -> None:
@@ -287,8 +290,12 @@ class TestCustomAgentsDirectoryProviderResourceListing:
 
             resources = await provider.list_resources()
 
-            assert len(resources) == 1
-            assert resources[0].name == "enabled.agent.md"
+            # Each enabled agent returns 2 resources: main file + manifest
+            assert len(resources) == 2
+            # Verify only enabled agent is present
+            agent_names = [r.name for r in resources if not r.name.endswith("/_manifest")]
+            assert len(agent_names) == 1
+            assert agent_names[0] == "enabled.agent.md"
 
     @pytest.mark.asyncio
     async def test_get_resource_by_uri(self) -> None:

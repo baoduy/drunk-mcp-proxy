@@ -155,8 +155,9 @@ class TestMcpProxyProviderCreateProxyMethod:
         assert result is None
         mock_mcp.mount.assert_not_called()
 
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.logger")
     @patch("fastmcp.server.create_proxy")
-    def test_create_proxy_logs_info(self, mock_create_proxy_fn):
+    def test_create_proxy_logs_info(self, mock_create_proxy_fn, mock_logger):
         """Test that _create_proxy logs info message."""
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
@@ -168,10 +169,9 @@ class TestMcpProxyProviderCreateProxyMethod:
         provider = McpProxyProvider(mock_config)
         mock_mcp = MagicMock()
 
-        with patch.object(provider._logger, "info") as mock_log_info:
-            provider._create_proxy(mock_mcp)
-            mock_log_info.assert_called_once()
-            assert "Creating proxy for MCP config" in str(mock_log_info.call_args)
+        provider._create_proxy(mock_mcp)
+        mock_logger.info.assert_called_once()
+        assert "Creating proxy for MCP config" in str(mock_logger.info.call_args)
 
 
 class TestMcpProxyProviderCreateMcpProxiesConfigs:
