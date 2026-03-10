@@ -21,3 +21,9 @@ package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.pyright]
+extraPaths = ["."]
+include = ["."]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"

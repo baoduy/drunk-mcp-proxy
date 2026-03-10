@@ -33,15 +33,15 @@ for pyproject in "${PYPROJECTS[@]}"; do
 	echo "🧹 Cleaning dist for ${project_name}..."
 	rm -rf "${project_dir}/dist"
 
-	echo "🏗️  Building ${project_name}..."
-	python -m build "$project_dir"
+	# echo "🏗️  Building ${project_name}..."
+	# python -m build "$project_dir"
 
 	echo "📥 Installing ${project_name} in editable mode..."
 	pip install -e "$project_dir" --upgrade --upgrade-strategy eager
 done
 
 echo ""
-echo "✅ Build + install complete for all src packages!"
+echo "✅ Install complete for all src packages!"
 echo ""
 echo "💡 You can now run tests with: ./run-test.sh"
 echo ""
