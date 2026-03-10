@@ -10,7 +10,8 @@
         "**/.venv"
     ],
     "extraPaths": [
-        "src"
+        "src/drunk_ai_proxy",
+        "src/drunk_ai_client"
     ],
     "pythonVersion": "3.10",
     "typeCheckingMode": "strict",

@@ -45,9 +45,12 @@
 		},
 
 		"drunk-mcp": {
-			"command": ".venv/bin/python",
+			"type": "stdio",
+			"command": "uvx",
 			"args": [
-				"./src/drunk_ai_client/client.py"
+				"--from",
+				"./dist/drunk_ai_client/drunk_ai_client-0.1.0-py3-none-any.whl",
+				"drunk_ai_client"
 			],
 			"env": {
 				"API_URL": "http://0.0.0.0:9123/prompts/mcp/",

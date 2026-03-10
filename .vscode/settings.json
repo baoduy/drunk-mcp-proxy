@@ -12,7 +12,10 @@
   },
   "terminal.integrated.shellIntegration.enabled": true,
   "editor.defaultFormatter": "ms-python.vscode-pylance",
-  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/src/drunk_ai_proxy",
+    "${workspaceFolder}/src/drunk_ai_client"
+  ],
   "python.analysis.autoSearchPaths": false,
   "cSpell.words": [
     "fastmcp",
