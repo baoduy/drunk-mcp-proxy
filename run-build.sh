@@ -47,10 +47,6 @@ for pyproject in "${PYPROJECTS[@]}"; do
 	rm -rf "${project_dir}/build"
 	rm -rf "${project_dir}/dist"
 	rm -rf "${project_dir}"/*.egg-info
-	
-	# Remove accidentally copied project folders from previous builds
-	rm -rf "${project_dir}/drunk_ai_client"
-	rm -rf "${project_dir}/drunk_ai_proxy"
 
 	echo "🏗️  Building ${project_name}..."
 	python -m build "$project_dir" --outdir "$project_dist"

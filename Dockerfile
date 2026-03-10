@@ -16,11 +16,11 @@ WORKDIR /build
 # Copy project files for building
 COPY src/drunk_ai_proxy/ ./src/drunk_ai_proxy/
 
-# Build the package as a wheel using build tool
+# Build the package as a wheel using build tool with explicit outdir
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir build && \
-    python -m build --wheel src/drunk_ai_proxy && \
-    ls -la src/drunk_ai_proxy/dist/
+    python -m build --wheel src/drunk_ai_proxy --outdir ./dist && \
+    ls -la ./dist/
 
 # ============================================================
 # Final stage - minimal runtime image
@@ -46,7 +46,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy built wheel from builder stage
-COPY --from=builder /build/src/drunk_ai_proxy/dist/drunk_ai_proxy-*.whl /tmp/
+COPY --from=builder /build/dist/drunk_ai_proxy-*.whl /tmp/
 
 # Install the built wheel package
 RUN --mount=type=cache,target=/root/.cache/pip \

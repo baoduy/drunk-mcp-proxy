@@ -42,10 +42,11 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = { "" = "." }
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["drunk_ai_proxy*"]
 
 [tool.pyright]
 extraPaths = ["."]

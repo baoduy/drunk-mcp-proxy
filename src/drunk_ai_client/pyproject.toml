@@ -17,10 +17,11 @@ dependencies = [
 drunk_ai_client = "drunk_ai_client.main:main"
 
 [tool.setuptools]
-package-dir = { "" = "." }
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["drunk_ai_client*"]
 
 [tool.pyright]
 extraPaths = ["."]
