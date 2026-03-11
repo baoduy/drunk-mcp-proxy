@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.12
 ARG NODE_VERSION=25
 ARG TARGETPLATFORM
 FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim AS builder
@@ -7,7 +7,8 @@ FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim A
 # Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      build-essential && \
+            build-essential \
+            ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -37,20 +38,23 @@ RUN useradd -m -u 10001 appuser
 # Install only runtime dependencies (nodejs/npm already in base image)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      curl && \
+            ca-certificates \
+            curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment in runtime stage
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
 
 # Copy built wheel from builder stage
 COPY --from=builder /build/dist/drunk_ai_proxy-*.whl /tmp/
 
 # Install the built wheel package
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir /tmp/drunk_ai_proxy-*.whl
+    pip install --no-cache-dir --prefer-binary --retries 10 --timeout 120 /tmp/drunk_ai_proxy-*.whl
 
 # Verify package installation and entry point
 RUN drunk-ai-proxy --help 2>&1 | head -5 || echo "Entry point verification skipped"
