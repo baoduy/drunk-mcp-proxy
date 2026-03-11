@@ -103,7 +103,7 @@ class TestMcpProxyProviderCreateSkillProxy:
 
         assert result is None
         mock_skills_provider_cls.assert_called_once_with(
-            roots=[mock_path_instance], reload=False
+            roots=[mock_path_instance], reload=True
         )
         mock_mcp.add_provider.assert_not_called()
 
@@ -140,7 +140,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         # Check that roots parameter contains the parent skill directory
         roots = call_args[1]["roots"]
         assert roots == [mock_path_instance]
-        assert call_args[1]["reload"] is False
+        assert call_args[1]["reload"] is True
 
         # Verify provider was added to mcp
         mock_mcp.add_provider.assert_called_once_with(mock_provider)

@@ -15,7 +15,7 @@ from fastmcp.prompts import Message
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider
 from drunk_ai_proxy.proxies.prompt.prompt_loader import PromptLoader
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
-from drunk_ai_proxy.utils import McpConfig
+from drunk_ai_proxy.utils import McpConfig, audit_log
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
 
 from fastmcp.utilities import logging
@@ -59,6 +59,13 @@ class McpPromptProvider(McpBaseProvider):
             logger.error(
                 "Failed to initialize prompt loader: %s",
                 type(e).__name__
+            )
+            audit_log(
+                logger=logger,
+                event="prompt_provider_init_failed",
+                status="failure",
+                resource=self.config.path,
+                details={"error_type": type(e).__name__},
             )
             raise
     
@@ -107,6 +114,13 @@ class McpPromptProvider(McpBaseProvider):
                     "Failed to render prompt '%s': %s",
                     template.name,
                     type(e).__name__
+                )
+                audit_log(
+                    logger=logger,
+                    event="prompt_render_failed",
+                    status="failure",
+                    resource=template.name,
+                    details={"error_type": type(e).__name__},
                 )
                 raise
         
@@ -172,6 +186,13 @@ class McpPromptProvider(McpBaseProvider):
                     "Failed to register prompt '%s': %s",
                     template_name,
                     type(e).__name__
+                )
+                audit_log(
+                    logger=logger,
+                    event="prompt_registration_failed",
+                    status="failure",
+                    resource=template_name,
+                    details={"error_type": type(e).__name__},
                 )
                 # Continue with other prompts
                 continue

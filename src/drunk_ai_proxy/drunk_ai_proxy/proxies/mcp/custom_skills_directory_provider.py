@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
 from fastmcp.resources.resource import Resource
 from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.aggregate import AggregateProvider
@@ -30,7 +29,6 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
         roots: str | Path | Sequence[str | Path],
         reload: bool = False,
         main_file_name: str = "SKILL.md",
-        supporting_files: Literal["template", "resources"] = "template",
     ) -> None:
         """Initialize the provider.
 
@@ -47,7 +45,6 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
         self._roots = [Path(r).resolve() for r in roots]
         self._reload = reload
         self._main_file_name = main_file_name
-        self._supporting_files: Literal["template", "resources"] = supporting_files
         self._discovered = False
 
         self._discover_skills()
@@ -93,7 +90,6 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
                     provider = SkillProvider(
                         skill_path=skill_dir,
                         main_file_name=self._main_file_name,
-                        supporting_files=self._supporting_files,
                     )
                     if namespace:
                         self.add_provider(provider, namespace=namespace)

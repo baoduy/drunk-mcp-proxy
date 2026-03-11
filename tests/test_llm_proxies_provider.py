@@ -553,8 +553,6 @@ def test_audio_translations_missing_file():
 
 
 # Test models caching
-@pytest.mark.asyncio
-
 # Test load providers from file
 def test_chat_completions_streaming(monkeypatch: pytest.MonkeyPatch):
     """Test chat completions with streaming enabled."""

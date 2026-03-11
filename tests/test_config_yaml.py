@@ -24,6 +24,7 @@ from drunk_ai_proxy.utils.config_yaml import (
     McpConfig,
     McpFilters,
     McpServerConfig,
+    RemoteResourceConfig,
 )
 
 
@@ -451,6 +452,112 @@ llm:
                 assert config.llm[1].api_key == "test-key2"
             finally:
                 os.unlink(temp_file)
+
+
+class TestRemoteResourceConfig:
+    """Tests for RemoteResourceConfig model."""
+
+    def test_remote_resource_config_basic(self) -> None:
+        """Test creating RemoteResourceConfig with required fields."""
+        config = RemoteResourceConfig(
+            name="test-bundle",
+            to_dir="prompts/dotnet",
+            paths=["https://example.com/file1.md", "https://example.com/file2.md"]
+        )
+        assert config.name == "test-bundle"
+        assert config.to_dir == "prompts/dotnet"
+        assert len(config.paths) == 2
+        assert config.paths[0] == "https://example.com/file1.md"
+        assert config.headers is None
+
+    def test_remote_resource_config_with_headers_placeholder(self) -> None:
+        """Test RemoteResourceConfig accepts optional headers placeholder field."""
+        config = RemoteResourceConfig(
+            name="private-bundle",
+            to_dir="prompts/private",
+            paths=["https://example.com/private.md"],
+            headers={"Authorization": "Bearer static-token"},
+        )
+
+        assert config.headers is not None
+        assert config.headers["Authorization"] == "Bearer static-token"
+
+    def test_remote_resource_config_empty_paths(self) -> None:
+        """Test RemoteResourceConfig with empty paths list."""
+        config = RemoteResourceConfig(
+            name="empty-bundle",
+            to_dir="prompts/empty",
+            paths=[]
+        )
+        assert config.name == "empty-bundle"
+        assert len(config.paths) == 0
+
+    def test_config_yaml_with_remote_resources(self) -> None:
+        """Test ConfigYaml parsing with remote_resources section."""
+        yaml_content = """
+remote_resources:
+  - name: test-bundle
+    to_dir: prompts/test
+    paths:
+      - https://example.com/file1.md
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            temp_file = f.name
+
+        try:
+            config = ConfigYaml.load_from_file(temp_file)
+            assert config.remote_resources is not None
+            assert len(config.remote_resources) == 1
+            assert config.remote_resources[0].name == "test-bundle"
+            assert config.remote_resources[0].to_dir == "prompts/test"
+            assert len(config.remote_resources[0].paths) == 1
+        finally:
+            os.unlink(temp_file)
+
+    def test_config_yaml_without_remote_resources(self) -> None:
+        """Test ConfigYaml when remote_resources section is absent."""
+        yaml_content = """
+auth:
+  default_provider: basic
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            temp_file = f.name
+
+        try:
+            config = ConfigYaml.load_from_file(temp_file)
+            assert config.remote_resources is None
+        finally:
+            os.unlink(temp_file)
+
+    def test_config_yaml_empty_remote_resources(self) -> None:
+        """Test ConfigYaml with empty remote_resources section."""
+        yaml_content = """
+auth:
+  default_provider: basic
+
+remote_resources: []
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            temp_file = f.name
+
+        try:
+            config = ConfigYaml.load_from_file(temp_file)
+            assert config.remote_resources is not None
+            assert len(config.remote_resources) == 0
+        finally:
+            os.unlink(temp_file)
 
     def test_parse_config_with_mcp_inline_servers(self) -> None:
         """Test parsing configuration with inline MCP servers."""

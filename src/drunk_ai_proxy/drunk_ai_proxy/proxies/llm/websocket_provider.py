@@ -25,7 +25,7 @@ import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
 from drunk_ai_proxy.proxies.llm.base_provider import LlmBaseProvider
-from drunk_ai_proxy.utils import LlmConfig
+from drunk_ai_proxy.utils import LlmConfig, audit_log
 from drunk_ai_proxy.proxies.llm.websocket_transport import (
     BackendConnectionPool,
     WebSocketFactory,
@@ -190,6 +190,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
         # Extract client identity for connection pooling
         client_id = self._extract_client_identity(websocket)
         logger.debug("Client identity: %s", client_id)
+        audit_log(
+            logger=logger,
+            event="llm_websocket_connected",
+            status="success",
+            user_id=client_id,
+            resource="/responses",
+        )
 
         try:
             while True:
@@ -201,8 +208,23 @@ class LlmWebSocketProvider(LlmBaseProvider):
 
         except WebSocketDisconnect:
             logger.debug("Llm websocket client disconnected")
+            audit_log(
+                logger=logger,
+                event="llm_websocket_disconnected",
+                status="success",
+                user_id=client_id,
+                resource="/responses",
+            )
         except Exception as e:
             logger.error("Llm websocket error: %s", type(e).__name__)
+            audit_log(
+                logger=logger,
+                event="llm_websocket_error",
+                status="failure",
+                user_id=client_id,
+                resource="/responses",
+                details={"error_type": type(e).__name__},
+            )
             try:
                 error_msg = self.create_error(
                     "server_error",
@@ -260,6 +282,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
                 )
         except Exception as e:
             logger.error("Error forwarding message: %s", type(e).__name__)
+            audit_log(
+                logger=logger,
+                event="llm_websocket_forward_failed",
+                status="failure",
+                user_id=client_id,
+                details={"error_type": type(e).__name__},
+            )
             error_msg = self.create_error(
                 "server_error",
                 "An error occurred while processing the request"
@@ -309,6 +338,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
 
         except websockets.exceptions.WebSocketException as e:
             logger.error("Backend WebSocket error: %s", type(e).__name__)
+            audit_log(
+                logger=logger,
+                event="llm_backend_websocket_error",
+                status="failure",
+                user_id=client_id,
+                details={"provider": provider_name, "error_type": type(e).__name__},
+            )
             await self.connection_pool.release_connection(client_id, provider_name)
             error_msg = self.create_error(
                 "backend_connection_error",
@@ -389,6 +425,13 @@ class LlmWebSocketProvider(LlmBaseProvider):
             stream = await client.responses.create(stream=True, **payload)
         except Exception as e:
             logger.error("Fallback responses request failed: %s", type(e).__name__)
+            audit_log(
+                logger=logger,
+                event="llm_http_fallback_failed",
+                status="failure",
+                user_id=self._extract_client_identity(websocket),
+                details={"provider": provider_name, "model": model_name, "error_type": type(e).__name__},
+            )
             error_msg = self.create_error(
                 "backend_request_error",
                 "Backend request failed",

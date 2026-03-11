@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
 from fastapi.security.utils import get_authorization_scheme_param
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
-from drunk_ai_proxy.utils import LlmConfig
+from drunk_ai_proxy.utils import LlmConfig, audit_log
 from drunk_ai_proxy.proxies.llm.base_provider import LlmBaseProvider
 from drunk_ai_proxy.proxies.llm.anthropic_provider import AnthropicProvider
 from drunk_ai_proxy.proxies.llm.client_factory import AsyncOpenAIFactory
@@ -462,6 +462,13 @@ class LlmProxiesProvider(LlmBaseProvider):
             response = await call_fn(client, known_params_dict)
             return await response_builder(response, payload)
         except Exception as e:
+            audit_log(
+                logger=logger,
+                event="llm_endpoint_call_failed",
+                status="failure",
+                resource=context,
+                details={"provider": provider_name, "model": model_name, "error_type": type(e).__name__},
+            )
             return self.handle_exception(e, context)
 
     @staticmethod
@@ -542,4 +549,11 @@ class LlmProxiesProvider(LlmBaseProvider):
                 content=self._openai_to_anthropic_response(response, body.get("model", model_name))
             )
         except Exception as e:
+            audit_log(
+                logger=logger,
+                event="anthropic_messages_failed",
+                status="failure",
+                resource="/messages",
+                details={"provider": provider_name, "model": model_name, "error_type": type(e).__name__},
+            )
             return self.handle_exception(e, f"anthropic messages for '{model_name}'")

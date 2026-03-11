@@ -266,13 +266,49 @@ FASTMCP_RATE_LIMIT_ENABLED=true
 FASTMCP_RATE_LIMIT_REQUESTS=100
 FASTMCP_RATE_LIMIT_WINDOW_SECONDS=60
 
+# Remote resources
+REMOTE_RESOURCE_TTL_HOURS=24
+REMOTE_RESOURCE_ALLOWED_EXTENSIONS=.md,.yaml,.yml,.json,.py,.js,.ts
+REMOTE_RESOURCE_MAX_SIZE_MB=10
+REMOTE_RESOURCE_RETRY_ATTEMPTS=2
+
 # OAuth Storage
 MCP_OAUTH_STORAGE_TYPE=redis
 FASTMCP_OAUTH_STORAGE_ENCRYPTION_KEY=<your-44-char-fernet-key>
 REDIS_URL=redis://:password@redis:6379/0
 ```
 
-### 13. Docker Compose Production Setup
+### 13. Remote Resource Bundles
+
+**Use case**: Download prompts/agents/skills files from HTTPS sources at startup.
+
+**config.yaml**:
+```yaml
+mcp:
+  - path: /prompts
+    spec_type: mcp
+    skill_dir: skills
+    prompt_dir: prompts
+    agents_dir: agents
+
+remote_resources:
+  - name: dotnet_prompt
+    to_dir: prompts/dotnet
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
+
+  - name: dotnet_agent
+    to_dir: agents/dotnet
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/agents/ef-core-agent/agent.yaml
+
+  - name: dotnet_skills
+    to_dir: skills/dotnet
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/codebases/ef-core-codebase/codebase.yaml
+```
+
+### 14. Docker Compose Production Setup
 
 **docker-compose.yml**:
 ```yaml
@@ -312,7 +348,7 @@ volumes:
   redis-data:
 ```
 
-### 14. Kubernetes Deployment
+### 15. Kubernetes Deployment
 
 **deployment.yaml**:
 ```yaml
@@ -388,7 +424,7 @@ spec:
 
 ## Development Configurations
 
-### 15. Development with Debug Logging
+### 16. Development with Debug Logging
 
 **.env**:
 ```bash
@@ -401,7 +437,7 @@ FASTMCP_AUTH_ENABLED=false
 FASTMCP_RATE_LIMIT_ENABLED=false
 ```
 
-### 16. Testing Configuration
+### 17. Testing Configuration
 
 **config.yaml**:
 ```yaml
@@ -419,7 +455,7 @@ mcp:
 
 ## Complete Real-World Example
 
-### 17. Enterprise Setup
+### 18. Enterprise Setup
 
 **config.yaml**:
 ```yaml

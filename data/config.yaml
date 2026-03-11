@@ -165,3 +165,8 @@ mcp:
     prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)
     agents_dir: agents # Directory containing agent files (relative to data/)
 
+remote_resources:
+  - name: dotnet_prompt # Resource name to reference in skills
+    to_dir: prompts/dotnet # Destination under FASTMCP_CONFIG_DIR
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md

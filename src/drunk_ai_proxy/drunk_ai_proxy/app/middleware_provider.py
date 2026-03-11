@@ -10,6 +10,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from drunk_ai_proxy.app.cache_provider import CacheProvider, TTLAsyncKeyValue
+from drunk_ai_proxy.app.security_headers_middleware import (
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from drunk_ai_proxy.utils.auth_header_policy import DEFAULT_ANONYMOUS_PATHS, is_anonymous_path
 
 from drunk_ai_proxy.utils.env import (
@@ -151,6 +155,16 @@ def _create_rate_limit_middleware() -> Middleware:
     )
 
 
+def _create_request_size_limit_middleware() -> Middleware:
+    """Create middleware enforcing request size limits."""
+    return Middleware(RequestSizeLimitMiddleware)
+
+
+def _create_security_headers_middleware() -> Middleware:
+    """Create middleware that appends standard security headers."""
+    return Middleware(SecurityHeadersMiddleware)
+
+
 def get_middlewares() -> list[Middleware]:
     """Get the list of middlewares to apply to the FastMCP server.
 
@@ -159,6 +173,8 @@ def get_middlewares() -> list[Middleware]:
     """
     middlewares = [
         _create_cors_middleware(),
+        _create_request_size_limit_middleware(),
+        _create_security_headers_middleware(),
     ]
     if AUTH_ENABLED:
         middlewares.append(_create_auth_header_middleware())

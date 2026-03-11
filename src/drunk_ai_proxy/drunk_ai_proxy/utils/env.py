@@ -120,6 +120,18 @@ RATE_LIMIT_ENABLED = get_env_bool("FASTMCP_RATE_LIMIT_ENABLED", False)
 RATE_LIMIT_REQUESTS = get_env_int("FASTMCP_RATE_LIMIT_REQUESTS", 60)
 RATE_LIMIT_WINDOW_SECONDS = get_env_int("FASTMCP_RATE_LIMIT_WINDOW_SECONDS", 60)
 
+# Remote Resource Sync Configuration
+# ==================================
+# Controls startup and periodic synchronization for top-level remote_resources.
+REMOTE_RESOURCE_TTL_HOURS = get_env_int("REMOTE_RESOURCE_TTL_HOURS", 24)
+REMOTE_RESOURCE_ALLOWED_EXTENSIONS = get_env_string(
+    "REMOTE_RESOURCE_ALLOWED_EXTENSIONS",
+    ".md,.yaml,.yml,.json,.py,.js,.ts",
+)
+REMOTE_RESOURCE_MAX_SIZE_MB = get_env_int("REMOTE_RESOURCE_MAX_SIZE_MB", 10)
+# Number of transport-level retries for failed downloads.
+REMOTE_RESOURCE_RETRY_ATTEMPTS = get_env_int("REMOTE_RESOURCE_RETRY_ATTEMPTS", 2)
+
 # OAuth Configuration
 # ===================
 # Encryption key for storing OAuth tokens securely

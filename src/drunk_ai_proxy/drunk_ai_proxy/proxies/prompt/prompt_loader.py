@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
+from drunk_ai_proxy.utils import audit_log
 from drunk_ai_proxy.utils.env import CONFIG_DIR
 
 from fastmcp.utilities import logging
@@ -167,6 +168,13 @@ class PromptLoader:
                     type(e).__name__
                 )
                 logger.debug("Parse error details: %s", str(e))
+                audit_log(
+                    logger=logger,
+                    event="prompt_template_parse_failed",
+                    status="failure",
+                    resource=str(md_file),
+                    details={"error_type": type(e).__name__},
+                )
                 continue
             except Exception as e:
                 # Catch unexpected errors
@@ -174,6 +182,13 @@ class PromptLoader:
                     "Unexpected error loading %s: %s",
                     md_file.name,
                     type(e).__name__
+                )
+                audit_log(
+                    logger=logger,
+                    event="prompt_template_load_failed",
+                    status="failure",
+                    resource=str(md_file),
+                    details={"error_type": type(e).__name__},
                 )
                 continue
         

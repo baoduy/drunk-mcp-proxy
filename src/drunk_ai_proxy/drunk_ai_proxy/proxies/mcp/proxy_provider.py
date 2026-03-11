@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
-from drunk_ai_proxy.utils import McpConfig
+from drunk_ai_proxy.utils import McpConfig, audit_log
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION, CONFIG_DIR
 from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
 
@@ -118,6 +118,13 @@ class McpProxyProvider(McpBaseProvider):
                 "Failed to create prompt provider for path '%s': %s",
                 self.config.path,
                 type(e).__name__
+            )
+            audit_log(
+                logger=logger,
+                event="mcp_prompt_provider_failed",
+                status="failure",
+                resource=self.config.path,
+                details={"error_type": type(e).__name__},
             )
 
     @staticmethod

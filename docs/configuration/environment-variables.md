@@ -170,6 +170,33 @@ FASTMCP_RATE_LIMIT_WINDOW_SECONDS=60
 
 This allows 100 requests per minute per IP address.
 
+## Remote Resource Sync Configuration
+
+These variables control startup background sync for top-level `remote_resources` in
+`config.yaml`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REMOTE_RESOURCE_TTL_HOURS` | `24` | Minimum file age in hours before re-download |
+| `REMOTE_RESOURCE_ALLOWED_EXTENSIONS` | `.md,.yaml,.yml,.json,.py,.js,.ts` | Comma-separated allow-list of file extensions |
+| `REMOTE_RESOURCE_MAX_SIZE_MB` | `10` | Maximum size per downloaded file |
+| `REMOTE_RESOURCE_RETRY_ATTEMPTS` | `2` | Transport-level retry attempts for failed URL downloads |
+
+**Example:**
+```bash
+# Re-download stale files every 12 hours
+REMOTE_RESOURCE_TTL_HOURS=12
+
+# Restrict to markdown and yaml only
+REMOTE_RESOURCE_ALLOWED_EXTENSIONS=.md,.yaml,.yml
+
+# Reject files over 5 MB
+REMOTE_RESOURCE_MAX_SIZE_MB=5
+
+# Retry failed requests up to 3 times
+REMOTE_RESOURCE_RETRY_ATTEMPTS=3
+```
+
 ## OAuth Storage Configuration
 
 ### Token Storage and Encryption

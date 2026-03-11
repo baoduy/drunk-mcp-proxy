@@ -16,9 +16,10 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from .lifespan import AppLifespanManager
+from .security_headers_middleware import RequestSizeLimitMiddleware, SecurityHeadersMiddleware
 from .swagger_provider import SwaggerProvider
 from drunk_ai_proxy.utils.env import SERVER_NAME, HOST, PORT, SWAGGER_ENABLED
-from drunk_ai_proxy.utils.error_utils import sanitize_error_message
+from drunk_ai_proxy.utils.security import sanitize_error_response
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -26,6 +27,7 @@ logger = logging.get_logger(__name__)
 if TYPE_CHECKING:
     from ..proxies.mcp.base_provider import McpProxyConfig
     from ..proxies.llm.proxies_provider import LlmProxiesProvider
+    from drunk_ai_proxy.utils import RemoteResourceConfig
 
 
 class StarletteApp:
@@ -82,8 +84,13 @@ class StarletteApp:
         self.port = PORT or 9123
         self.mcp_apps: list[tuple[str | None, StarletteWithLifespan]] = []
         self.llm_services: list[tuple[str, "LlmProxiesProvider"]] = []
+        self._remote_resources: list[RemoteResourceConfig] = []
         # Initialize Swagger provider
         self.swagger_provider = SwaggerProvider(self.service_name)
+
+    def add_remote_resources(self, configs: list[RemoteResourceConfig] | None) -> None:
+        """Register remote resource configs for lifespan background sync."""
+        self._remote_resources = configs or []
 
     def _health_check_endpoint(self, request: Request) -> JSONResponse:
         """
@@ -106,9 +113,12 @@ class StarletteApp:
             exc: The exception that was raised
         """
         logger.error("Unhandled exception: %s", type(exc).__name__)
-        return JSONResponse(
-            {"error": sanitize_error_message(str(exc))},
+        _ = request
+        _ = exc
+        return sanitize_error_response(
+            user_message="An error occurred while processing the request",
             status_code=500,
+            log_context="starlette global exception",
         )
 
     def add_mcp_service(self, service: "McpProxyConfig"
@@ -184,9 +194,20 @@ class StarletteApp:
         # Create new app with custom lifespan
         app = Starlette(
             middleware=self.middleware,
-            lifespan=partial(self.lifespan_manager.lifespans, mcp_apps=self.mcp_apps),
+            lifespan=partial(
+                self.lifespan_manager.lifespans,
+                mcp_apps=self.mcp_apps,
+                remote_resources=self._remote_resources,
+            ),
             exception_handlers={Exception: self._exception_handler}
         )
+
+        # Apply security middleware globally when not already configured.
+        middleware_classes = {mw.cls for mw in self.middleware} if self.middleware else set()
+        if RequestSizeLimitMiddleware not in middleware_classes:
+            app.add_middleware(RequestSizeLimitMiddleware)
+        if SecurityHeadersMiddleware not in middleware_classes:
+            app.add_middleware(SecurityHeadersMiddleware)
 
         for mount_path, mcp_app in self.mcp_apps:
             assert mount_path is not None  # Always set to string in add_mcp_service

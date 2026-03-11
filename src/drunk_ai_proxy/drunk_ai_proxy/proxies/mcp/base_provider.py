@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from dataclasses import dataclass
+from drunk_ai_proxy.utils import audit_log
 from drunk_ai_proxy.utils.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
@@ -109,13 +110,25 @@ class McpBaseProvider(ABC):
             # self.logger.warning(f"Skill directory '{self.config.skill_dir}' does not exist for MCP config '{self.config.path}'")
             return
 
-        provider = CustomSkillsDirectoryProvider(roots=[skill_dir_path], reload=False)
-        if not provider.providers:
-            return
+        try:
+            provider = CustomSkillsDirectoryProvider(roots=[skill_dir_path], reload=True)
+            if not provider.providers:
+                return
 
-        # self.logger.info("Adding skill provider for MCP config '%s' with %d skill directories: %s",
-        #                self.config.path, len(subdirs), [d.name for d in subdirs])
-        mcp.add_provider(provider)
+            mcp.add_provider(provider)
+        except Exception as e:
+            logger.error(
+                "Failed to create skill provider for path '%s': %s",
+                self.config.path,
+                type(e).__name__,
+            )
+            audit_log(
+                logger=logger,
+                event="mcp_skill_provider_failed",
+                status="failure",
+                resource=self.config.path,
+                details={"error_type": type(e).__name__},
+            )
 
     def _create_agent_proxy(self, mcp: FastMCP) -> None:
         """Create and mount agent provider if agents_dir is configured.
@@ -152,7 +165,7 @@ class McpBaseProvider(ABC):
             return
 
         try:
-            provider = CustomAgentsDirectoryProvider(roots=[agents_dir_path], reload=False)
+            provider = CustomAgentsDirectoryProvider(roots=[agents_dir_path], reload=True)
             if not provider.providers:
                 return
 
@@ -167,6 +180,13 @@ class McpBaseProvider(ABC):
                 "Failed to create agent provider for path '%s': %s",
                 self.config.path,
                 type(e).__name__,
+            )
+            audit_log(
+                logger=logger,
+                event="mcp_agent_provider_failed",
+                status="failure",
+                resource=self.config.path,
+                details={"error_type": type(e).__name__},
             )
 
     def _create_client_auth(self) -> "Auth | None":

@@ -8,6 +8,7 @@ from starlette.testclient import TestClient
 
 import drunk_ai_proxy.app.starlette_app as starlette_app
 from drunk_ai_proxy.proxies.mcp.base_provider import McpProxyConfig
+from drunk_ai_proxy.utils import RemoteResourceConfig
 
 
 class DummyMcpServer:
@@ -130,3 +131,20 @@ def test_build_mounts_llm_services(monkeypatch):
     mounted_app, route_prefix = llm_provider.mounted_routes[0]
     assert mounted_app == app
     assert route_prefix == "/llm/v1"
+
+
+def test_add_remote_resources_stores_configs(monkeypatch):
+    monkeypatch.setattr(starlette_app, "SERVER_NAME", "unit-test")
+    app_factory = starlette_app.StarletteApp()
+
+    resources = [
+        RemoteResourceConfig(
+            name="bundle",
+            to_dir="prompts/test",
+            paths=["https://example.com/a.md"],
+        )
+    ]
+
+    app_factory.add_remote_resources(resources)
+
+    assert app_factory._remote_resources == resources

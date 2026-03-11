@@ -18,6 +18,7 @@ This is the main configuration file that defines:
 1. **Authentication** - How clients authenticate to the proxy
 2. **LLM Providers** - LLM services for routing requests
 3. **MCP/OpenAPI Services** - Which backend services to proxy
+4. **Remote Resource Bundles** - Startup sync of HTTPS files into local folders
 
 ### Structure
 
@@ -45,6 +46,13 @@ mcp:
     spec_file: openapi/petstore.yaml
     spec_type: openapi
     base_url: "https://api.example.com"
+
+# Remote resource bundles (optional)
+remote_resources:
+  - name: dotnet_prompt
+    to_dir: prompts/dotnet
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
 ```
 
 ### Field Reference
@@ -80,6 +88,18 @@ mcp:
 | `provider` | string | Yes | Provider name | `openai`, `openrouter` |
 | `base_url` | string | Yes | Provider API base URL | `https://api.openai.com/v1` |
 | `api_key` | string | No | API key (supports env vars) | `$OPENAI_API_KEY` |
+
+#### Remote Resource Fields
+
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| `name` | string | Yes | Logical bundle name used in logs | `dotnet_prompt` |
+| `to_dir` | string | Yes | Destination folder under `FASTMCP_CONFIG_DIR` | `prompts/dotnet` |
+| `paths` | array[string] | Yes | List of source URLs (HTTPS only) | `["https://example.com/a.md"]` |
+
+Remote resource downloads run in the background at startup and do not block server startup.
+Skill and agent providers can pick up newly downloaded files at runtime via reload mode.
+Prompt template runtime reload is not currently supported.
 
 ### MCP Service Configuration
 

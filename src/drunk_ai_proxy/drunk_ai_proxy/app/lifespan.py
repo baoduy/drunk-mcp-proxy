@@ -2,10 +2,16 @@
 Application Lifespan Management Module
 """
 
+from __future__ import annotations
+
+import asyncio
 from contextlib import asynccontextmanager
-from typing import AsyncContextManager
+from typing import TYPE_CHECKING, AsyncContextManager
 
 from fastmcp.server.http import StarletteWithLifespan
+
+if TYPE_CHECKING:
+    from drunk_ai_proxy.utils import RemoteResourceConfig
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -27,7 +33,12 @@ class AppLifespanManager:
         """Initialize the AppLifespanManager."""
 
     @asynccontextmanager
-    async def lifespans(self, _: object, mcp_apps: list[tuple[str | None, StarletteWithLifespan]]):
+    async def lifespans(
+        self,
+        _: object,
+        mcp_apps: list[tuple[str | None, StarletteWithLifespan]],
+        remote_resources: list[RemoteResourceConfig] | None = None,
+    ):
         """
         Manage app lifespans to match Starlette's expected signature.
 
@@ -38,8 +49,25 @@ class AppLifespanManager:
         Yields:
             None - delegates to _create_app_lifespans.
         """
+        sync_task: asyncio.Task[None] | None = None
+        if remote_resources:
+            from drunk_ai_proxy.app.tasks import RemoteResourceSyncTask
+
+            sync_task = asyncio.create_task(
+                RemoteResourceSyncTask(remote_resources).run(),
+                name="remote_resource_sync",
+            )
+            logger.info("Scheduled remote resource sync for %d bundle(s)", len(remote_resources))
+
         async with self._create_app_lifespans(mcp_apps):
             yield
+
+        if sync_task is not None and not sync_task.done():
+            sync_task.cancel()
+            try:
+                await sync_task
+            except asyncio.CancelledError:
+                logger.debug("Remote resource sync task cancelled during shutdown")
 
     @asynccontextmanager
     async def _create_app_lifespans(self, mcp_apps: list[tuple[str | None, StarletteWithLifespan]]):

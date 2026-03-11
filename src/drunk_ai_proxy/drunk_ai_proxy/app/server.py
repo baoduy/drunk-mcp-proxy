@@ -30,6 +30,7 @@ from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from drunk_ai_proxy.proxies import StaticProxiesProvider
+from drunk_ai_proxy.utils.security import audit_log
 from drunk_ai_proxy.utils.env import (
     CONFIG_DIR,
     LLM_ROUTE_PREFIX,
@@ -44,6 +45,7 @@ logger = logging.get_logger(__name__)
 
 if TYPE_CHECKING:
     from drunk_ai_proxy.proxies.mcp.base_provider import McpProxyConfig
+    from drunk_ai_proxy.utils import RemoteResourceConfig
 
 class MCPProxyServer:
     """
@@ -61,6 +63,7 @@ class MCPProxyServer:
         """Initialize the MCP Proxy Server."""
         self.mcp_services: list["McpProxyConfig"] = []
         self.llm_services: list[tuple[str, Any]] = []
+        self.remote_resources: list[RemoteResourceConfig] = []
 
     # Server Management Methods
     # =========================
@@ -101,6 +104,8 @@ class MCPProxyServer:
         # Add all MCP mounts
         starlette_app.add_mcp_services(self.mcp_services)
         starlette_app.add_llm_services(self.llm_services)
+        if hasattr(starlette_app, "add_remote_resources"):
+            starlette_app.add_remote_resources(self.remote_resources)
 
         # Build the Starlette application with lifespan management
         app = starlette_app.build()
@@ -111,6 +116,12 @@ class MCPProxyServer:
 
         logger.info("Creating uvicorn server (host=%s, port=%s, log_level=%s)",
                          server_host, server_port, LOG_LEVEL.lower())
+        audit_log(
+            logger=logger,
+            event="server_start",
+            status="in_progress",
+            details={"host": server_host, "port": server_port, "log_level": LOG_LEVEL.lower()},
+        )
 
         import uvicorn
         config = uvicorn.Config(
@@ -174,23 +185,49 @@ class MCPProxyServer:
         """
       
         logger.info("Starting MCP Proxy Server")
-        self._log_startup_configuration()
-        logger.info("%s", "=" * 50)
+        audit_log(logger=logger, event="server_bootstrap", status="started")
 
-        config_provider = AppConfigProvider.get_instance()
-        provider = StaticProxiesProvider(config_provider.get_mcp_configs())
-        self.mcp_services = provider.get_config_services()
+        try:
+            self._log_startup_configuration()
+            logger.info("%s", "=" * 50)
 
-        llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
-        self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
+            config_provider = AppConfigProvider.get_instance()
+            provider = StaticProxiesProvider(config_provider.get_mcp_configs())
+            self.mcp_services = provider.get_config_services()
+            remote_resources = config_provider.get_remote_resources()
+            self.remote_resources = (
+                remote_resources if isinstance(remote_resources, list) else []
+            )
 
-        logger.info("MCP Proxy Server is ready!")
-        logger.info("%s", "=" * 50)
+            llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
+            self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
 
-        # Step 2: Start the MCP server
-        # Starts the async server with the configured transport and middleware
-        # This call blocks until the server is shut down
-        await self._async_start_server()
+            audit_log(
+                logger=logger,
+                event="server_configuration_loaded",
+                status="success",
+                details={
+                    "mcp_services": len(self.mcp_services),
+                    "llm_service_mounts": len(self.llm_services),
+                    "remote_resource_bundles": len(self.remote_resources),
+                },
+            )
+
+            logger.info("MCP Proxy Server is ready!")
+            logger.info("%s", "=" * 50)
+
+            # Step 2: Start the MCP server
+            # Starts the async server with the configured transport and middleware
+            # This call blocks until the server is shut down
+            await self._async_start_server()
+        except Exception as e:
+            audit_log(
+                logger=logger,
+                event="server_bootstrap",
+                status="failure",
+                details={"error_type": type(e).__name__},
+            )
+            raise
 
     def run(self) -> None:
         """

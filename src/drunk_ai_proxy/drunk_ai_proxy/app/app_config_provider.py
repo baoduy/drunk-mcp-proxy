@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
-from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig
+from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig, RemoteResourceConfig
 from drunk_ai_proxy.utils.env import AUTH_ENABLED, CONFIG_DIR
 from drunk_ai_proxy.app.cache_provider import CacheProvider
 if TYPE_CHECKING:
@@ -121,6 +121,14 @@ class AppConfigProvider:
     def get_llm_configs(self) -> list["LlmConfig"]:
         """Get the list of LLM provider configurations."""
         return [llm for llm in self._configs.llm if llm.enabled] if self._configs.llm else []
+
+    def get_remote_resources(self) -> list[RemoteResourceConfig]:
+        """Get the list of remote resource configurations.
+        
+        Returns:
+            List of RemoteResourceConfig instances, or empty list if none configured.
+        """
+        return self._configs.remote_resources if self._configs.remote_resources else []
 
     @classmethod
     def get_instance(cls) -> "AppConfigProvider":

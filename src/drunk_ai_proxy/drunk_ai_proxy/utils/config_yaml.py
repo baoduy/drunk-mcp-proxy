@@ -326,6 +326,25 @@ class McpConfig(ConfigBaseModel):
         return self
 
 
+class RemoteResourceConfig(ConfigBaseModel):
+    """Configuration for a remote resource bundle.
+    
+    Defines a named set of HTTPS URLs to download into a local directory
+    at startup without blocking the server.
+    """
+    
+    name: str = Field(description="Logical name for the resource bundle (used in logs)")
+    to_dir: str = Field(
+        description="Destination directory relative to data/ (e.g. 'prompts/dotnet')"
+    )
+    paths: list[str] = Field(
+        description="List of HTTPS URLs to download to the destination directory"
+    )
+    headers: dict[str, str] | None = Field(
+        default=None,
+        description="Optional HTTP headers for private URLs (reserved for future implementation)",
+    )
+
 class ConfigYaml(ConfigBaseModel):
     """
     Main configuration model for YAML-based configuration.
@@ -334,10 +353,12 @@ class ConfigYaml(ConfigBaseModel):
         auth: Authentication configuration
         llm: List of LLM provider configurations
         mcp: List of MCP server configurations
+        remote_resources: List of remote resource bundles to sync at startup
     """
     auth: Optional[AuthConfig] = Field(default=None)
     llm: Optional[list[LlmConfig]] = Field(default=None)
     mcp: Optional[list[McpConfig]] = Field(default=None)
+    remote_resources: Optional[list[RemoteResourceConfig]] = Field(default=None)
 
     @staticmethod
     def load_from_file(config_file: str) -> ConfigYaml:
