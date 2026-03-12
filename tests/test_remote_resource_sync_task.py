@@ -186,6 +186,31 @@ class TestRemoteResourceSyncTaskDownload:
 
         assert download_mock.await_count == 2
 
+    @pytest.mark.asyncio
+    async def test_sync_bundle_skips_when_bundle_disabled(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Disabled bundle should be skipped without any downloads."""
+        monkeypatch.setattr(
+            "drunk_ai_proxy.app.tasks.remote_resource_sync_task.CONFIG_DIR",
+            str(tmp_path),
+        )
+
+        config = RemoteResourceConfig(
+            name="disabled-bundle",
+            enabled=False,
+            to_dir="prompts/test",
+            paths=["https://example.com/1.md", "https://example.com/2.md"],
+        )
+        task = RemoteResourceSyncTask([config])
+
+        with patch.object(task, "_download_one", new=AsyncMock()) as download_mock:
+            await task._sync_bundle(AsyncMock(), config)
+
+        download_mock.assert_not_awaited()
+
 
 class TestRemoteResourceSyncTaskRun:
     """Task run orchestration behavior."""

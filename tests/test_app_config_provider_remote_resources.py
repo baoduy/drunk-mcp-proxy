@@ -20,11 +20,13 @@ class TestAppConfigProviderRemoteResources:
         mock_resources = [
             RemoteResourceConfig(
                 name="bundle1",
+                enabled=True,
                 to_dir="prompts/test",
                 paths=["https://example.com/file1.md"]
             ),
             RemoteResourceConfig(
                 name="bundle2",
+                enabled=False,
                 to_dir="skills/test",
                 paths=["https://example.com/skill1.md", "https://example.com/skill2.md"]
             )
@@ -42,6 +44,8 @@ class TestAppConfigProviderRemoteResources:
         assert len(resources) == 2
         assert resources[0].name == "bundle1"
         assert resources[1].name == "bundle2"
+        assert resources[0].enabled is True
+        assert resources[1].enabled is False
 
     def test_get_remote_resources_returns_empty_list_when_none(self) -> None:
         """Test get_remote_resources returns empty list when no resources configured."""

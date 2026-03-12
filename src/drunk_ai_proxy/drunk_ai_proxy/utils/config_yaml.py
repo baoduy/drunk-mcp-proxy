@@ -334,6 +334,10 @@ class RemoteResourceConfig(ConfigBaseModel):
     """
     
     name: str = Field(description="Logical name for the resource bundle (used in logs)")
+    enabled: bool = Field(
+        default=True,
+        description="Enable or disable sync for this specific resource bundle",
+    )
     to_dir: str = Field(
         description="Destination directory relative to data/ (e.g. 'prompts/dotnet')"
     )

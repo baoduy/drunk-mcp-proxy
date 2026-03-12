@@ -53,11 +53,19 @@ class AppLifespanManager:
         if remote_resources:
             from drunk_ai_proxy.app.tasks import RemoteResourceSyncTask
 
-            sync_task = asyncio.create_task(
-                RemoteResourceSyncTask(remote_resources).run(),
-                name="remote_resource_sync",
-            )
-            logger.info("Scheduled remote resource sync for %d bundle(s)", len(remote_resources))
+            enabled_remote_resources = [resource for resource in remote_resources if resource.enabled]
+
+            if enabled_remote_resources:
+                sync_task = asyncio.create_task(
+                    RemoteResourceSyncTask(enabled_remote_resources).run(),
+                    name="remote_resource_sync",
+                )
+                logger.info(
+                    "Scheduled remote resource sync for %d bundle(s)",
+                    len(enabled_remote_resources),
+                )
+            else:
+                logger.info("Remote resource sync skipped: no enabled bundle(s)")
 
         async with self._create_app_lifespans(mcp_apps):
             yield

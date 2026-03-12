@@ -110,6 +110,10 @@ class RemoteResourceConfig(ConfigBaseModel):
     """Single named remote resource bundle."""
 
     name: str = Field(description="Logical name used in logs and cache keys")
+    enabled: bool = Field(
+        default=True,
+        description="Enable/disable sync for this bundle (defaults to true)"
+    )
     to_dir: str = Field(
         description="Local destination directory, relative to data/ (e.g. 'prompts/dotnet')"
     )
@@ -126,6 +130,8 @@ class ConfigYaml(ConfigBaseModel):
 ```
 
 `McpConfig` is **unchanged** — `skill_dir`, `prompt_dir`, `agents_dir` remain exactly as they are. The remote sync simply writes files into the local directories those fields point to.
+
+Per-item sync control is configured directly under `remote_resources` using `enabled: true|false`. When omitted, `enabled` defaults to `true`.
 
 ---
 

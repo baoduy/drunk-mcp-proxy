@@ -165,8 +165,10 @@ mcp:
     prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)
     agents_dir: agents # Directory containing agent files (relative to data/)
 
+# Sync/Download the remote resources to the local filesystem on startup. This allows you to reference remote files (e.g. markdown prompts) in your skills without having to manually download them.
 remote_resources:
   - name: dotnet_prompt # Resource name to reference in skills
+    enabled: true # Optional per-bundle toggle; defaults to true when omitted
     to_dir: prompts/dotnet # Destination under FASTMCP_CONFIG_DIR
     paths:
       - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md

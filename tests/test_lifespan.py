@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -153,3 +153,70 @@ class TestAppLifespanManager:
                         pass
 
         assert create_task_mock.call_args.kwargs.get("name") == "remote_resource_sync"
+
+    @pytest.mark.asyncio
+    async def test_lifespans_filters_disabled_remote_resources(self) -> None:
+        """Sync task should receive only enabled resource bundles."""
+        manager = AppLifespanManager()
+        fake_task = _FakeBackgroundTask()
+        resources = [
+            RemoteResourceConfig(
+                name="enabled-bundle",
+                enabled=True,
+                to_dir="prompts/enabled",
+                paths=["https://example.com/enabled.md"],
+            ),
+            RemoteResourceConfig(
+                name="disabled-bundle",
+                enabled=False,
+                to_dir="prompts/disabled",
+                paths=["https://example.com/disabled.md"],
+            ),
+        ]
+
+        sync_instance = MagicMock()
+        sync_instance.run = AsyncMock()
+
+        def _create_task_side_effect(coro, **_kwargs):
+            coro.close()
+            return fake_task
+
+        with patch(
+            "drunk_ai_proxy.app.lifespan.asyncio.create_task",
+            side_effect=_create_task_side_effect,
+        ):
+            with patch("drunk_ai_proxy.app.tasks.RemoteResourceSyncTask", return_value=sync_instance) as sync_task_cls:
+                with patch.object(manager, "_create_app_lifespans", return_value=_empty_context()):
+                    async with manager.lifespans(None, [], remote_resources=resources):
+                        pass
+
+        sync_task_cls.assert_called_once()
+        passed_resources = sync_task_cls.call_args.args[0]
+        assert len(passed_resources) == 1
+        assert passed_resources[0].name == "enabled-bundle"
+
+    @pytest.mark.asyncio
+    async def test_lifespans_does_not_schedule_sync_when_all_resources_disabled(self) -> None:
+        """No sync task should be created when all resource bundles are disabled."""
+        manager = AppLifespanManager()
+        resources = [
+            RemoteResourceConfig(
+                name="disabled-a",
+                enabled=False,
+                to_dir="prompts/a",
+                paths=["https://example.com/a.md"],
+            ),
+            RemoteResourceConfig(
+                name="disabled-b",
+                enabled=False,
+                to_dir="prompts/b",
+                paths=["https://example.com/b.md"],
+            ),
+        ]
+
+        with patch("drunk_ai_proxy.app.lifespan.asyncio.create_task") as create_task_mock:
+            with patch.object(manager, "_create_app_lifespans", return_value=_empty_context()):
+                async with manager.lifespans(None, [], remote_resources=resources):
+                    pass
+
+        create_task_mock.assert_not_called()

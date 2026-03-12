@@ -465,6 +465,7 @@ class TestRemoteResourceConfig:
             paths=["https://example.com/file1.md", "https://example.com/file2.md"]
         )
         assert config.name == "test-bundle"
+        assert config.enabled is True
         assert config.to_dir == "prompts/dotnet"
         assert len(config.paths) == 2
         assert config.paths[0] == "https://example.com/file1.md"
@@ -494,10 +495,40 @@ class TestRemoteResourceConfig:
 
     def test_config_yaml_with_remote_resources(self) -> None:
         """Test ConfigYaml parsing with remote_resources section."""
+        yaml_content = "\n".join(
+            [
+                "remote_resources:",
+                "  - name: test-bundle",
+                "    enabled: false",
+                "    to_dir: prompts/test",
+                "    paths:",
+                "      - https://example.com/file1.md",
+            ]
+        )
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            temp_file = f.name
+
+        try:
+            config = ConfigYaml.load_from_file(temp_file)
+            assert config.remote_resources is not None
+            assert len(config.remote_resources) == 1
+            assert config.remote_resources[0].name == "test-bundle"
+            assert config.remote_resources[0].enabled is False
+            assert config.remote_resources[0].to_dir == "prompts/test"
+            assert len(config.remote_resources[0].paths) == 1
+        finally:
+            os.unlink(temp_file)
+
+    def test_config_yaml_remote_resource_enabled_defaults_to_true(self) -> None:
+        """Test remote_resources enabled defaults to true when omitted."""
         yaml_content = """
 remote_resources:
-  - name: test-bundle
-    to_dir: prompts/test
+  - name: default-enabled-bundle
+    to_dir: prompts/default
     paths:
       - https://example.com/file1.md
 """
@@ -512,9 +543,7 @@ remote_resources:
             config = ConfigYaml.load_from_file(temp_file)
             assert config.remote_resources is not None
             assert len(config.remote_resources) == 1
-            assert config.remote_resources[0].name == "test-bundle"
-            assert config.remote_resources[0].to_dir == "prompts/test"
-            assert len(config.remote_resources[0].paths) == 1
+            assert config.remote_resources[0].enabled is True
         finally:
             os.unlink(temp_file)
 

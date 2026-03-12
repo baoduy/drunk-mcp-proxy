@@ -12,6 +12,9 @@ pip install --upgrade pip setuptools wheel build
 
 echo ""
 echo "🔍 Discovering pyproject.toml files under src/..."
+
+source .venv/bin/activate
+
 PYPROJECTS=()
 tmpfile=$(mktemp)
 find ./src -maxdepth 3 -name pyproject.toml -print | sort > "$tmpfile"

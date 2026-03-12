@@ -74,6 +74,10 @@ class RemoteResourceSyncTask:
 
     async def _sync_bundle(self, client: httpx.AsyncClient, config: RemoteResourceConfig) -> None:
         """Sync all URLs from one bundle into the destination directory."""
+        if not config.enabled:
+            logger.debug("Skipping disabled remote resource bundle: %s", config.name)
+            return
+
         destination_dir = self._resolve_destination_dir(config.to_dir)
         destination_dir.mkdir(parents=True, exist_ok=True)
 

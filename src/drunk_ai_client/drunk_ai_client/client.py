@@ -10,6 +10,8 @@ Environment variables:
     AGENTS_DIR: Local directory where remote agents are synced at startup (optional).
     ALLOWS_OVERWRITE: Whether to overwrite existing resources during sync (default: false).
         Accepts: true, 1, yes (case-insensitive).
+    SYNC_ENABLED: Whether to enable resource sync at startup (default: true).
+        Accepts: true, 1, yes (case-insensitive). Set to false, 0, or no to disable.
 
 Example:
     export API_URL="https://example.com/mcp"
@@ -39,6 +41,7 @@ from fastmcp.server import create_proxy
 from fastmcp.utilities import skills, logging
 
 logger = logging.get_logger(__name__)
+
 
 @dataclass
 class ResourceSummary:
@@ -161,7 +164,9 @@ class ResourceSyncManager:
 
         return resource_path
 
-    async def _get_resource_manifest(self, resource_name: str) -> ResourceManifest | None:
+    async def _get_resource_manifest(
+        self, resource_name: str
+    ) -> ResourceManifest | None:
         """Get the manifest for a specific resource.
 
         Args:
@@ -202,9 +207,13 @@ class ResourceSyncManager:
                 extracted_name: str
                 if isinstance(resource_id, dict):
                     name_val = resource_id.get("name", resource_name)  # type: ignore[index]
-                    extracted_name = name_val if isinstance(name_val, str) else resource_name
+                    extracted_name = (
+                        name_val if isinstance(name_val, str) else resource_name
+                    )
                 else:
-                    extracted_name = resource_id if isinstance(resource_id, str) else resource_name
+                    extracted_name = (
+                        resource_id if isinstance(resource_id, str) else resource_name
+                    )
 
                 return ResourceManifest(
                     name=extracted_name,
@@ -326,7 +335,9 @@ class ResourceSyncManager:
         # Accept both styles:
         # 1) Nested file resource: <scheme>://name/<file_suffix>
         # 2) Resource-name suffix: <scheme>://name.<file_suffix>
-        return uri.endswith(f"/{self.file_suffix}") or uri.endswith(f".{self.file_suffix}")
+        return uri.endswith(f"/{self.file_suffix}") or uri.endswith(
+            f".{self.file_suffix}"
+        )
 
     def _extract_name(self, uri: str) -> str:
         """Extract resource name from URI."""
@@ -356,6 +367,7 @@ class ClientConfig:
     skill_dir: Path | None = None
     agents_dir: Path | None = None
     allows_overwrite: bool = False
+    sync_enabled: bool = True
 
     @classmethod
     def from_env(cls) -> "ClientConfig":
@@ -375,7 +387,7 @@ class ClientConfig:
         args = parser.parse_args()
 
         # Prefer CLI args, fallback to env vars
-        url = args.url or cls._get_env_value("API_URL")
+        url = args.url or cls._get_env_string("API_URL")
         if not url:
             raise ValueError("API_URL environment variable or --url argument required")
 
@@ -384,23 +396,21 @@ class ClientConfig:
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             raise ValueError(f"Invalid URL: {url} (must be http:// or https://)")
 
-        api_key = args.api_key or cls._get_env_value("API_KEY")
+        api_key = args.api_key or cls._get_env_string("API_KEY")
         skill_dir: Path | None = None
-        skill_dir_value = cls._get_env_value("SKILL_DIR")
+        skill_dir_value = cls._get_env_string("SKILL_DIR")
         if skill_dir_value:
             skill_dir = Path(skill_dir_value).expanduser()
             skill_dir.mkdir(parents=True, exist_ok=True)
 
         agents_dir: Path | None = None
-        agents_dir_value = cls._get_env_value("AGENTS_DIR")
+        agents_dir_value = cls._get_env_string("AGENTS_DIR")
         if agents_dir_value:
             agents_dir = Path(agents_dir_value).expanduser()
             agents_dir.mkdir(parents=True, exist_ok=True)
 
-        allows_overwrite_value = (
-            cls._get_env_value("ALLOWS_OVERWRITE") or "false"
-        ).lower()
-        allows_overwrite = allows_overwrite_value in ("true", "1", "yes")
+        allows_overwrite = cls._get_env_bool("ALLOWS_OVERWRITE", False)
+        sync_enabled = cls._get_env_bool("SYNC_ENABLED", True)
 
         return cls(
             url=url,
@@ -408,10 +418,11 @@ class ClientConfig:
             skill_dir=skill_dir,
             agents_dir=agents_dir,
             allows_overwrite=allows_overwrite,
+            sync_enabled=sync_enabled,
         )
 
     @staticmethod
-    def _get_env_value(name: str) -> str | None:
+    def _get_env_string(name: str) -> str | None:
         """Return the env value for a name, trying upper then lower.
 
         Args:
@@ -430,7 +441,23 @@ class ClientConfig:
 
         return None
 
+    @staticmethod
+    def _get_env_int(key: str, default: int = 0) -> int:
+        try:
+            return int(ClientConfig._get_env_string(key) or str(default))
+        except ValueError:
+            return default
 
+    @staticmethod
+    def _get_env_bool(key: str, default: bool = False) -> bool:
+        value = ClientConfig._get_env_string(key)
+        if value is not None:
+            value = value.strip().lower()
+            if value in {"1", "true", "yes", "on"}:
+                return True
+            if value in {"0", "false", "no", "off"}:
+                return False
+        return default
 
 def create_authenticated_client(config: ClientConfig) -> Client[Any]:
     """Create FastMCP Client with optional authentication.
@@ -467,7 +494,7 @@ async def sync_remove_resources(config: ClientConfig) -> None:
     sync_client = create_authenticated_client(config)
     async with sync_client:
         if config.skill_dir is not None:
-            skill_paths = await skills.sync_skills( # pyright: ignore[reportUnknownMemberType]
+            skill_paths = await skills.sync_skills(  # pyright: ignore[reportUnknownMemberType]
                 sync_client, config.skill_dir, overwrite=config.allows_overwrite
             )
             logger.info(f"Synced {len(skill_paths)} skills into {config.skill_dir}")
@@ -483,6 +510,7 @@ async def sync_remove_resources(config: ClientConfig) -> None:
             )
             logger.info(f"Synced {len(agent_paths)} agents into {config.agents_dir}")
 
+
 # https://gofastmcp.com/clients/client#creating-a-client
 def run_stdio_bridge() -> None:
     """Run FastMCP stdio bridge server.
@@ -492,7 +520,9 @@ def run_stdio_bridge() -> None:
     """
     config = ClientConfig.from_env()
 
-    if config.skill_dir is not None or config.agents_dir is not None:
+    if config.sync_enabled and (
+        config.skill_dir is not None or config.agents_dir is not None
+    ):
         # Sync configured resources from remote server once before exposing stdio proxy.
         asyncio.run(sync_remove_resources(config))
 
