@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - On-demand remote skill resources provider for MCP nested `skills.remote_resources` with URL grouping by skill root and cache-backed fetch behavior.
 - New tests for remote skill resource grouping, cache reads, and fail-open behavior in `tests/test_remote_resources_provider.py`.
+- Added a user-invocable `Architecture Reviewer` custom agent at `.github/agents/architecture-reviewer.agent.md` for repository structure, layering, security, and naming/folder architecture audits.
 
 ### Changed
 
