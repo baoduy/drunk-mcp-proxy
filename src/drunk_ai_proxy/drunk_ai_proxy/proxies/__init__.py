@@ -16,7 +16,6 @@ if TYPE_CHECKING:
         McpBaseProvider,
         McpProxyConfig,
         McpProxyProvider,
-        OpenApiMcpProvider,
         StaticProxiesProvider,
     )
 
@@ -29,7 +28,6 @@ __all__ = [
     "McpProxyConfig",
     "McpProxyProvider",
     "StaticProxiesProvider",
-    "OpenApiMcpProvider",
 ]
 
 
@@ -44,7 +42,6 @@ def __getattr__(name: str) -> object:
         "McpProxyConfig",
         "McpProxyProvider",
         "StaticProxiesProvider",
-        "OpenApiMcpProvider",
     }:
         from . import mcp
 

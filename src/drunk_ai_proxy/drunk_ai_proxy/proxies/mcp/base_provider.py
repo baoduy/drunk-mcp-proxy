@@ -95,7 +95,7 @@ class McpBaseProvider(ABC):
         # calling AppConfigProvider get_fast_mcp_auth_provider without parameters to get the default auth provider for FastMCP servers
         return AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
 
-    def _create_skill_proxy(self, mcp: FastMCP):
+    def _add_skill_proxy(self, mcp: FastMCP):
         skill_dirs = self.config.get_skill_dirs()
         if not skill_dirs:
             return
@@ -135,7 +135,7 @@ class McpBaseProvider(ABC):
                 details={"error_type": type(e).__name__},
             )
 
-    def _create_agent_proxy(self, mcp: FastMCP) -> None:
+    def _add_agent_proxy(self, mcp: FastMCP) -> None:
         """Create and mount agent provider if agents are configured.
         
         Args:

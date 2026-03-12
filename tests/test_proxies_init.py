@@ -22,12 +22,6 @@ class TestProxiesPackageImports:
         assert StaticProxiesProvider is not None
         assert StaticProxiesProvider.__name__ == "StaticProxiesProvider"
 
-    def test_import_openapi_mcp_provider(self):
-        """Test lazy import of OpenApiMcpProvider."""
-        from drunk_ai_proxy.proxies import OpenApiMcpProvider
-        assert OpenApiMcpProvider is not None
-        assert OpenApiMcpProvider.__name__ == "OpenApiMcpProvider"
-
     def test_import_nonexistent_attribute(self):
         """Test that importing non-existent attribute raises AttributeError."""
         import drunk_ai_proxy.proxies as proxies
@@ -40,4 +34,3 @@ class TestProxiesPackageImports:
         import drunk_ai_proxy.proxies as proxies
         assert "McpProxyConfig" in proxies.__all__
         assert "StaticProxiesProvider" in proxies.__all__
-        assert "OpenApiMcpProvider" in proxies.__all__

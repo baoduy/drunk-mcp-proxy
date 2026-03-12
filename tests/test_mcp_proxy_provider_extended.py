@@ -158,7 +158,7 @@ class TestMcpProxyProviderCreateProxyMethod:
         provider = McpProxyProvider(mock_config)
         mock_mcp = MagicMock()
 
-        result = provider._create_proxy(mock_mcp)
+        result = provider._add_mcp_proxy(mock_mcp)
 
         assert result is None
         mock_mcp.mount.assert_not_called()
@@ -177,7 +177,7 @@ class TestMcpProxyProviderCreateProxyMethod:
         provider = McpProxyProvider(mock_config)
         mock_mcp = MagicMock()
 
-        provider._create_proxy(mock_mcp)
+        provider._add_mcp_proxy(mock_mcp)
         mock_logger.info.assert_called_once()
         assert "Creating proxy for MCP config" in str(mock_logger.info.call_args)
 

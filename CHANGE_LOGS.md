@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
 - Refactored OpenAPI MCP configuration to use nested `open_api` fields (`spec_file`, `base_url`, `filters`, `spec_data`) and removed redundant top-level OpenAPI fields from `McpConfig`.
+- Consolidated OpenAPI MCP proxy creation into `McpProxyProvider` and removed the separate `proxies/mcp/openapi_provider.py` implementation.
 - Updated MCP and prompt provider wiring to use effective multi-directory accessors for local resources.
 - Updated prompt loading to support scanning multiple prompt directories.
 - Updated skill resource URI naming to include the configured root namespace for paths under `skills/<name>` (for example `skill://dknet/<skill>/SKILL.md`).

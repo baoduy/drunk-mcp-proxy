@@ -81,8 +81,9 @@ class StaticProxiesProvider:
             logger.warning("No OpenAPI configurations found in config file")
             return []
         
-        from .openapi_provider import OpenApiMcpProvider
-        return OpenApiMcpProvider.create_mcp_proxies_configs(openapi_configs)
+        from .proxy_provider import McpProxyProvider
+
+        return McpProxyProvider.create_openapi_proxies_configs(openapi_configs)
         
     def get_config_services(self) -> list["McpProxyConfig"]:
         """

@@ -40,34 +40,25 @@ class McpProxyBuilder:
         return False
 
     @staticmethod
-    def _default_transforms() -> list[Transform]:
-        """Default transforms for MCP servers."""
-        from fastmcp.server.transforms.search import (RegexSearchTransform, BM25SearchTransform)
-        return [RegexSearchTransform(max_results=10),BM25SearchTransform(max_results=3)]
-    
-    @staticmethod
-    def _get_code_mode_transforms() -> list[Transform] | None:
+    def _get_code_mode_transforms() -> list[Transform]:
         if not CODEMODE_ENABLED:
-            return None
+            return []
 
         from fastmcp.experimental.transforms.code_mode import CodeMode
         from fastmcp.experimental.transforms.code_mode import GetSchemas
         from fastmcp.experimental.transforms.code_mode import Search
-
+        from fastmcp.server.transforms.search import (RegexSearchTransform, BM25SearchTransform)
+     
         code_mode = CodeMode(
             discovery_tools=[Search(default_detail="detailed"), GetSchemas()]
         )
         logger.info("Code Mode is enabled")
-        return [code_mode]
+        return [code_mode, RegexSearchTransform(max_results=10),BM25SearchTransform(max_results=3)]
 
     @staticmethod
     def get_transforms() -> Sequence[Transform]:
         """Get the appropriate transforms based on environment settings."""
-        transforms = McpProxyBuilder._default_transforms()
-        code_mode_transforms = McpProxyBuilder._get_code_mode_transforms()
-        if code_mode_transforms:
-            transforms.extend(code_mode_transforms)
-        return transforms
+        return McpProxyBuilder._get_code_mode_transforms()
 
     @classmethod
     def create_fastmcp_server(cls, server_name: str, server_version: str) -> FastMCP:
