@@ -47,7 +47,7 @@ echo ""
 export DOCKER_BUILDKIT=1
 # Get the action (default to up)
 ACTION=${1:-up}
-PORT=${2:-8000}
+PORT=${2:-9123}
 
 case "$ACTION" in
     up|start)
@@ -65,7 +65,7 @@ case "$ACTION" in
         echo "${BLUE}Starting container...${NC}"
         echo "  Service: ${YELLOW}mcp-proxy${NC}"
         echo "  Image: ${YELLOW}drunk-ai-proxy:latest${NC}"
-        echo "  Port: ${YELLOW}${PORT}:8000${NC}"
+        echo "  Port: ${YELLOW}${PORT}:9123${NC}"
         echo "  Data: ${YELLOW}${PROJECT_ROOT}/data:/app/data${NC}"
         echo ""
 
@@ -78,7 +78,7 @@ case "$ACTION" in
         docker-compose ps
         echo ""
         echo "${GREEN}✓ Services running:${NC}"
-        echo "  MCP Proxy:     http://localhost:8000"
+        echo "  MCP Proxy:     http://localhost:9123"
         echo "  MCP Inspector: http://127.0.0.1:6274"
         echo ""
         ;;

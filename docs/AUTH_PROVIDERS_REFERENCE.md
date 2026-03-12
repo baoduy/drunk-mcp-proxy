@@ -251,7 +251,7 @@ auth:
     scopes:
       - identify
       - email
-    redirect_uri: "http://localhost:8000/auth/callback"
+    redirect_uri: "http://localhost:9123/auth/callback"
 ```
 
 ### Environment Variables
@@ -300,7 +300,7 @@ auth:
     client_secret: "$GITHUB_CLIENT_SECRET"
     scopes:
       - "user:email"
-    redirect_uri: "http://localhost:8000/auth/callback"
+    redirect_uri: "http://localhost:9123/auth/callback"
 ```
 
 ### Environment Variables
@@ -350,7 +350,7 @@ auth:
       - openid
       - email
       - profile
-    redirect_uri: "http://localhost:8000/auth/callback"
+    redirect_uri: "http://localhost:9123/auth/callback"
 ```
 
 ### Environment Variables
@@ -780,7 +780,7 @@ auth:
 
 - Ensure redirect URI is registered exactly in provider console
 - Protocol matters (http vs https)
-- Port matters (localhost:8000 vs localhost:3000)
+- Port matters (localhost:9123 vs localhost:3000)
 
 **"Token introspection failed"**
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from enum import Enum
 import json
 import os
+from collections.abc import Sequence
 from typing import Any, Optional, cast
 
 import jsonschema
@@ -212,6 +213,12 @@ class McpServerConfig(ConfigBaseModel):
     args: Optional[list[str]] = Field(default=None, description="Arguments for the command (optional)")
     env: Optional[dict[str, Any]] = Field(default=None, description="Environment variables for the MCP server process (optional)")
 
+
+class McpResourceConfig(ConfigBaseModel):
+    """MCP resource directories configuration."""
+
+    dirs: list[str] = Field(default_factory=list)
+
 class McpConfig(ConfigBaseModel):
     """MCP server configuration."""
     enabled: bool = Field(default=True)
@@ -219,14 +226,83 @@ class McpConfig(ConfigBaseModel):
     spec_file: Optional[str] = Field(default=None)
     spec_type: SpecType = Field(default=SpecType.MCP, description="Type of specification ('mcp' or 'openapi')")
     base_url: Optional[str] = Field(default=None)
-    skill_dir: Optional[str] = Field(default=None)
-    prompt_dir: Optional[str] = Field(default=None, description="Directory containing markdown prompt templates (optional)")
-    agents_dir: Optional[str] = Field(default=None, description="Directory containing markdown agent definitions (optional)")
+    skills: Optional[McpResourceConfig] = Field(default=None)
+    prompts: Optional[McpResourceConfig] = Field(
+        default=None,
+        description="Directories containing markdown prompt templates",
+    )
+    agents: Optional[McpResourceConfig] = Field(
+        default=None,
+        description="Directories containing markdown agent definitions",
+    )
     filters: Optional[McpFilters] = Field(default=None)
     auth: Optional[McpAuthConfig] = Field(default=None)
     mcp_servers: Optional[dict[str, McpServerConfig]] = Field(default=None, alias="mcpServers")
     tags: Optional[set[str]] = Field(default=None)
     spec_data: Optional[dict[str, Any]] = Field(default=None, exclude=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_no_legacy_resource_fields(cls, data: object) -> object:
+        """Reject deprecated MCP resource fields.
+
+        Args:
+            data: Raw model input.
+
+        Returns:
+            Raw model input when valid.
+
+        Raises:
+            ValueError: If legacy keys are present.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        parsed_data = cast(dict[str, object], data)
+
+        legacy_keys = ["skill_dir", "prompt_dir", "agents_dir"]
+        used_legacy_keys = [key for key in legacy_keys if key in parsed_data]
+        if used_legacy_keys:
+            raise ValueError(
+                "Legacy MCP resource keys are no longer supported: "
+                f"{', '.join(used_legacy_keys)}. "
+                "Use 'skills.dirs', 'prompts', and 'agents'."
+            )
+
+        return parsed_data
+
+    @staticmethod
+    def _validate_dir_list(values: Sequence[str], field_name: str) -> None:
+        """Validate directory list values.
+
+        Args:
+            values: Directory values to validate.
+            field_name: Field name for error reporting.
+
+        Raises:
+            ValueError: If values include empty entries.
+        """
+        for value in values:
+            if not value or not value.strip():
+                raise ValueError(f"{field_name} cannot contain empty directory values")
+
+    def get_skill_dirs(self) -> list[str]:
+        """Return configured skill directories."""
+        if self.skills is None:
+            return []
+        return self.skills.dirs
+
+    def get_prompt_dirs(self) -> list[str]:
+        """Return configured prompt directories."""
+        if self.prompts is None:
+            return []
+        return self.prompts.dirs
+
+    def get_agent_dirs(self) -> list[str]:
+        """Return configured agent directories."""
+        if self.agents is None:
+            return []
+        return self.agents.dirs
 
     def _validate_mcp_schema(self) -> None:
         """
@@ -264,9 +340,23 @@ class McpConfig(ConfigBaseModel):
             if not self.spec_file:
                 raise ValueError("spec_file is required for OpenAPI spec type")
         else:  # SpecType.MCP
-            if not self.spec_file and not self.mcp_servers and not self.prompt_dir and not self.agents_dir:
+            skill_dirs = self.get_skill_dirs()
+            prompt_dirs = self.get_prompt_dirs()
+            agent_dirs = self.get_agent_dirs()
+
+            self._validate_dir_list(skill_dirs, "skills.dirs")
+            self._validate_dir_list(prompt_dirs, "prompts")
+            self._validate_dir_list(agent_dirs, "agents")
+
+            if (
+                not self.spec_file
+                and not self.mcp_servers
+                and not prompt_dirs
+                and not agent_dirs
+                and not skill_dirs
+            ):
                 raise ValueError(
-                    "For MCP spec type, either spec_file, mcp_servers, prompt_dir, or agents_dir must be provided."
+                    "For MCP spec type, either spec_file, mcp_servers, prompts, agents, or skills.dirs must be provided."
                 )
         
     def load_spec_data(self):

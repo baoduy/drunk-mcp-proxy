@@ -96,7 +96,8 @@ class McpBaseProvider(ABC):
         return AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
 
     def _create_skill_proxy(self, mcp: FastMCP):
-        if self.config.skill_dir is None:
+        skill_dirs = self.config.get_skill_dirs()
+        if not skill_dirs:
             return
 
         from pathlib import Path
@@ -105,13 +106,17 @@ class McpBaseProvider(ABC):
             CustomSkillsDirectoryProvider,
         )
 
-        skill_dir_path = Path(f"{CONFIG_DIR}/{self.config.skill_dir}")
-        if not skill_dir_path.exists():
-            # self.logger.warning(f"Skill directory '{self.config.skill_dir}' does not exist for MCP config '{self.config.path}'")
+        skill_dir_paths: list[Path] = []
+        for skill_dir in skill_dirs:
+            skill_dir_path = Path(f"{CONFIG_DIR}/{skill_dir}")
+            if skill_dir_path.exists() and skill_dir_path.is_dir():
+                skill_dir_paths.append(skill_dir_path)
+
+        if not skill_dir_paths:
             return
 
         try:
-            provider = CustomSkillsDirectoryProvider(roots=[skill_dir_path], reload=True)
+            provider = CustomSkillsDirectoryProvider(roots=skill_dir_paths, reload=True)
             if not provider.providers:
                 return
 
@@ -131,13 +136,13 @@ class McpBaseProvider(ABC):
             )
 
     def _create_agent_proxy(self, mcp: FastMCP) -> None:
-        """Create and mount agent provider if agents_dir is configured.
+        """Create and mount agent provider if agents are configured.
         
         Args:
             mcp: FastMCP instance to mount agent provider to.
         """
-        agents_dir = getattr(self.config, "agents_dir", None)
-        if agents_dir is None:
+        agent_dirs = self.config.get_agent_dirs()
+        if not agent_dirs:
             return
 
         from pathlib import Path
@@ -146,26 +151,33 @@ class McpBaseProvider(ABC):
             CustomAgentsDirectoryProvider,
         )
 
-        agents_dir_path = Path(f"{CONFIG_DIR}/{agents_dir}")
-        if not agents_dir_path.exists():
-            logger.warning(
-                "Skipping agent provider for path '%s' because agents_dir does not exist: %s",
-                self.config.path,
-                agents_dir_path,
-            )
-            return
+        agents_dir_paths: list[Path] = []
+        for agents_dir in agent_dirs:
+            agents_dir_path = Path(f"{CONFIG_DIR}/{agents_dir}")
+            if not agents_dir_path.exists() or not agents_dir_path.is_dir():
+                logger.warning(
+                    "Skipping agent directory for path '%s' because it does not exist: %s",
+                    self.config.path,
+                    agents_dir_path,
+                )
+                continue
 
-        md_file_count = sum(1 for _ in agents_dir_path.rglob("*.md"))
-        if md_file_count < 1:
-            logger.warning(
-                "Skipping agent provider for path '%s' because agents_dir must contain at least 1 markdown file (found=%d)",
-                self.config.path,
-                md_file_count,
-            )
+            md_file_count = sum(1 for _ in agents_dir_path.rglob("*.md"))
+            if md_file_count < 1:
+                logger.warning(
+                    "Skipping agent directory for path '%s' because it has no markdown files: %s",
+                    self.config.path,
+                    agents_dir_path,
+                )
+                continue
+
+            agents_dir_paths.append(agents_dir_path)
+
+        if not agents_dir_paths:
             return
 
         try:
-            provider = CustomAgentsDirectoryProvider(roots=[agents_dir_path], reload=True)
+            provider = CustomAgentsDirectoryProvider(roots=agents_dir_paths, reload=True)
             if not provider.providers:
                 return
 
@@ -173,7 +185,7 @@ class McpBaseProvider(ABC):
             logger.info(
                 "Registered agent provider for path '%s' from directory: %s",
                 self.config.path,
-                agents_dir,
+                ",".join(agent_dirs),
             )
         except Exception as e:
             logger.error(

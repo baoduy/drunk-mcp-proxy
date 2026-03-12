@@ -58,12 +58,256 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
 
 ## 3. Code Style & Conventions
 
+### Python Version & Modern Syntax (Critical)
+
+- **Python Version**: 3.10+ required. Do not write code compatible with Python 3.8 or 3.9.
+- **Modern Union Types**: Always use `X | Y` syntax, never `Union[X, Y]` or `Optional[X]`.
+  - **✅ GOOD**: `def get(self) -> str | None:`
+  - **❌ BAD**: `def get(self) -> Optional[str]:` or `def get(self) -> Union[str, None]:`
+- **Modern Generic Types**: Use lowercase built-in generics: `list[str]`, `dict[str, int]`, never `List[str]`, `Dict[str, int]`.
+- **Pattern Matching**: Use `match/case` for complex conditional logic (Python 3.10+ feature).
+  ```python
+  match status:
+      case 200:
+          return "OK"
+      case 404:
+          return "Not Found"
+      case _:
+          return "Unknown"
+  ```
+- **Parenthesized Context Managers**: Use for multi-line context managers:
+  ```python
+  with (
+      open("file1.txt") as f1,
+      open("file2.txt") as f2
+  ):
+      data = f1.read()
+      f2.write(data)
+  ```
+- **F-strings Only**: Never use `%` formatting or `str.format()`. Always use f-strings:
+  - **✅ GOOD**: `f"User {user.name} logged in"`
+  - **❌ BAD**: `"User %s logged in" % user.name` or `"User {} logged in".format(user.name)`
+
+### Framework Version Compliance (Critical)
+
+**All code must follow the latest stable conventions of these frameworks:**
+
+- **FastMCP**: Use the current `fastmcp` API patterns. Do not use deprecated methods. Check `fastmcp` documentation for latest patterns for resources, tools, and prompts.
+- **Pydantic**: This project uses Pydantic v2. Never use v1 patterns:
+  - **✅ GOOD (v2)**: `from pydantic import BaseModel, Field` with `model_config = ConfigDict(...)` 
+  - **❌ BAD (v1)**: `from pydantic import BaseModel` with `class Config:` inner class
+  - **✅ GOOD**: `Field(default=None, description="...")` for field metadata
+  - **❌ BAD**: `Field(default=...)` without description or using deprecated parameters
+- **FastAPI**: Follow current FastAPI best practices:
+  - Use `APIRouter` for modular routes
+  - Use `Depends()` for dependency injection
+  - Define proper response models with Pydantic schemas
+  - Use `HTTPException` with proper status codes
+- **Uvicorn**: Use `uvicorn.run()` with current configuration options. No legacy ASGI server patterns.
+
 ### Python PEP 8 Compliance
 - **Line Length**: Maximum 100 characters per line (enforced by `flake8`).
 - **Indentation**: Use 4 spaces per indentation level. Never use tabs.
 - **Whitespace**: Two blank lines between top-level definitions, one blank line between method definitions.
 - **Trailing Whitespace**: Remove all trailing whitespace.
 - **Blank Lines in Functions**: Use blank lines sparingly within functions to separate logical sections.
+
+### Modern Pydantic v2 Patterns (Critical)
+
+This project uses **Pydantic v2** exclusively. Never use v1 patterns:
+
+- **✅ GOOD (v2)**:
+  ```python
+  from pydantic import BaseModel, Field, ConfigDict
+
+  class User(BaseModel):
+      model_config = ConfigDict(populate_by_name=True)
+      
+      name: str = Field(..., description="User name")
+      email: str = Field(..., description="Email address")
+      age: int | None = Field(default=None, description="User age")
+  ```
+
+- **❌ BAD (v1)**:
+  ```python
+  from pydantic import BaseModel
+  
+  class User(BaseModel):
+      name: str
+      email: str
+      age: Optional[int] = None
+      
+      class Config:
+          populate_by_name = True
+  ```
+
+- **Key v2 Differences**:
+  - No inner `Config` class – use `model_config = ConfigDict(...)`
+  - Use `field_validator` decorator, not `@validator`
+  - Use `model_validate` / `model_dump` instead of `parse_obj` / `dict()`
+  - `Json` type is `Json` from `pydantic.json`, not `pydantic.Json`
+  - `ValidationError` import from `pydantic` directly
+  - Use `field_serializer` / `field_validator` instead of `@validator` with `pre=True`
+
+### Modern FastAPI Patterns (Critical)
+
+Follow these FastAPI best practices:
+
+- **✅ GOOD - Modern FastAPI**:
+  ```python
+  from fastapi import APIRouter, Depends, HTTPException, status
+  from pydantic import BaseModel
+  
+  router = APIRouter(prefix="/api", tags=["items"])
+  
+  class ItemCreate(BaseModel):
+      name: str
+      price: float
+  
+  async def get_current_user() -> User:
+      # Dependency function
+      return user
+  
+  @router.post("/items", response_model=Item)
+  async def create_item(
+      item: ItemCreate,
+      user: User = Depends(get_current_user)
+  ) -> Item:
+      """Create new item."""
+      return await item_service.create(item, user)
+  ```
+
+- **❌ BAD - Legacy Patterns**:
+  ```python
+  from fastapi import FastAPI, Depends
+  app = FastAPI()  # Should use APIRouter for modularity
+  
+  # Missing response_model
+  @app.post("/items")
+  async def create_item(item: dict):  # Should use Pydantic model
+      return service.create(item)
+  
+  # Using old-style dependency without async
+  def get_user():  # Should be async when I/O is involved
+      return db.get_user()
+  ```
+
+- **Key Rules**:
+  - Use `APIRouter` for all route definitions, not directly on `FastAPI`
+  - Define explicit `response_model` for all endpoints
+  - Use Pydantic v2 models for request/response schemas
+  - Dependencies should be async when they perform I/O
+  - Use proper HTTP status codes (`status.HTTP_201_CREATED`, etc.)
+  - Always include docstrings for OpenAPI documentation
+
+### Modern Async/Await Patterns
+
+Use modern async patterns (Python 3.11+):
+
+- **✅ GOOD - TaskGroup (3.11+)**:
+  ```python
+  import asyncio
+  
+  async def fetch_all(urls: list[str]) -> list[str]:
+      async with asyncio.TaskGroup() as tg:
+          tasks = [tg.create_task(fetch(url)) for url in urls]
+      return [task.result() for task in tasks]
+  ```
+
+- **✅ GOOD - gather with return_exceptions**:
+  ```python
+  import asyncio
+  
+  async def fetch_all_safe(urls: list[str]) -> list[str | Exception]:
+      results = await asyncio.gather(
+          *[fetch(url) for url in urls],
+          return_exceptions=True
+      )
+      return results
+  ```
+
+- **❌ BAD - Legacy patterns**:
+  ```python
+  # Don't use asyncio.wait or manual task management
+  tasks = [asyncio.create_task(fetch(url)) for url in urls]
+  await asyncio.wait(tasks)  # No TaskGroup
+  ```
+
+### Enhanced Python Best Practices
+
+#### Consistency Requirements (Critical)
+
+**Every class in the codebase must follow these standards:**
+
+1. **Logger Pattern** - Always:
+   - `from logging import Logger`
+   - `self._logger: Logger = setup_logging(__name__)` in `__init__`
+   - Use `self._logger.info()`, `self._logger.error()`, etc.
+   - Log only exception types: `self._logger.error("Failed: %s", type(e).__name__)`
+
+2. **Type Hints** - Always:
+   - Avoid `Any` type - use specific types or `Protocol`
+   - Use `dict[str, str]` not `dict[str, Any]`
+   - Use union types: `str | int | None`
+   - Type all function parameters and return values
+
+3. **Dependency Injection** - Always:
+   - Pass dependencies to `__init__`, never use globals
+   - Store as private attributes: `self._dependency`
+   - Use `Protocol` for interface dependencies
+   - Validate critical dependencies on initialization
+
+4. **Naming Conventions** - Always:
+   - Private attributes: `self._attribute_name`
+   - Public methods: `def method_name(self) -> ReturnType:`
+   - Constants: `CONSTANT_NAME`
+   - Classes: `ClassName`
+
+5. **Documentation** - Always:
+   - Module docstring at top
+   - Google-style docstrings for all public classes/methods
+   - Type hints serve as inline documentation
+   - Document "why", not "what"
+
+### Code Organization
+- **One class per file** (with exceptions for small related classes).
+- **Class-first modules**: For new development, structure each module around one primary class and keep orchestration logic in class methods.
+- **Group related methods** together within a class.
+- **Keep files under 500 lines** where possible.
+- **Keep public APIs minimal** and expose only what callers need.
+- **Favor composition** and small interfaces over deep inheritance chains.
+- **Aim for high cohesion** within modules and low coupling between modules.
+
+Use modern async patterns (Python 3.11+):
+
+- **✅ GOOD - TaskGroup (3.11+)**:
+  ```python
+  import asyncio
+  
+  async def fetch_all(urls: list[str]) -> list[str]:
+      async with asyncio.TaskGroup() as tg:
+          tasks = [tg.create_task(fetch(url)) for url in urls]
+      return [task.result() for task in tasks]
+  ```
+
+- **✅ GOOD - gather with return_exceptions**:
+  ```python
+  import asyncio
+  
+  async def fetch_all_safe(urls: list[str]) -> list[str | Exception]:
+      results = await asyncio.gather(
+          *[fetch(url) for url in urls],
+          return_exceptions=True
+      )
+      return results
+  ```
+
+- **❌ BAD - Legacy patterns**:
+  ```python
+  # Don't use asyncio.wait or manual task management
+  tasks = [asyncio.create_task(fetch(url)) for url in urls]
+  await asyncio.wait(tasks)  # No TaskGroup
+  ```
 
 ### Formatting & Syntax
 - **Docstrings**: Use Google-style docstrings for all modules, classes, and functions.
@@ -115,7 +359,8 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   ```
 
 #### Avoiding `Any` Type (Critical)
-**Rule**: Avoid `typing.Any` as much as possible. Always prefer specific types.
+
+**Rule**: Avoid `typing.Any` as much as possible. Always prefer specific types. `Any` allows legacy patterns and prevents type safety.
 
 - **❌ BAD - Using `Any`**:
   ```python
@@ -126,6 +371,76 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   
   def handle_response(response: Any) -> dict[str, Any]:
       return {"status": response.status}
+  ```
+
+- **✅ GOOD - Using Specific Types**:
+  ```python
+  from typing import Protocol
+  from starlette.responses import Response
+  
+  class DataDict(Protocol):
+      """Protocol for data dictionary."""
+      def __getitem__(self, key: str) -> str | int | bool: ...
+  
+  def process_data(data: dict[str, str | int]) -> str | int:
+      """Process data with known structure."""
+      return data["result"]
+  
+  def handle_response(response: Response) -> dict[str, int]:
+      """Handle Starlette response object."""
+      return {"status": response.status_code}
+  ```
+
+- **When You Must Use `Any`**: Only in these rare cases, and always add a comment explaining why:
+  1. **External JSON/YAML data** where structure is truly unknown:
+     ```python
+     import json
+     
+     def load_external_json(path: str) -> dict[str, object]:
+         """Load external JSON with unknown structure.
+         
+         Note: Use object instead of Any when possible.
+         """
+         with open(path) as f:
+             return json.load(f)  # Returns dict[str, Any] from json
+     ```
+  2. **Generic wrapper functions** that truly work with any type:
+     ```python
+     from typing import TypeVar
+     
+     T = TypeVar("T")
+     
+     def identity(value: T) -> T:
+         """Return value unchanged (better than Any)."""
+         return value
+     ```
+
+- **Better Alternatives to `Any`**:
+  - Use `object` for unknown types that need minimal operations
+  - Use `TypeVar` for generic functions
+  - Use `Protocol` to define expected interface
+  - Use union types: `str | int | bool | None`
+  - Use concrete library types: `Request`, `Response`, `FastAPI`, etc.
+
+- **Union Types**: Use `Type1 | Type2` syntax (Python 3.10+) instead of `Union[Type1, Type2]`.
+- **Optional Types**: Use `Type | None` instead of `Optional[Type]`.
+- **Generic Types**: Use `list[str]` instead of `List[str]` (Python 3.9+).
+- **Protocols**: Define interfaces using `Protocol` for better type checking without inheritance:
+  ```python
+  from typing import Protocol
+
+  class ConfigProvider(Protocol):
+      """Protocol for config providers."""
+      
+      def get_config(self, key: str) -> dict[str, str | int]: ...
+      def set_config(self, key: str, value: dict[str, str | int]) -> None: ...
+  ```
+- **Type Aliases**: Create meaningful aliases for complex types:
+  ```python
+  AuthToken = str
+  ConfigDict = dict[str, str | int | bool]  # Specific, not Any
+  Callback = Callable[[str], None]
+  HeadersDict = dict[str, str]
   ```
 
 - **✅ GOOD - Using Specific Types**:
@@ -1221,7 +1536,7 @@ user = repo.find_by_id(1)
 
 ---
 
-## 5. Best Practices
+## 5. Enhanced Python Best Practices
 
 ### Consistency Requirements (Critical)
 
@@ -1517,5 +1832,26 @@ class MyNewClass:
 - [ ] Edge cases covered
 - [ ] Error conditions tested
 - [ ] Mocks used for external dependencies
+## 10. Change Log Updates
+
+After implementing any new feature, bug fix, or improvement, you **must** update the `CHANGE_LOGS.md` file.
+
+- **Locate the `[Unreleased]` section** at the top of the file.
+- **Add your change** under the appropriate heading:
+  - `### Added` for new features.
+  - `### Changed` for modifications to existing functionality.
+  - `### Fixed` for bug fixes.
+  - `### Security` for security-related changes.
+- **Follow the format**: Use clear, concise descriptions in sentence case. End with a period. Reference issue numbers if applicable.
+- **Example**:
+  ```markdown
+  ### Added
+  - New `McpProxyProvider` class for creating MCP proxies with enhanced caching.
+  ```
+- **Never** commit code without an accompanying change log entry.
+- **Responsibility**: The author of the change is responsible for updating the change log.
+
+---
+
 - [ ] Run with: `python -m pytest tests/test_my_module.py -v`
 

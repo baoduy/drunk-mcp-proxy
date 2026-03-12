@@ -7,6 +7,7 @@ templates and load them into PromptTemplate instances.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
@@ -24,39 +25,45 @@ class PromptLoader:
     with YAML frontmatter and loads them as PromptTemplate instances.
     """
     
-    def __init__(self, prompt_dir: str):
+    def __init__(self, prompt_dirs: str | Sequence[str]):
         """Initialize the PromptLoader.
         
         Args:
-            prompt_dir: Path to directory containing prompt markdown files.
-                       Can be absolute or relative to the data directory.
+            prompt_dirs: Path(s) to directories containing prompt markdown files.
+                         Paths can be absolute or relative to the data directory.
         
         Raises:
-            ValueError: If prompt_dir is None or empty.
+            ValueError: If prompt_dirs is None or empty.
             FileNotFoundError: If the directory doesn't exist.
         """
-        if not prompt_dir:
-            raise ValueError("prompt_dir cannot be None or empty")
-        
-        # Convert to Path object for easier manipulation
-        self._prompt_dir = Path(prompt_dir)
-        
-        # If relative path, resolve against data directory
-        if not self._prompt_dir.is_absolute():
-            self._prompt_dir = Path(CONFIG_DIR) / self._prompt_dir
-        
-        # Validate directory exists
-        if not self._prompt_dir.exists():
-            raise FileNotFoundError(
-                f"Prompt directory does not exist: {self._prompt_dir}"
-            )
-        
-        if not self._prompt_dir.is_dir():
-            raise ValueError(
-                f"Prompt directory path is not a directory: {self._prompt_dir}"
-            )
-        
-        logger.info("Initialized PromptLoader with directory: %s", self._prompt_dir)
+        if not prompt_dirs:
+            raise ValueError("prompt_dirs cannot be None or empty")
+
+        if isinstance(prompt_dirs, str):
+            raw_prompt_dirs = [prompt_dirs]
+        else:
+            raw_prompt_dirs = list(prompt_dirs)
+
+        self._prompt_dirs: list[Path] = []
+        for prompt_dir in raw_prompt_dirs:
+            prompt_path = Path(prompt_dir)
+
+            if not prompt_path.is_absolute():
+                prompt_path = Path(CONFIG_DIR) / prompt_path
+
+            if not prompt_path.exists():
+                raise FileNotFoundError(f"Prompt directory does not exist: {prompt_path}")
+
+            if not prompt_path.is_dir():
+                raise ValueError(f"Prompt directory path is not a directory: {prompt_path}")
+
+            self._prompt_dirs.append(prompt_path)
+
+        self._prompt_dir = self._prompt_dirs[0]
+        logger.info(
+            "Initialized PromptLoader with directories: %s",
+            ",".join(str(path) for path in self._prompt_dirs),
+        )
     
     @staticmethod
     def _sanitize_prompt_name(name: str) -> str:
@@ -98,99 +105,99 @@ class PromptLoader:
         prompts: dict[str, PromptTemplate] = {}
         normalized_names: dict[str, str] = {}
         
-        # Find all markdown files recursively
-        md_files = list(self._prompt_dir.rglob("*.md"))
-        
-        if not md_files:
+        md_files_by_root: dict[Path, list[Path]] = {
+            prompt_root: list(prompt_root.rglob("*.md")) for prompt_root in self._prompt_dirs
+        }
+        total_md_files = sum(len(md_files) for md_files in md_files_by_root.values())
+
+        if total_md_files < 1:
             logger.warning(
                 "No markdown files (*.md) found in prompt directory: %s",
-                self._prompt_dir
+                ",".join(str(path) for path in self._prompt_dirs),
             )
             return prompts
-        
+
         logger.info(
             "Found %d markdown file(s) in %s",
-            len(md_files),
-            self._prompt_dir
+            total_md_files,
+            ",".join(str(path) for path in self._prompt_dirs),
         )
-        
-        # Load each file as a prompt template
-        for md_file in md_files:
-            try:
-                # Calculate relative path and create prompt name
-                rel_path = md_file.relative_to(self._prompt_dir)
-                
-                # Use relative path (without extension) as base name
-                # This allows namespacing prompts in subdirectories
-                # e.g., category/action.md -> category_action
-                name_parts = list(rel_path.parts[:-1]) + [rel_path.stem]
-                raw_name = "_".join(name_parts)
-                prompt_name = self._sanitize_prompt_name(raw_name)
-                
-                # Load the template
-                template = PromptTemplate.from_markdown_file(
-                    str(md_file),
-                    name=prompt_name
-                )
 
-                if not template.enabled:
-                    logger.info(
-                        "Prompt '%s' is disabled; skipping (file: %s)",
+        for prompt_root, md_files in md_files_by_root.items():
+            for md_file in md_files:
+                try:
+                    # Calculate relative path and create prompt name
+                    rel_path = md_file.relative_to(prompt_root)
+                
+                    # Use relative path (without extension) as base name
+                    # This allows namespacing prompts in subdirectories
+                    # e.g., category/action.md -> category_action
+                    name_parts = list(rel_path.parts[:-1]) + [rel_path.stem]
+                    raw_name = "_".join(name_parts)
+                    prompt_name = self._sanitize_prompt_name(raw_name)
+                
+                    # Load the template
+                    template = PromptTemplate.from_markdown_file(
+                        str(md_file),
+                        name=prompt_name,
+                    )
+
+                    if not template.enabled:
+                        logger.info(
+                            "Prompt '%s' is disabled; skipping (file: %s)",
+                            prompt_name,
+                            md_file.relative_to(prompt_root),
+                        )
+                        continue
+                
+                    # Check for name collisions
+                    normalized_name = prompt_name.replace("-", "_")
+                    if normalized_name in normalized_names:
+                        logger.warning(
+                            "Duplicate prompt name '%s' conflicts with '%s' (file: %s). Skipping.",
+                            prompt_name,
+                            normalized_names[normalized_name],
+                            md_file,
+                        )
+                        continue
+                
+                    prompts[prompt_name] = template
+                    normalized_names[normalized_name] = prompt_name
+                    logger.debug(
+                        "Loaded prompt '%s' from %s",
                         prompt_name,
-                        md_file.relative_to(self._prompt_dir)
+                        md_file.relative_to(prompt_root),
+                    )
+
+                except ValueError as e:
+                    logger.error(
+                        "Failed to parse prompt file %s: %s",
+                        md_file.name,
+                        type(e).__name__,
+                    )
+                    logger.debug("Parse error details: %s", str(e))
+                    audit_log(
+                        logger=logger,
+                        event="prompt_template_parse_failed",
+                        status="failure",
+                        resource=str(md_file),
+                        details={"error_type": type(e).__name__},
                     )
                     continue
-                
-                # Check for name collisions
-                normalized_name = prompt_name.replace("-", "_")
-                if normalized_name in normalized_names:
-                    logger.warning(
-                        "Duplicate prompt name '%s' conflicts with '%s' (file: %s). Skipping.",
-                        prompt_name,
-                        normalized_names[normalized_name],
-                        md_file
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error loading %s: %s",
+                        md_file.name,
+                        type(e).__name__,
+                    )
+                    audit_log(
+                        logger=logger,
+                        event="prompt_template_load_failed",
+                        status="failure",
+                        resource=str(md_file),
+                        details={"error_type": type(e).__name__},
                     )
                     continue
-                
-                prompts[prompt_name] = template
-                normalized_names[normalized_name] = prompt_name
-                logger.debug(
-                    "Loaded prompt '%s' from %s",
-                    prompt_name,
-                    md_file.relative_to(self._prompt_dir)
-                )
-                
-            except ValueError as e:
-                # Log parsing errors but continue with other files
-                logger.error(
-                    "Failed to parse prompt file %s: %s",
-                    md_file.name,
-                    type(e).__name__
-                )
-                logger.debug("Parse error details: %s", str(e))
-                audit_log(
-                    logger=logger,
-                    event="prompt_template_parse_failed",
-                    status="failure",
-                    resource=str(md_file),
-                    details={"error_type": type(e).__name__},
-                )
-                continue
-            except Exception as e:
-                # Catch unexpected errors
-                logger.error(
-                    "Unexpected error loading %s: %s",
-                    md_file.name,
-                    type(e).__name__
-                )
-                audit_log(
-                    logger=logger,
-                    event="prompt_template_load_failed",
-                    status="failure",
-                    resource=str(md_file),
-                    details={"error_type": type(e).__name__},
-                )
-                continue
         
         if prompts:
             logger.info(

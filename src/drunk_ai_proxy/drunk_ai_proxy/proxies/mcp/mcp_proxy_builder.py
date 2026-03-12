@@ -19,21 +19,25 @@ class McpProxyBuilder:
     """Class-based builders for MCP proxy configuration objects."""
 
     @staticmethod
-    def _has_valid_prompt_dir(config: McpConfig) -> bool:
-        """Check whether prompt_dir exists and contains at least one markdown file."""
-        prompt_dir = getattr(config, "prompt_dir", None)
-        if not prompt_dir:
+    def _has_valid_prompt_dirs(config: McpConfig) -> bool:
+        """Check whether any configured prompt directory has markdown files."""
+        prompt_dirs = config.get_prompt_dirs()
+        if not prompt_dirs:
             return False
 
-        prompt_path = Path(prompt_dir)
-        if not prompt_path.is_absolute():
-            prompt_path = Path(CONFIG_DIR) / prompt_path
+        for prompt_dir in prompt_dirs:
+            prompt_path = Path(prompt_dir)
+            if not prompt_path.is_absolute():
+                prompt_path = Path(CONFIG_DIR) / prompt_path
 
-        if not prompt_path.exists() or not prompt_path.is_dir():
-            return False
+            if not prompt_path.exists() or not prompt_path.is_dir():
+                continue
 
-        md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
-        return md_file_count >= 1
+            md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
+            if md_file_count >= 1:
+                return True
+
+        return False
 
     @staticmethod
     def _default_transforms() -> list[Transform]:
@@ -90,10 +94,10 @@ class McpProxyBuilder:
         proxy_configs: list[McpProxyConfig] = [McpProxyConfig(path="/", mcp_server=root_mcp)]
 
         for config in configs:
-            has_prompt_dir = cls._has_valid_prompt_dir(config)
-            if config.spec_data is None and not has_prompt_dir:
+            has_prompt_dirs = cls._has_valid_prompt_dirs(config)
+            if config.spec_data is None and not has_prompt_dirs:
                 logger.warning(
-                    "Skipping MCP config '%s' because spec_data is None and prompt_dir is not ready",
+                    "Skipping MCP config '%s' because spec_data is None and prompts are not ready",
                     config.path,
                 )
                 continue

@@ -20,21 +20,3 @@
 			"label": "phase2-targeted-pytest-rerun",
 			"type": "shell",
 			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_mcp_proxy_provider.py tests/test_openapi_mcp_provider.py tests/test_llm_proxies_provider.py -q"
-		},
-		{
-			"label": "phase2-targeted-pytest-rerun-2",
-			"type": "shell",
-			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_mcp_proxy_provider.py tests/test_openapi_mcp_provider.py tests/test_llm_proxies_provider.py -q"
-		},
-		{
-			"label": "phase2-mcp-pytest",
-			"type": "shell",
-			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_mcp_proxy_provider.py tests/test_mcp_proxy_provider_extended.py -q"
-		},
-		{
-			"label": "phase2-broader-pytest",
-			"type": "shell",
-			"command": "/Users/steven/_CODE/drunk-mcp-proxy/.venv/bin/python -m pytest tests/test_api_auth_provider.py tests/test_auth_pass_through.py tests/test_azure_oauth.py tests/test_openapi_mcp_provider.py tests/test_mcp_proxy_provider.py tests/test_mcp_proxy_provider_extended.py tests/test_llm_proxies_provider.py tests/test_llm_websocket_provider.py tests/test_llm_websocket_transport.py -q"
-		}
-	]
-}

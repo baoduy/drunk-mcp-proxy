@@ -28,32 +28,34 @@ class McpPromptProvider(McpBaseProvider):
     and dynamically registers them as MCP prompts using FastMCP decorators.
     """
     
-    def __init__(self, config: McpConfig):
+    def __init__(self, config: McpConfig, prompt_dirs: list[str] | None = None):
         """Initialize the McpPromptProvider.
         
         Args:
-            config: MCP configuration containing prompt_dir.
+            config: MCP configuration containing prompts.
+            prompt_dirs: Optional explicit prompt directory list.
         
         Raises:
-            ValueError: If prompt_dir is not configured or is invalid.
+            ValueError: If prompts are not configured or are invalid.
         """
         super().__init__(config)
         self._mcp: FastMCP | None = None
         self._templates: dict[str, PromptTemplate] = {}
         
-        # Validate that prompt_dir is configured
-        if not self.config.prompt_dir:
+        self._prompt_dirs = prompt_dirs or self.config.get_prompt_dirs()
+
+        if not self._prompt_dirs:
             raise ValueError(
-                f"prompt_dir must be configured for prompt provider at path '{self.config.path}'"
+                f"prompts must be configured for prompt provider at path '{self.config.path}'"
             )
         
         # Initialize the prompt loader
         try:
-            self._loader = PromptLoader(self.config.prompt_dir)
+            self._loader = PromptLoader(self._prompt_dirs)
             logger.info(
-                "Initialized prompt provider for path '%s' with directory: %s",
+                "Initialized prompt provider for path '%s' with directories: %s",
                 self.config.path,
-                self.config.prompt_dir
+                ",".join(self._prompt_dirs),
             )
         except (FileNotFoundError, ValueError) as e:
             logger.error(
@@ -83,7 +85,7 @@ class McpPromptProvider(McpBaseProvider):
                 "No prompt templates loaded for path '%s'. "
                 "Check that markdown files exist in: %s",
                 self.config.path,
-                self.config.prompt_dir
+                ",".join(self._prompt_dirs),
             )
     
     def _create_prompt_function(

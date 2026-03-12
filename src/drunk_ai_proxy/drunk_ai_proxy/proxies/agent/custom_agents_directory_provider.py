@@ -11,6 +11,7 @@ from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.aggregate import AggregateProvider
 from fastmcp.utilities.versions import VersionSpec
 from .agent_provider import AgentProvider
+from drunk_ai_proxy.proxies.mcp.resource_path_utils import get_root_namespace
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -158,12 +159,15 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
 
         return results
 
+
+
     def _discover_agents(self) -> None:
         """Scan root directories and create AgentProvider instances."""
         self.providers.clear()
         seen_agent_names: set[str] = set()
 
         for root in self._roots:
+            root_namespace = get_root_namespace(root)
             for namespace, agent_file in self._iter_agent_files(root):
                 try:
                     # Read file content for frontmatter
@@ -171,7 +175,7 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     frontmatter = self._parse_frontmatter(content)
                     
                     # Build full agent name with namespace and .agent.md suffix
-                    # e.g., "core/analysis.agent.md" or "reasoning.agent.md"
+                    # e.g., "dknet/core/analysis.agent.md" or "dknet/reasoning.agent.md"
                     if agent_file.name.endswith(".agent.md"):
                         agent_resource_name = agent_file.name
                     elif agent_file.name.endswith(".md"):
@@ -179,10 +183,18 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
                     else:
                         agent_resource_name = f"{agent_file.name}.agent.md"
 
+                    namespace_parts: list[str] = []
+                    if root_namespace:
+                        namespace_parts.append(root_namespace)
                     if namespace:
-                        full_agent_name = f"{namespace}/{agent_resource_name}"
-                    else:
-                        full_agent_name = agent_resource_name
+                        namespace_parts.append(namespace)
+
+                    full_namespace = "/".join(namespace_parts) if namespace_parts else None
+                    full_agent_name = (
+                        f"{full_namespace}/{agent_resource_name}"
+                        if full_namespace
+                        else agent_resource_name
+                    )
                     
                     # Build qualified name for deduplication (same as full_agent_name)
                     qualified_name = full_agent_name

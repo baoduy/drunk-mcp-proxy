@@ -45,10 +45,10 @@ class TestMcpProxyProviderInit:
 class TestMcpProxyProviderCreateSkillProxy:
     """Test suite for _create_skill_proxy method."""
 
-    def test_create_skill_proxy_with_none_skill_dir(self):
-        """Test that _create_skill_proxy returns early when skill_dir is None."""
+    def test_create_skill_proxy_with_no_skill_dirs(self):
+        """Test that _create_skill_proxy returns early when no skill dirs."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
         mock_config.path = "/test"
 
         provider = McpProxyProvider(mock_config)
@@ -62,9 +62,9 @@ class TestMcpProxyProviderCreateSkillProxy:
 
     @patch("drunk_ai_proxy.utils.env.CONFIG_DIR", "/test/config")
     def test_create_skill_proxy_with_nonexistent_directory(self):
-        """Test that _create_skill_proxy returns early when skill_dir doesn't exist."""
+        """Test that _create_skill_proxy returns early when dir doesn't exist."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = "nonexistent_skills"
+        mock_config.get_skill_dirs.return_value = ["nonexistent_skills"]
         mock_config.path = "/test"
 
         provider = McpProxyProvider(mock_config)
@@ -93,7 +93,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_skills_provider_cls.return_value = mock_provider
 
         mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = "skills"
+        mock_config.get_skill_dirs.return_value = ["skills"]
         mock_config.path = "/test"
 
         provider = McpProxyProvider(mock_config)
@@ -124,7 +124,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_skills_provider_cls.return_value = mock_provider
 
         mock_config = Mock(spec=McpConfig)
-        mock_config.skill_dir = "skills"
+        mock_config.get_skill_dirs.return_value = ["skills"]
         mock_config.path = "/test"
 
         provider = McpProxyProvider(mock_config)
@@ -146,17 +146,57 @@ class TestMcpProxyProviderCreateSkillProxy:
         mock_mcp.add_provider.assert_called_once_with(mock_provider)
 
 
+class TestMcpProxyProviderCreatePromptProxy:
+    """Test suite for _create_prompt_proxy method."""
+
+    @patch("drunk_ai_proxy.proxies.prompt.prompt_provider.McpPromptProvider")
+    def test_create_prompt_proxy_uses_original_relative_dirs(
+        self, mock_prompt_provider_cls, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that relative prompt dirs are passed unchanged to prompt provider."""
+        monkeypatch.chdir(tmp_path)
+        prompt_dir = tmp_path / "data" / "prompts" / "custom"
+        prompt_dir.mkdir(parents=True)
+        (prompt_dir / "test.md").write_text(
+            "---\ndescription: test\n---\nhello",
+            encoding="utf-8",
+        )
+
+        mock_config = Mock(spec=McpConfig)
+        mock_config.get_prompt_dirs.return_value = ["prompts/custom"]
+        mock_config.path = "/resources"
+
+        mock_prompt_provider = Mock()
+        mock_prompt_provider.register_to_mcp.return_value = 1
+        mock_prompt_provider_cls.return_value = mock_prompt_provider
+
+        provider = McpProxyProvider(mock_config)
+        mock_mcp = Mock()
+
+        provider._create_prompt_proxy(mock_mcp)
+
+        mock_prompt_provider_cls.assert_called_once_with(
+            mock_config,
+            prompt_dirs=["prompts/custom"],
+        )
+        mock_prompt_provider.register_to_mcp.assert_called_once_with(mock_mcp)
+
+
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_calls_create_skill_proxy(
         self,
         mock_create_fastmcp_server,
         mock_create_skill_proxy,
+        mock_create_prompt_proxy,
+        mock_create_agent_proxy,
         mock_create_proxy,
         mock_get_app_config,
     ):
@@ -183,12 +223,16 @@ class TestMcpProxyProviderCreateProxy:
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_uses_root_mcp_for_root_path(
         self,
         mock_create_fastmcp_server,
         mock_create_skill_proxy,
+        mock_create_prompt_proxy,
+        mock_create_agent_proxy,
         mock_create_proxy,
         mock_get_app_config,
     ):
@@ -215,12 +259,16 @@ class TestMcpProxyProviderCreateProxy:
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._create_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_returns_cached_mcp(
         self,
         mock_create_fastmcp_server,
         mock_create_skill_proxy,
+        mock_create_prompt_proxy,
+        mock_create_agent_proxy,
         mock_create_proxy,
         mock_get_app_config,
     ):
@@ -250,39 +298,59 @@ class TestMcpProxyProviderCreateProxy:
         assert mock_create_skill_proxy.call_count == 1
 
 
-class TestMcpConfigSkillDirField:
-    """Test suite for skill_dir field in McpConfig."""
+class TestMcpConfigResourcesField:
+    """Test suite for resource fields in McpConfig."""
 
-    def test_mcp_config_with_skill_dir(self):
-        """Test that McpConfig accepts skill_dir field."""
+    def test_mcp_config_with_skills_dirs(self):
+        """Test that McpConfig accepts skills.dirs field."""
         config = McpConfig.model_validate(
             {
                 "path": "/test",
                 "spec_type": "mcp",
-                "skill_dir": "skills",
+                "skills": {"dirs": ["skills"]},
                 "mcpServers": {
                     "test-server": {"enabled": True}
                 }
             }
         )
 
-        assert config.skill_dir == "skills"
+        assert config.get_skill_dirs() == ["skills"]
 
-    def test_mcp_config_skill_dir_defaults_to_none(self):
-        """Test that skill_dir defaults to None when not specified."""
+    def test_mcp_config_skills_defaults_to_empty(self):
+        """Test that skills dirs default to empty when not specified."""
         config = McpConfig.model_validate(
             {"path": "/test", "spec_type": "mcp", "mcpServers": {"test-server": {"enabled": True}}}
         )
 
-        assert config.skill_dir is None
+        assert config.get_skill_dirs() == []
 
-    def test_mcp_config_with_mcp_servers_and_skill_dir(self):
-        """Test McpConfig with both mcpServers and skill_dir."""
+    def test_mcp_config_rejects_legacy_skill_dir(self):
+        """Test that McpConfig rejects legacy skill_dir field."""
+        with pytest.raises(ValueError, match="Legacy MCP resource keys are no longer supported"):
+            McpConfig.model_validate(
+                {
+                    "path": "/",
+                    "spec_type": "mcp",
+                    "skill_dir": "skills",
+                    "mcpServers": {
+                        "test-server": {
+                            "transport": "stdio",
+                            "command": "node",
+                            "args": ["server.js"],
+                        }
+                    },
+                }
+            )
+
+    def test_mcp_config_with_mcp_servers_and_resources(self):
+        """Test McpConfig with mcpServers and resource dirs."""
         config = McpConfig.model_validate(
             {
                 "path": "/",
                 "spec_type": "mcp",
-                "skill_dir": "skills",
+                "skills": {"dirs": ["skills"]},
+                "prompts": {"dirs": ["prompts/custom"]},
+                "agents": {"dirs": ["agents/core"]},
                 "mcpServers": {
                     "test-server": {
                         "transport": "stdio",
@@ -293,7 +361,9 @@ class TestMcpConfigSkillDirField:
             }
         )
 
-        assert config.skill_dir == "skills"
+        assert config.get_skill_dirs() == ["skills"]
+        assert config.get_prompt_dirs() == ["prompts/custom"]
+        assert config.get_agent_dirs() == ["agents/core"]
         assert config.mcp_servers is not None
         assert "test-server" in config.mcp_servers
 

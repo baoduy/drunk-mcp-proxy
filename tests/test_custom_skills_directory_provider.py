@@ -67,6 +67,27 @@ class TestCustomSkillsDirectoryProviderDiscovery:
             uris = [str(resource.uri) for resource in resources]
             assert "skill://dknet/dknet-overview/SKILL.md" in uris
 
+    @pytest.mark.asyncio
+    async def test_discover_skills_prefixes_root_namespace_for_skills_subroot(self) -> None:
+        """Test that roots under skills/<name> are exposed with <name> prefix in URI and name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_root = Path(tmpdir)
+            dknet_root = data_root / "skills" / "dknet"
+            dknet_root.mkdir(parents=True)
+
+            skill_dir = dknet_root / "dknet-overview"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("# Skill\n")
+
+            provider = CustomSkillsDirectoryProvider(roots=dknet_root)
+
+            resources = await provider.list_resources()
+            uris = [str(resource.uri) for resource in resources]
+            names = [resource.name for resource in resources]
+            
+            assert "skill://dknet/dknet-overview/SKILL.md" in uris
+            assert "dknet/dknet-overview/SKILL.md" in names
+
     def test_discover_skills_skips_missing_main_file(self) -> None:
         """Test that directories without main file are skipped."""
         with tempfile.TemporaryDirectory() as tmpdir:

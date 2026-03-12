@@ -86,6 +86,30 @@ class TestCustomAgentsDirectoryProviderDiscovery:
             assert "agent://core/reasoning.agent.md" in uris
 
     @pytest.mark.asyncio
+    async def test_discover_agents_prefixes_root_namespace_for_agents_subroot(self) -> None:
+        """Test that roots under agents/<name> are exposed with <name> prefix."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_root = Path(tmpdir)
+            dknet_root = data_root / "agents" / "dknet"
+            dknet_root.mkdir(parents=True)
+
+            agent_file = dknet_root / "test-generator.agent.md"
+            agent_file.write_text(
+                "---\ndescription: Test generator agent\nenabled: true\n---\n# Agent\n"
+            )
+
+            provider = CustomAgentsDirectoryProvider(roots=dknet_root)
+
+            resources = await provider.list_resources()
+            uris = [str(resource.uri) for resource in resources]
+            names = [resource.name for resource in resources]
+
+            assert "agent://dknet/test-generator.agent.md" in uris
+            assert "agent://dknet/test-generator.agent.md/_manifest" in uris
+            assert "dknet/test-generator.agent.md" in names
+            assert "dknet/test-generator.agent.md/_manifest" in names
+
+    @pytest.mark.asyncio
     async def test_discover_nested_namespaced_agents(self) -> None:
         """Test that agents in namespace directories are discovered (single level only)."""
         with tempfile.TemporaryDirectory() as tmpdir:

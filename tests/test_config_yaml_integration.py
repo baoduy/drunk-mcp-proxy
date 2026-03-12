@@ -182,8 +182,8 @@ mcp:
         finally:
             os.unlink(temp_file)
 
-    def test_mcp_config_validation_requires_spec_servers_or_prompt_dir(self):
-        """Test that MCP config requires spec_file, mcp_servers, or prompt_dir."""
+    def test_mcp_config_validation_requires_spec_servers_or_resources(self):
+        """Test that MCP config requires spec_file, mcp_servers, or resource dirs."""
         yaml_content = """
 mcp:
   - path: /broken
@@ -199,14 +199,39 @@ mcp:
         try:
             with pytest.raises(
                 ValueError,
-                match="For MCP spec type, either spec_file, mcp_servers, prompt_dir, or agents_dir must be provided",
+                match="For MCP spec type, either spec_file, mcp_servers, prompts, agents, or skills.dirs must be provided",
             ):
                 ConfigYaml.load_from_file(temp_file)
         finally:
             os.unlink(temp_file)
 
-    def test_mcp_config_validation_accepts_prompt_dir(self):
-        """Test that MCP config accepts top-level prompt_dir."""
+    def test_mcp_config_validation_accepts_prompts_dirs(self):
+        """Test that MCP config accepts prompts.dirs."""
+        yaml_content = """
+mcp:
+  - path: /prompts
+    spec_type: mcp
+    prompts:
+      dirs:
+        - prompts/custom
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            f.write(yaml_content)
+            f.flush()
+            temp_file = f.name
+
+        try:
+            config = ConfigYaml.load_from_file(temp_file)
+            assert config.mcp is not None
+            assert len(config.mcp) == 1
+            assert config.mcp[0].get_prompt_dirs() == ["prompts/custom"]
+        finally:
+            os.unlink(temp_file)
+
+    def test_mcp_config_validation_rejects_legacy_prompt_dir(self):
+        """Test that MCP config rejects legacy prompt_dir."""
         yaml_content = """
 mcp:
   - path: /prompts
@@ -221,10 +246,11 @@ mcp:
             temp_file = f.name
 
         try:
-            config = ConfigYaml.load_from_file(temp_file)
-            assert config.mcp is not None
-            assert len(config.mcp) == 1
-            assert config.mcp[0].prompt_dir == "prompts/custom"
+            with pytest.raises(
+                ValueError,
+                match="Legacy MCP resource keys are no longer supported",
+            ):
+                ConfigYaml.load_from_file(temp_file)
         finally:
             os.unlink(temp_file)
 

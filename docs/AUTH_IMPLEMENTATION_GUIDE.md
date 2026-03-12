@@ -177,7 +177,7 @@ auth:
     client_secret: $GITHUB_CLIENT_SECRET
     scopes:
       - user:email
-    redirect_uri: http://localhost:8000/auth/callback
+    redirect_uri: http://localhost:9123/auth/callback
 ```
 
 ### Google

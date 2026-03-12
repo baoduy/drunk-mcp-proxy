@@ -179,16 +179,16 @@ class TestMcpConfig:
         assert config.filters.methods == ["GET", "POST"]
         assert config.filters.tags == ["CurrencyPairs"]
 
-    def test_mcp_config_with_skill_dir(self) -> None:
-        """Test McpConfig with skill directory."""
+    def test_mcp_config_with_skills_dirs(self) -> None:
+        """Test McpConfig with skills.dirs."""
         mcp_servers = {"test-server": {"enabled": True}}
         config = McpConfig(
             path="/",
             spec_type="mcp",
-            skill_dir="skills",
+            skills={"dirs": ["skills"]},
             mcp_servers=mcp_servers,
         )
-        assert config.skill_dir == "skills"
+        assert config.get_skill_dirs() == ["skills"]
 
     def test_mcp_config_with_mcp_servers(self) -> None:
         """Test McpConfig with inline mcpServers configuration."""

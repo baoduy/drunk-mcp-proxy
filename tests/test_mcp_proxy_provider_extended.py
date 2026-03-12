@@ -24,7 +24,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -59,7 +61,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -86,7 +90,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/api"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -115,7 +121,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -201,7 +209,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/api"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -230,12 +240,15 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config1 = Mock(spec=McpConfig)
         mock_config1.path = "/api1"
         mock_config1.spec_data = None
+        mock_config1.get_prompt_dirs.return_value = []
         mock_config1.auth = None
 
         mock_config2 = Mock(spec=McpConfig)
         mock_config2.path = "/api2"
         mock_config2.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
-        mock_config2.skill_dir = None
+        mock_config2.get_skill_dirs.return_value = []
+        mock_config2.get_prompt_dirs.return_value = []
+        mock_config2.get_agent_dirs.return_value = []
         mock_config2.auth = None
 
         mock_app_config = Mock()
@@ -265,7 +278,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config1.spec_data = {
             "mcpServers": {"test1": {"url": "http://example1.com"}}
         }
-        mock_config1.skill_dir = None
+        mock_config1.get_skill_dirs.return_value = []
+        mock_config1.get_prompt_dirs.return_value = []
+        mock_config1.get_agent_dirs.return_value = []
         mock_config1.auth = None
 
         mock_config2 = Mock(spec=McpConfig)
@@ -273,7 +288,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config2.spec_data = {
             "mcpServers": {"test2": {"url": "http://example2.com"}}
         }
-        mock_config2.skill_dir = None
+        mock_config2.get_skill_dirs.return_value = []
+        mock_config2.get_prompt_dirs.return_value = []
+        mock_config2.get_agent_dirs.return_value = []
         mock_config2.auth = None
 
         mock_app_config = Mock()

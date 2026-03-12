@@ -80,7 +80,7 @@ llm:
 # Each entry can be either:
 #   - An OpenAPI spec file: spec_type="openapi"
 #   - MCP servers via command or HTTP: spec_type="mcp"
-#   - Skills directory: skill_dir with mcp_servers
+#   - Resource directories: skills/prompts/agents with dirs list
 #
 mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
@@ -159,11 +159,21 @@ mcp:
           OUTLINE_API_KEY: "$OUTLINE_API_KEY"
 
   # ========== Example 5: Prompt provider with markdown templates ==========
-  - path: /prompts # URL path for prompt templates
+  - path: /resources # URL path for prompt templates
     spec_type: mcp # Using Model Context Protocol
-    skill_dir: skills # Directory containing skill subdirectories
-    prompt_dir: prompts/custom # Directory containing markdown prompt files (relative to data/)
-    agents_dir: agents # Directory containing agent files (relative to data/)
+    skills: 
+      dirs:
+        - skills/dknet
+        - skills/dotnet
+    prompts:
+      dirs:
+        - prompts/custom
+        - prompts/dotnet
+    agents:
+      dirs:
+        - agents/core
+        - agents/dotnet
+        - agents/tools
 
 # Sync/Download the remote resources to the local filesystem on startup. This allows you to reference remote files (e.g. markdown prompts) in your skills without having to manually download them.
 remote_resources:

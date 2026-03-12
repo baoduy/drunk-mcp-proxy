@@ -589,7 +589,7 @@ FASTMCP_LOG_LEVEL=DEBUG FASTMCP_CONFIG_DIR=./data python -m src.main
 {
   "mcpServers": {
     "wiki": {
-      "url": "http://localhost:8000/mcp",
+      "url": "http://localhost:9123/mcp",
       "transport": "http"
     }
   }

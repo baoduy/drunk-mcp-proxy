@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- On-demand remote skill resources provider for MCP nested `skills.remote_resources` with URL grouping by skill root and cache-backed fetch behavior.
+- New tests for remote skill resource grouping, cache reads, and fail-open behavior in `tests/test_remote_resources_provider.py`.
+
+### Changed
+
+- Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
+- Updated MCP and prompt provider wiring to use effective multi-directory accessors for local resources.
+- Updated prompt loading to support scanning multiple prompt directories.
+- Updated skill resource URI naming to include the configured root namespace for paths under `skills/<name>` (for example `skill://dknet/<skill>/SKILL.md`).
+- Updated agent resource naming and URIs to include the configured root namespace for paths under `agents/<name>` (for example `agent://dknet/test-generator.agent.md` and `.../_manifest`).
+- Consolidated skill/prompt/agent resource provider implementations under `proxies/resource/` and switched MCP skill mounting to `SkillsDirectoryProvider` from that unified package.
+- Switched MCP agent mounting to `AgentsDirectoryProvider` from `proxies/resource/` and removed remaining legacy provider modules (`agent_provider`, `custom_agents_directory_provider`, `custom_skills_directory_provider`) with corresponding unit test migration.
+
+### Fixed
+
+- MCP config validation now accepts nested `prompts.dirs` as a valid prompt-only MCP configuration.
+- MCP config validation now enforces unified resource structure (`skills.dirs`, `prompts.dirs`, `agents.dirs`) and rejects legacy keys (`skill_dir`, `prompt_dir`, `agents_dir`).
+- Fixed prompt registration for relative `prompts.dirs` so MCP prompt provider no longer resolves paths as `data/data/...`, restoring prompt discovery in mounted MCP routes.
+
 ## [0.2.0] - 2026-03-11
 
 ### Added

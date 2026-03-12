@@ -198,7 +198,7 @@ class TestOpenApiMcpProviderCreateProxy:
             "paths": {},
         }
         mock_config.tags = ["v1"]
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
 
         mock_client = Mock()
         mock_create_client.return_value = mock_client
@@ -234,7 +234,7 @@ class TestOpenApiMcpProviderCreateProxy:
             "paths": {},
         }
         mock_config.tags = ["v1"]
-        mock_config.skill_dir = None
+        mock_config.get_skill_dirs.return_value = []
 
         mock_client = Mock()
         mock_create_client.return_value = mock_client

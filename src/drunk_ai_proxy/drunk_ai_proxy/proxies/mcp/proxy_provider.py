@@ -25,7 +25,7 @@ class McpProxyProvider(McpBaseProvider):
 
     def _create_proxy(self, mcp: FastMCP) -> None:
         if self.config.spec_data is None:
-            if getattr(self.config, "prompt_dir", None):
+            if self.config.get_prompt_dirs():
                 logger.info(
 
                     "Skipping MCP spec proxy creation for prompt-only config '%s'",
@@ -70,48 +70,55 @@ class McpProxyProvider(McpBaseProvider):
         return self.mcp
     
     def _create_prompt_proxy(self, mcp: FastMCP) -> None:
-        """Create and mount prompt provider if prompt_dir is configured.
+        """Create and mount prompt provider if prompts are configured.
         
         Args:
             mcp: FastMCP instance to mount prompt provider to.
         """
-        prompt_dir = getattr(self.config, "prompt_dir", None)
-        if prompt_dir is None:
+        prompt_dirs = self.config.get_prompt_dirs()
+        if not prompt_dirs:
             return
 
-        prompt_path = Path(prompt_dir)
-        if not prompt_path.is_absolute():
-            prompt_path = Path(CONFIG_DIR) / prompt_path
+        valid_prompt_dirs: list[str] = []
+        for prompt_dir in prompt_dirs:
+            prompt_path = Path(prompt_dir)
+            if not prompt_path.is_absolute():
+                prompt_path = Path(CONFIG_DIR) / prompt_path
 
-        if not prompt_path.exists() or not prompt_path.is_dir():
-            logger.warning(
-                "Skipping prompt provider for path '%s' because prompt_dir does not exist: %s",
-                self.config.path,
-                prompt_path,
-            )
-            return
+            if not prompt_path.exists() or not prompt_path.is_dir():
+                logger.warning(
+                    "Skipping prompt directory for path '%s' because it does not exist: %s",
+                    self.config.path,
+                    prompt_path,
+                )
+                continue
 
-        md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
-        if md_file_count < 1:
-            logger.warning(
-                "Skipping prompt provider for path '%s' because prompt_dir must contain at least 1 markdown file (found=%d)",
-                self.config.path,
-                md_file_count,
-            )
+            md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
+            if md_file_count < 1:
+                logger.warning(
+                    "Skipping prompt directory for path '%s' because it has no markdown files: %s",
+                    self.config.path,
+                    prompt_path,
+                )
+                continue
+
+            valid_prompt_dirs.append(prompt_dir)
+
+        if not valid_prompt_dirs:
             return
         
         try:
             from drunk_ai_proxy.proxies.prompt.prompt_provider import McpPromptProvider
             
             # Register prompts directly into the active MCP server so prompts/list includes them.
-            prompt_provider = McpPromptProvider(self.config)
+            prompt_provider = McpPromptProvider(self.config, prompt_dirs=valid_prompt_dirs)
             loaded_prompt_count = prompt_provider.register_to_mcp(mcp)
             
             logger.info(
-                "Registered %d prompt(s) for path '%s' from directory: %s",
+                "Registered %d prompt(s) for path '%s' from directories: %s",
                 loaded_prompt_count,
                 self.config.path,
-                prompt_dir
+                ",".join(valid_prompt_dirs),
             )
         except Exception as e:
             logger.error(
