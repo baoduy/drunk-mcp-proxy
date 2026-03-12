@@ -1,5 +1,4 @@
-"""
-Integration tests for ConfigYaml loading and validation.
+"""Integration tests for ConfigYaml loading and validation.
 
 These tests verify that the YAML configuration system works end-to-end,
 including file loading, environment variable resolution, and validation.
@@ -130,11 +129,12 @@ mcp:
                 mcp_api = config.mcp[1]
                 assert mcp_api.path == "/api/v1"
                 assert mcp_api.spec_type == "openapi"
-                assert mcp_api.spec_file == "openapi/test-api.json"
-                assert mcp_api.base_url == "https://api.example.com"
-                assert mcp_api.filters is not None
-                assert mcp_api.filters.methods == ["GET", "POST"]
-                assert mcp_api.filters.tags == ["public"]
+                assert mcp_api.open_api is not None
+                assert mcp_api.open_api.spec_file == "openapi/test-api.json"
+                assert mcp_api.open_api.base_url == "https://api.example.com"
+                assert mcp_api.open_api.filters is not None
+                assert mcp_api.open_api.filters.methods == ["GET", "POST"]
+                assert mcp_api.open_api.filters.tags == ["public"]
                 assert mcp_api.auth is not None
                 assert mcp_api.auth.pass_through is True
 
@@ -144,25 +144,30 @@ mcp:
     @patch.dict(os.environ, {"TEST_TOKEN": "my-secret-token"})
     def test_env_var_resolution_across_sections(self):
         """Test that environment variables are resolved across all config sections."""
-        yaml_content = """
-auth:
-  default_provider: basic
-  basic:
-    token: $TEST_TOKEN
-
-llm:
-  - enabled: true
-    provider: test
-    base_url: https://api.test.com
-    api_key: $TEST_TOKEN
-
-mcp:
-  - path: /test
-    spec_type: mcp
-    mcpServers:
-      test-server:
-        enabled: true
-"""
+        yaml_content = "\n".join(
+            [
+                "auth:",
+                "  default_provider: basic",
+                "  basic:",
+                "    token: $TEST_TOKEN",
+                "",
+                "llm:",
+                "  - enabled: true",
+                "    provider: test",
+                "    base_url: https://api.test.com",
+                "    api_key: $TEST_TOKEN",
+                "",
+                "mcp:",
+                "  - path: /test",
+                "    spec_type: mcp",
+                "    mcpServers:",
+                "      test-server:",
+                "        enabled: true",
+                "        transport: stdio",
+                "        command: node",
+                "        args: [\"server.js\"]",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -183,7 +188,7 @@ mcp:
             os.unlink(temp_file)
 
     def test_mcp_config_validation_requires_spec_servers_or_resources(self):
-        """Test that MCP config requires spec_file, mcp_servers, or resource dirs."""
+        """Test that MCP config requires mcp_servers or resource dirs."""
         yaml_content = """
 mcp:
   - path: /broken
@@ -199,7 +204,7 @@ mcp:
         try:
             with pytest.raises(
                 ValueError,
-                match="For MCP spec type, either spec_file, mcp_servers, prompts, agents, or skills.dirs must be provided",
+                match="For MCP spec type, mcp_servers, prompts, agents, or skills.dirs must be provided",
             ):
                 ConfigYaml.load_from_file(temp_file)
         finally:
@@ -256,12 +261,15 @@ mcp:
 
     def test_openapi_config_validation_requires_base_url(self):
         """Test that OpenAPI config requires base_url."""
-        yaml_content = """
-mcp:
-  - path: /broken
-    spec_type: openapi
-    spec_file: openapi/test.json
-"""
+        yaml_content = "\n".join(
+            [
+                "mcp:",
+                "  - path: /broken",
+                "    spec_type: openapi",
+                "    open_api:",
+                "      spec_file: openapi/test.json",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -270,19 +278,22 @@ mcp:
             temp_file = f.name
 
         try:
-            with pytest.raises(ValueError, match="base_url is required for OpenAPI spec type"):
+            with pytest.raises(ValueError, match="open_api.base_url is required for OpenAPI spec type"):
                 ConfigYaml.load_from_file(temp_file)
         finally:
             os.unlink(temp_file)
 
     def test_openapi_config_validation_requires_spec_file(self):
         """Test that OpenAPI config requires spec_file."""
-        yaml_content = """
-mcp:
-  - path: /broken
-    spec_type: openapi
-    base_url: https://api.example.com
-"""
+        yaml_content = "\n".join(
+            [
+                "mcp:",
+                "  - path: /broken",
+                "    spec_type: openapi",
+                "    open_api:",
+                "      base_url: https://api.example.com",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -291,7 +302,7 @@ mcp:
             temp_file = f.name
 
         try:
-            with pytest.raises(ValueError, match="spec_file is required for OpenAPI spec type"):
+            with pytest.raises(ValueError, match="open_api.spec_file is required for OpenAPI spec type"):
                 ConfigYaml.load_from_file(temp_file)
         finally:
             os.unlink(temp_file)
@@ -299,19 +310,24 @@ mcp:
     @patch.dict(os.environ, {"VAR1": "value1", "VAR2": "value2"})
     def test_multiple_env_vars_in_single_value(self):
         """Test resolving multiple environment variables in a single value."""
-        yaml_content = """
-auth:
-  default_provider: basic
-  basic:
-    token: ${VAR1}-${VAR2}
-
-mcp:
-  - path: /test
-    spec_type: mcp
-    mcpServers:
-      test:
-        enabled: true
-"""
+        yaml_content = "\n".join(
+            [
+                "auth:",
+                "  default_provider: basic",
+                "  basic:",
+                "    token: ${VAR1}-${VAR2}",
+                "",
+                "mcp:",
+                "  - path: /test",
+                "    spec_type: mcp",
+                "    mcpServers:",
+                "      test:",
+                "        enabled: true",
+                "        transport: stdio",
+                "        command: node",
+                "        args: [\"server.js\"]",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -339,18 +355,24 @@ class TestConfigYamlMigrationFromJson:
         # }
         
         # New YAML format uses 'basic' instead of 'bearer'
-        yaml_content = """
-auth:
-  default_provider: basic
-  basic:
-    token: $API_KEY
-    
-mcp:
-  - path: /test
-    spec_type: mcp
-    mcpServers:
-      test: {enabled: true}
-"""
+        yaml_content = "\n".join(
+            [
+                "auth:",
+                "  default_provider: basic",
+                "  basic:",
+                "    token: $API_KEY",
+                "",
+                "mcp:",
+                "  - path: /test",
+                "    spec_type: mcp",
+                "    mcpServers:",
+                "      test:",
+                "        enabled: true",
+                "        transport: stdio",
+                "        command: node",
+                "        args: [\"server.js\"]",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -386,16 +408,19 @@ mcp:
             spec_file = openapi_dir / "test.json"
             spec_file.write_text('{"openapi": "3.0.0", "info": {"title": "Test", "version": "1.0"}, "paths": {}}')
             
-            yaml_content = """
-mcp:
-  - path: /api
-    spec_type: openapi
-    spec_file: openapi/test.json
-    base_url: https://api.example.com
-    filters:
-      methods: [GET, POST]
-      tags: [public]
-"""
+            yaml_content = "\n".join(
+                [
+                    "mcp:",
+                    "  - path: /api",
+                    "    spec_type: openapi",
+                    "    open_api:",
+                    "      spec_file: openapi/test.json",
+                    "      base_url: https://api.example.com",
+                    "      filters:",
+                    "        methods: [GET, POST]",
+                    "        tags: [public]",
+                ]
+            )
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".yaml", delete=False
             ) as f:
@@ -410,10 +435,12 @@ mcp:
                 assert len(config.mcp) == 1
                 assert config.mcp[0].path == "/api"
                 assert config.mcp[0].spec_type == "openapi"
-                assert config.mcp[0].spec_file == "openapi/test.json"
-                assert config.mcp[0].base_url == "https://api.example.com"
-                assert config.mcp[0].filters.methods == ["GET", "POST"]
-                assert config.mcp[0].filters.tags == ["public"]
+                assert config.mcp[0].open_api is not None
+                assert config.mcp[0].open_api.spec_file == "openapi/test.json"
+                assert config.mcp[0].open_api.base_url == "https://api.example.com"
+                assert config.mcp[0].open_api.filters is not None
+                assert config.mcp[0].open_api.filters.methods == ["GET", "POST"]
+                assert config.mcp[0].open_api.filters.tags == ["public"]
                 
             finally:
                 os.unlink(temp_file)
@@ -422,19 +449,25 @@ mcp:
     def test_llm_section_equivalent_to_llm_json(self):
         """Test that YAML llm section is equivalent to old llm.json format."""
         # Old llm.json was an array of provider configs
-        yaml_content = """
-llm:
-  - enabled: true
-    provider: openai
-    base_url: https://api.openai.com/v1
-    api_key: $OPENAI_KEY
-    
-mcp:
-  - path: /test
-    spec_type: mcp
-    mcpServers:
-      test: {enabled: true}
-"""
+        yaml_content = "\n".join(
+            [
+                "llm:",
+                "  - enabled: true",
+                "    provider: openai",
+                "    base_url: https://api.openai.com/v1",
+                "    api_key: $OPENAI_KEY",
+                "",
+                "mcp:",
+                "  - path: /test",
+                "    spec_type: mcp",
+                "    mcpServers:",
+                "      test:",
+                "        enabled: true",
+                "        transport: stdio",
+                "        command: node",
+                "        args: [\"server.js\"]",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -617,14 +650,19 @@ mcp:
 
     def test_snakecase_mcp_servers_also_works(self):
         """Test that snake_case 'mcp_servers' also works in YAML."""
-        yaml_content = """
-mcp:
-  - path: /test
-    spec_type: mcp
-    mcp_servers:
-      test-server:
-        enabled: true
-"""
+        yaml_content = "\n".join(
+            [
+                "mcp:",
+                "  - path: /test",
+                "    spec_type: mcp",
+                "    mcp_servers:",
+                "      test-server:",
+                "        enabled: true",
+                "        transport: stdio",
+                "        command: node",
+                "        args: [\"server.js\"]",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:

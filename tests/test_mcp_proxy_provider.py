@@ -309,7 +309,12 @@ class TestMcpConfigResourcesField:
                 "spec_type": "mcp",
                 "skills": {"dirs": ["skills"]},
                 "mcpServers": {
-                    "test-server": {"enabled": True}
+                    "test-server": {
+                        "enabled": True,
+                        "transport": "stdio",
+                        "command": "node",
+                        "args": ["server.js"],
+                    }
                 }
             }
         )
@@ -319,7 +324,18 @@ class TestMcpConfigResourcesField:
     def test_mcp_config_skills_defaults_to_empty(self):
         """Test that skills dirs default to empty when not specified."""
         config = McpConfig.model_validate(
-            {"path": "/test", "spec_type": "mcp", "mcpServers": {"test-server": {"enabled": True}}}
+            {
+                "path": "/test",
+                "spec_type": "mcp",
+                "mcpServers": {
+                    "test-server": {
+                        "enabled": True,
+                        "transport": "stdio",
+                        "command": "node",
+                        "args": ["server.js"],
+                    }
+                },
+            }
         )
 
         assert config.get_skill_dirs() == []

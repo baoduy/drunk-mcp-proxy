@@ -22,7 +22,7 @@ from drunk_ai_proxy.utils.config_yaml import (
     LlmConfig,
     McpAuthConfig,
     McpConfig,
-    McpFilters,
+    OpenApiFilters,
     McpServerConfig,
     RemoteResourceConfig,
 )
@@ -146,42 +146,62 @@ class TestMcpConfig:
 
     def test_mcp_config_required_fields(self) -> None:
         """Test McpConfig with required fields."""
-        mcp_servers = {"test-server": {"enabled": True}}
+        mcp_servers = {
+            "test-server": {
+                "enabled": True,
+                "command": "npx",
+                "args": ["@playwright/mcp@0.0.64"],
+                "transport": "stdio",
+            }
+        }
         config = McpConfig(path="/api", mcp_servers=mcp_servers)
         assert config.path == "/api"
         assert config.spec_type == "mcp"
-        assert config.spec_file is None
+        assert config.open_api is None
 
     def test_mcp_config_with_openapi_spec(self) -> None:
         """Test McpConfig with OpenAPI specification."""
         config = McpConfig(
             path="/deepsea",
-            spec_file="openapi/deepsea.openapi.json",
             spec_type="openapi",
-            base_url="http://localhost:5000",
+            open_api={
+                "spec_file": "openapi/deepsea.openapi.json",
+                "base_url": "http://localhost:5000",
+            },
         )
         assert config.path == "/deepsea"
-        assert config.spec_file == "openapi/deepsea.openapi.json"
+        assert config.open_api is not None
+        assert config.open_api.spec_file == "openapi/deepsea.openapi.json"
         assert config.spec_type == "openapi"
-        assert config.base_url == "http://localhost:5000"
+        assert config.open_api.base_url == "http://localhost:5000"
 
     def test_mcp_config_with_filters(self) -> None:
         """Test McpConfig with filtering options."""
-        filters = McpFilters(methods=["GET", "POST"], tags=["CurrencyPairs"])
+        filters = OpenApiFilters(methods=["GET", "POST"], tags=["CurrencyPairs"])
         config = McpConfig(
             path="/deepsea",
             spec_type="openapi",
-            spec_file="openapi/deepsea.openapi.json",
-            base_url="http://localhost:5000",
-            filters=filters,
+            open_api={
+                "spec_file": "openapi/deepsea.openapi.json",
+                "base_url": "http://localhost:5000",
+                "filters": filters.model_dump(exclude_none=True),
+            },
         )
-        assert config.filters is not None
-        assert config.filters.methods == ["GET", "POST"]
-        assert config.filters.tags == ["CurrencyPairs"]
+        assert config.open_api is not None
+        assert config.open_api.filters is not None
+        assert config.open_api.filters.methods == ["GET", "POST"]
+        assert config.open_api.filters.tags == ["CurrencyPairs"]
 
     def test_mcp_config_with_skills_dirs(self) -> None:
         """Test McpConfig with skills.dirs."""
-        mcp_servers = {"test-server": {"enabled": True}}
+        mcp_servers = {
+            "test-server": {
+                "enabled": True,
+                "command": "npx",
+                "args": ["@playwright/mcp@0.0.64"],
+                "transport": "stdio",
+            }
+        }
         config = McpConfig(
             path="/",
             spec_type="mcp",
@@ -214,8 +234,10 @@ class TestMcpConfig:
         config = McpConfig(
             path="/deepsea",
             spec_type="openapi",
-            spec_file="openapi/deepsea.openapi.json",
-            base_url="http://localhost:5000",
+            open_api={
+                "spec_file": "openapi/deepsea.openapi.json",
+                "base_url": "http://localhost:5000",
+            },
             auth=auth,
         )
         assert config.auth is not None
@@ -236,12 +258,15 @@ class TestMcpConfig:
             config = McpConfig(
                 path="/api",
                 spec_type="openapi",
-                spec_file="openapi/test-spec.json",
-                base_url="http://localhost:5000",
+                open_api={
+                    "spec_file": "openapi/test-spec.json",
+                    "base_url": "http://localhost:5000",
+                },
             )
 
-            assert config.spec_data is not None
-            assert config.spec_data["info"]["title"] == "Test Spec"
+            assert config.open_api is not None
+            assert config.open_api.spec_data is not None
+            assert config.open_api.spec_data["info"]["title"] == "Test Spec"
 
 
 class TestMcpServerConfig:
@@ -391,14 +416,20 @@ class TestConfigYamlParsing:
 
     def test_parse_minimal_config(self) -> None:
         """Test parsing minimal YAML configuration."""
-        yaml_content = """
-mcp:
-  - path: /
-    spec_type: mcp
-    mcpServers:
-      test-server:
-        enabled: true
-"""
+        yaml_content = "\n".join(
+            [
+                "mcp:",
+                "  - path: /",
+                "    spec_type: mcp",
+                "    mcpServers:",
+                "      test-server:",
+                "        enabled: true",
+                "        command: npx",
+                "        args:",
+                "          - \"@playwright/mcp@0.0.64\"",
+                "        transport: stdio",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -635,33 +666,36 @@ mcp:
         # Patch CONFIG_DIR to use temp directory
         monkeypatch.setattr("drunk_ai_proxy.utils.config_yaml.CONFIG_DIR", temp_dir)
         
-        yaml_content = """
-auth:
-  default_provider: basic
-  basic:
-    base_url: null
-    token: null
-
-llm:
-  - enabled: true
-    provider: openai
-    base_url: https://api.openai.com/v1
-    api_key: $OPENAI_API_KEY
-
-mcp:
-  - path: /api
-    spec_file: openapi/api.json
-    spec_type: openapi
-    base_url: http://localhost:5000
-    filters:
-      methods:
-        - GET
-        - POST
-      tags:
-        - Test
-    auth:
-      pass_through: true
-"""
+        yaml_content = "\n".join(
+            [
+                "auth:",
+                "  default_provider: basic",
+                "  basic:",
+                "    base_url: null",
+                "    token: null",
+                "",
+                "llm:",
+                "  - enabled: true",
+                "    provider: openai",
+                "    base_url: https://api.openai.com/v1",
+                "    api_key: $OPENAI_API_KEY",
+                "",
+                "mcp:",
+                "  - path: /api",
+                "    spec_type: openapi",
+                "    open_api:",
+                "      spec_file: openapi/api.json",
+                "      base_url: http://localhost:5000",
+                "      filters:",
+                "        methods:",
+                "          - GET",
+                "          - POST",
+                "        tags:",
+                "          - Test",
+                "    auth:",
+                "      pass_through: true",
+            ]
+        )
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".yaml", delete=False
         ) as f:
@@ -687,11 +721,12 @@ mcp:
             assert len(config.mcp) == 1
             mcp = config.mcp[0]
             assert mcp.path == "/api"
-            assert mcp.spec_file == "openapi/api.json"
-            assert mcp.base_url == "http://localhost:5000"
-            assert mcp.filters is not None
-            assert mcp.filters.methods == ["GET", "POST"]
-            assert mcp.filters.tags == ["Test"]
+            assert mcp.open_api is not None
+            assert mcp.open_api.spec_file == "openapi/api.json"
+            assert mcp.open_api.base_url == "http://localhost:5000"
+            assert mcp.open_api.filters is not None
+            assert mcp.open_api.filters.methods == ["GET", "POST"]
+            assert mcp.open_api.filters.tags == ["Test"]
             assert mcp.auth is not None
             assert mcp.auth.pass_through is True
         finally:

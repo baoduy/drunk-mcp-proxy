@@ -30,7 +30,7 @@ class TestOpenApiMcpProviderCustomRouteMapper:
     def test_route_mapper_no_filters(self):
         """Test route mapper with no filters configured."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.filters = None
+        mock_config.get_openapi_filters.return_value = None
         provider = OpenApiMcpProvider(mock_config)
 
         mock_route = Mock()
@@ -46,7 +46,7 @@ class TestOpenApiMcpProviderCustomRouteMapper:
         mock_filters = Mock()
         mock_filters.methods = ["GET", "POST"]
         mock_filters.tags = None
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
         provider = OpenApiMcpProvider(mock_config)
 
@@ -63,7 +63,7 @@ class TestOpenApiMcpProviderCustomRouteMapper:
         mock_filters = Mock()
         mock_filters.methods = ["GET", "POST"]
         mock_filters.tags = None
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
         provider = OpenApiMcpProvider(mock_config)
 
@@ -84,7 +84,7 @@ class TestOpenApiMcpProviderCustomRouteMapper:
         mock_filters = Mock()
         mock_filters.methods = None
         mock_filters.tags = ["public", "v1"]
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
         provider = OpenApiMcpProvider(mock_config)
 
@@ -101,7 +101,7 @@ class TestOpenApiMcpProviderCustomRouteMapper:
         mock_filters = Mock()
         mock_filters.methods = None
         mock_filters.tags = ["public", "v1"]
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
         provider = OpenApiMcpProvider(mock_config)
 
@@ -131,7 +131,7 @@ class TestOpenApiMcpProviderCreateClient:
         
         mock_config = Mock(spec=McpConfig)
         mock_config.auth = None
-        mock_config.base_url = "https://api.example.com"
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.path = "/test"
 
         mock_client = Mock()
@@ -151,7 +151,7 @@ class TestOpenApiMcpProviderCreateClient:
         mock_azure_config = Mock(spec=McpAuthConfig)
         mock_auth_obj = Mock()
         mock_config = Mock(spec=McpConfig)
-        mock_config.base_url = "https://api.example.com"
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.path = "/test"
         mock_config.auth = Mock()
         mock_config.auth.azure = mock_azure_config
@@ -173,7 +173,7 @@ class TestOpenApiMcpProviderCreateClient:
         """Test creating client without base_url raises ValueError."""
         mock_config = Mock(spec=McpConfig)
         mock_config.auth = None
-        mock_config.base_url = None
+        mock_config.get_openapi_base_url.return_value = None
         mock_config.path = "/test"
 
         provider = OpenApiMcpProvider(mock_config)
@@ -190,9 +190,9 @@ class TestOpenApiMcpProviderCreateProxy:
         """Test successful proxy creation."""
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test-api"
-        mock_config.base_url = "https://api.example.com"
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.auth = None
-        mock_config.spec_data = {
+        mock_config.get_openapi_spec_data.return_value = {
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
             "paths": {},
@@ -226,9 +226,9 @@ class TestOpenApiMcpProviderCreateProxy:
         """Test that create_proxy returns cached MCP instance."""
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test-api"
-        mock_config.base_url = "https://api.example.com"
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.auth = None
-        mock_config.spec_data = {
+        mock_config.get_openapi_spec_data.return_value = {
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
             "paths": {},
@@ -260,7 +260,7 @@ class TestOpenApiMcpProviderCreateProxy:
         """Test create_proxy raises error without base_url and no Azure auth."""
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test-api"
-        mock_config.base_url = None
+        mock_config.get_openapi_base_url.return_value = None
         mock_config.auth = None
 
         provider = OpenApiMcpProvider(mock_config)

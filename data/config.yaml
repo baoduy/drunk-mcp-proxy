@@ -86,20 +86,17 @@ mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
   - enabled: true # Set to false to disable this server 
     path: /deepsea # URL path where this service is available
-    spec_file:
-      openapi/deepsea.openapi.json
-      # Path to OpenAPI specification file
-    spec_type: openapi # Type of specification (openapi or mcp)
-    base_url:
-      "https://deepsea-fxrate.tsv2.dev"
-      # Backend service URL
-    filters: # Filter which operations to expose
-      methods: # Only expose these HTTP methods
-        - GET
-        - POST
-        - PUT
-      tags:
-        - CurrencyPairs
+    spec_type: openapi
+    open_api:
+      spec_file: openapi/deepsea.openapi.json
+      base_url: "https://deepsea-fxrate.tsv2.dev"
+      filters: # Filter which operations to expose
+        methods: # Only expose these HTTP methods
+          - GET
+          - POST
+          - PUT
+        tags:
+          - CurrencyPairs
     auth:
       auth_provider: azure
 

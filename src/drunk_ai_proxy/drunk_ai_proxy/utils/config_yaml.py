@@ -105,17 +105,35 @@ class ConfigBaseModel(BaseModel):
 class BearerAuthConfig(ConfigBaseModel):
     """Bearer token authentication configuration."""
 
-    base_url: Optional[str] = Field(default=None)
-    token: Optional[str] = Field(default=None)
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Optional base URL for token introspection or auth service.",
+    )
+    token: Optional[str] = Field(
+        default=None,
+        description="Bearer token value used for upstream authentication.",
+    )
 
 
 class JwtAuthConfig(ConfigBaseModel):
     """JWT authentication configuration."""
 
-    base_url: Optional[str] = Field(default=None)
-    jwks_uri: Optional[str] = Field(default=None)
-    issuer: Optional[str] = Field(default=None)
-    audience: Optional[str] = Field(default=None)
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Optional base URL for JWT auth metadata endpoints.",
+    )
+    jwks_uri: Optional[str] = Field(
+        default=None,
+        description="JWKS endpoint URI used to validate JWT signatures.",
+    )
+    issuer: Optional[str] = Field(
+        default=None,
+        description="Expected JWT issuer claim value.",
+    )
+    audience: Optional[str] = Field(
+        default=None,
+        description="Expected JWT audience claim value.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -141,9 +159,18 @@ class JwtAuthConfig(ConfigBaseModel):
 
 class AuthConfig(ConfigBaseModel):
     """Authentication configuration section."""
-    default_provider: Optional[AuthType] = Field(default=None)
-    basic: Optional[BearerAuthConfig] = Field(default=None)
-    jwt: Optional[JwtAuthConfig] = Field(default=None)
+    default_provider: Optional[AuthType] = Field(
+        default=None,
+        description="Default authentication provider used when not explicitly specified.",
+    )
+    basic: Optional[BearerAuthConfig] = Field(
+        default=None,
+        description="Bearer/basic authentication provider configuration.",
+    )
+    jwt: Optional[JwtAuthConfig] = Field(
+        default=None,
+        description="JWT authentication provider configuration.",
+    )
 
     def _available_provider_names(self) -> list[str]:
         auth_data = self.model_dump(exclude_none=True, by_alias=True)
@@ -185,48 +212,115 @@ class AuthConfig(ConfigBaseModel):
 class LlmConfig(ConfigBaseModel):
     """LLM provider configuration."""
 
-    enabled: bool = Field(default=True)
-    websocket: bool = Field(default=False)
+    enabled: bool = Field(default=True, description="Enable or disable this LLM provider.")
+    websocket: bool = Field(
+        default=False,
+        description="Whether this LLM provider supports websocket transport.",
+    )
     provider: str = Field(description="LLM provider name")
     base_url: str = Field(description="Base URL for the LLM provider")
-    api_key: Optional[str] = Field(default=None)
+    api_key: Optional[str] = Field(
+        default=None,
+        description="API key for authenticating requests to the LLM provider.",
+    )
 
 
-class McpFilters(ConfigBaseModel):
-    """Filters for MCP specifications."""
+class OpenApiFilters(ConfigBaseModel):
+    """Filters for OpenAPI operation exposure."""
 
-    methods: Optional[list[str]] = Field(default=None)
-    tags: Optional[list[str]] = Field(default=None)
+    methods: Optional[list[str]] = Field(
+        default=None,
+        description="Allowed HTTP methods to include from the OpenAPI spec.",
+    )
+    tags: Optional[list[str]] = Field(
+        default=None,
+        description="Allowed OpenAPI tags to include from the OpenAPI spec.",
+    )
 
 
 class McpAuthConfig(ConfigBaseModel):
     """Authentication configuration for MCP."""
-    pass_through: bool = Field(default=False)
-    auth_provider: Optional[AuthType] = Field(default=None)
+    pass_through: bool = Field(
+        default=False,
+        description="Forward incoming client auth context to upstream MCP providers.",
+    )
+    auth_provider: Optional[AuthType] = Field(
+        default=None,
+        description="Override authentication provider for this MCP entry.",
+    )
 
 class McpServerConfig(ConfigBaseModel):
     """Individual MCP server configuration."""
-    enabled: bool = Field(default=True)
-    transport: Optional[str] = Field(default="stdio", description="Transport method for MCP server (stdio, http)")
-    url: Optional[str] = Field(default=None, description="URL for HTTP transport (required if transport is http)")
-    command: Optional[str] = Field(default=None, description="Command to start the MCP server (required if transport is stdio)")
-    args: Optional[list[str]] = Field(default=None, description="Arguments for the command (optional)")
-    env: Optional[dict[str, Any]] = Field(default=None, description="Environment variables for the MCP server process (optional)")
+    enabled: bool = Field(default=True, description="Enable or disable this MCP server entry.")
+    transport: Optional[str] = Field(
+        default="stdio",
+        description="Transport method for MCP server (stdio, http).",
+    )
+    url: Optional[str] = Field(
+        default=None,
+        description="URL for HTTP transport (required when transport is http).",
+    )
+    command: Optional[str] = Field(
+        default=None,
+        description="Executable command for stdio transport (required for stdio).",
+    )
+    args: Optional[list[str]] = Field(
+        default=None,
+        description="Optional arguments passed to the stdio command.",
+    )
+    env: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Optional environment variables for the MCP server process.",
+    )
 
 
 class McpResourceConfig(ConfigBaseModel):
     """MCP resource directories configuration."""
 
-    dirs: list[str] = Field(default_factory=list)
+    dirs: list[str] = Field(
+        default_factory=list,
+        description="Directory list containing discoverable MCP resources.",
+    )
+
+
+class OpenApiConfig(ConfigBaseModel):
+    """OpenAPI-specific MCP configuration."""
+
+    spec_file: Optional[str] = Field(
+        default=None,
+        description="Relative path to the OpenAPI specification file.",
+    )
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Upstream API base URL used to execute mapped operations.",
+    )
+    filters: Optional[OpenApiFilters] = Field(
+        default=None,
+        description="OpenAPI operation filters applied during route mapping.",
+    )
+    spec_data: Optional[dict[str, Any]] = Field(
+        default=None,
+        exclude=True,
+        description="Loaded OpenAPI specification document (internal runtime cache).",
+    )
 
 class McpConfig(ConfigBaseModel):
     """MCP server configuration."""
-    enabled: bool = Field(default=True)
+    enabled: bool = Field(default=True, description="Enable or disable this MCP route.")
     path: str = Field(description="Base path for the MCP proxy")
-    spec_file: Optional[str] = Field(default=None)
-    spec_type: SpecType = Field(default=SpecType.MCP, description="Type of specification ('mcp' or 'openapi')")
-    base_url: Optional[str] = Field(default=None)
-    skills: Optional[McpResourceConfig] = Field(default=None)
+    spec_type: SpecType = Field(
+        default=SpecType.MCP,
+        description="Specification type: 'mcp' for MCP servers or 'openapi' for OpenAPI mapping.",
+    )
+    open_api: Optional[OpenApiConfig] = Field(
+        default=None,
+        alias="openApi",
+        description="OpenAPI-specific configuration when spec_type is openapi.",
+    )
+    skills: Optional[McpResourceConfig] = Field(
+        default=None,
+        description="Skill resource directory configuration for this MCP route.",
+    )
     prompts: Optional[McpResourceConfig] = Field(
         default=None,
         description="Directories containing markdown prompt templates",
@@ -235,11 +329,24 @@ class McpConfig(ConfigBaseModel):
         default=None,
         description="Directories containing markdown agent definitions",
     )
-    filters: Optional[McpFilters] = Field(default=None)
-    auth: Optional[McpAuthConfig] = Field(default=None)
-    mcp_servers: Optional[dict[str, McpServerConfig]] = Field(default=None, alias="mcpServers")
-    tags: Optional[set[str]] = Field(default=None)
-    spec_data: Optional[dict[str, Any]] = Field(default=None, exclude=True)
+    auth: Optional[McpAuthConfig] = Field(
+        default=None,
+        description="Authentication behavior overrides for this MCP route.",
+    )
+    mcp_servers: Optional[dict[str, McpServerConfig]] = Field(
+        default=None,
+        alias="mcpServers",
+        description="Inline MCP server map used when spec_type is mcp.",
+    )
+    tags: Optional[set[str]] = Field(
+        default=None,
+        description="Optional tags associated with this MCP route configuration.",
+    )
+    spec_data: Optional[dict[str, Any]] = Field(
+        default=None,
+        exclude=True,
+        description="Loaded MCP specification data (internal runtime cache).",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -258,7 +365,7 @@ class McpConfig(ConfigBaseModel):
         if not isinstance(data, dict):
             return data
 
-        parsed_data = cast(dict[str, object], data)
+        parsed_data = cast(dict[str, object], data).copy()
 
         legacy_keys = ["skill_dir", "prompt_dir", "agents_dir"]
         used_legacy_keys = [key for key in legacy_keys if key in parsed_data]
@@ -268,6 +375,21 @@ class McpConfig(ConfigBaseModel):
                 f"{', '.join(used_legacy_keys)}. "
                 "Use 'skills.dirs', 'prompts', and 'agents'."
             )
+
+        spec_type = parsed_data.get("spec_type")
+        if spec_type in (SpecType.OPENAPI, SpecType.OPENAPI.value, "openapi"):
+            open_api_data = parsed_data.get("open_api") or parsed_data.get("openApi")
+            if open_api_data is None:
+                legacy_openapi: dict[str, object] = {}
+                for key in ("spec_file", "base_url", "filters"):
+                    value = parsed_data.get(key)
+                    if value is not None:
+                        legacy_openapi[key] = value
+                if legacy_openapi:
+                    parsed_data["open_api"] = legacy_openapi
+
+            for key in ("spec_file", "base_url", "filters"):
+                parsed_data.pop(key, None)
 
         return parsed_data
 
@@ -326,19 +448,71 @@ class McpConfig(ConfigBaseModel):
         try:
             jsonschema.validate(instance=self.spec_data, schema=schema)
         except jsonschema.ValidationError as e:
-            raise ValueError(
-                f"MCP spec file '{self.spec_file}' does not conform to MCP schema: {e.message}"
-            ) from e
+            raise ValueError(f"MCP specification does not conform to MCP schema: {e.message}") from e
         except jsonschema.SchemaError as e:
             raise ValueError(f"Invalid MCP schema file: {e.message}") from e
+
+    @staticmethod
+    def _validate_openapi_spec(spec_data: dict[str, Any]) -> None:
+        """Validate basic OpenAPI document requirements."""
+        if "openapi" not in spec_data:
+            raise ValueError("OpenAPI spec must include 'openapi' field")
+        if "info" not in spec_data:
+            raise ValueError("OpenAPI spec must include 'info' field")
+        if not any(key in spec_data for key in ("paths", "components", "webhooks")):
+            raise ValueError(
+                "OpenAPI spec must include at least one of: 'paths', 'components', or 'webhooks'"
+            )
+
+    @staticmethod
+    def _load_spec_file_data(spec_file: str) -> dict[str, Any]:
+        """Load specification mapping data from JSON/YAML file."""
+        file = f"{CONFIG_DIR}/{spec_file}"
+        if not os.path.exists(file):
+            raise FileNotFoundError(f"Spec file not found: {spec_file}")
+
+        with open(file, "r") as f:
+            if file.endswith(".json"):
+                data = json.load(f)
+            elif file.endswith((".yaml", ".yml")):
+                data = yaml.safe_load(f)
+            else:
+                raise ValueError(
+                    f"Unsupported spec file format: {file}. Supported formats: .json, .yaml, .yml"
+                )
+
+        if not isinstance(data, dict):
+            raise ValueError("Spec file must contain a mapping (dict)")
+
+        return cast(dict[str, Any], data)
+
+    def get_openapi_filters(self) -> OpenApiFilters | None:
+        """Return effective OpenAPI filters."""
+        if self.open_api is None:
+            return None
+        return self.open_api.filters
+
+    def get_openapi_base_url(self) -> str | None:
+        """Return effective OpenAPI base URL."""
+        if self.open_api is None:
+            return None
+        return self.open_api.base_url
+
+    def get_openapi_spec_data(self) -> dict[str, Any] | None:
+        """Return effective OpenAPI specification data."""
+        if self.open_api is None:
+            return None
+        return self.open_api.spec_data
 
     def _validate_fields(self) -> None:
         """Validate that required fields are present based on spec_type."""
         if self.spec_type == SpecType.OPENAPI:
-            if not self.base_url:
-                raise ValueError("base_url is required for OpenAPI spec type")
-            if not self.spec_file:
-                raise ValueError("spec_file is required for OpenAPI spec type")
+            if self.open_api is None:
+                raise ValueError("open_api is required for OpenAPI spec type")
+            if not self.get_openapi_base_url():
+                raise ValueError("open_api.base_url is required for OpenAPI spec type")
+            if not self.open_api.spec_file:
+                raise ValueError("open_api.spec_file is required for OpenAPI spec type")
         else:  # SpecType.MCP
             skill_dirs = self.get_skill_dirs()
             prompt_dirs = self.get_prompt_dirs()
@@ -349,14 +523,13 @@ class McpConfig(ConfigBaseModel):
             self._validate_dir_list(agent_dirs, "agents")
 
             if (
-                not self.spec_file
-                and not self.mcp_servers
+                not self.mcp_servers
                 and not prompt_dirs
                 and not agent_dirs
                 and not skill_dirs
             ):
                 raise ValueError(
-                    "For MCP spec type, either spec_file, mcp_servers, prompts, agents, or skills.dirs must be provided."
+                    "For MCP spec type, mcp_servers, prompts, agents, or skills.dirs must be provided."
                 )
         
     def load_spec_data(self):
@@ -380,31 +553,32 @@ class McpConfig(ConfigBaseModel):
             spec_data = mcp_config.load_spec_data()
             print(f"Loaded {len(spec_data)} server configurations")
         """
-        if not self.spec_file:
-            self.spec_data = {"mcpServers": {k: v.model_dump(exclude_none=True) for k, v in self.mcp_servers.items()}} if self.mcp_servers else None
-            return
-            
-        file = f"{CONFIG_DIR}/{self.spec_file}"
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"Spec file not found: {self.spec_file}")
-        
-        with open(file, "r") as f:
-            if file.endswith(".json"):
-                import json
-                data = json.load(f)
-            elif file.endswith((".yaml", ".yml")):
-                data = yaml.safe_load(f)
-            else:
-                raise ValueError(f"Unsupported spec file format: {file}. Supported formats: .json, .yaml, .yml")
-        
-        if not isinstance(data, dict):
-            raise ValueError("Spec file must contain a mapping (dict)")
+        if self.spec_type == SpecType.OPENAPI:
+            if self.open_api is None:
+                return
 
-        # Store the loaded data first, then resolve env vars and validate
-        resolved_data = resolve_env_vars_in_dict(cast(dict[str, Any], data))
-        self.spec_data = resolved_data
-        if self.spec_type == SpecType.MCP:
-            # Validate data against schema/mcp.schema.json
+            if not self.open_api.spec_file:
+                self.open_api.spec_data = None
+                return
+
+            data = self._load_spec_file_data(self.open_api.spec_file)
+            resolved_data = resolve_env_vars_in_dict(data)
+            self.open_api.spec_data = resolved_data
+            self._validate_openapi_spec(resolved_data)
+            return
+
+        self.spec_data = (
+            {
+                "mcpServers": {
+                    key: value.model_dump(exclude_none=True)
+                    for key, value in self.mcp_servers.items()
+                }
+            }
+            if self.mcp_servers
+            else None
+        )
+
+        if self.spec_data is not None:
             self._validate_mcp_schema()
         
     @model_validator(mode="after")
@@ -449,10 +623,22 @@ class ConfigYaml(ConfigBaseModel):
         mcp: List of MCP server configurations
         remote_resources: List of remote resource bundles to sync at startup
     """
-    auth: Optional[AuthConfig] = Field(default=None)
-    llm: Optional[list[LlmConfig]] = Field(default=None)
-    mcp: Optional[list[McpConfig]] = Field(default=None)
-    remote_resources: Optional[list[RemoteResourceConfig]] = Field(default=None)
+    auth: Optional[AuthConfig] = Field(
+        default=None,
+        description="Authentication providers and defaults.",
+    )
+    llm: Optional[list[LlmConfig]] = Field(
+        default=None,
+        description="Configured LLM provider definitions.",
+    )
+    mcp: Optional[list[McpConfig]] = Field(
+        default=None,
+        description="Configured MCP route and provider entries.",
+    )
+    remote_resources: Optional[list[RemoteResourceConfig]] = Field(
+        default=None,
+        description="Remote resource bundles to synchronize at startup.",
+    )
 
     @staticmethod
     def load_from_file(config_file: str) -> ConfigYaml:

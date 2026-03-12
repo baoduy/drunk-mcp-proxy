@@ -8,7 +8,7 @@ from .config_yaml import (
     BearerAuthConfig,
     JwtAuthConfig,
     McpConfig,
-    McpFilters,
+    OpenApiFilters,
     LlmConfig,
     RemoteResourceConfig,
 )
@@ -35,7 +35,7 @@ __all__ = [
     "BearerAuthConfig",
     "JwtAuthConfig",
     "McpConfig",
-    "McpFilters",
+    "OpenApiFilters",
     "LlmConfig",
     "ConfigYaml",
     "RemoteResourceConfig",

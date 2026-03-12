@@ -16,12 +16,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
+- Refactored OpenAPI MCP configuration to use nested `open_api` fields (`spec_file`, `base_url`, `filters`, `spec_data`) and removed redundant top-level OpenAPI fields from `McpConfig`.
 - Updated MCP and prompt provider wiring to use effective multi-directory accessors for local resources.
 - Updated prompt loading to support scanning multiple prompt directories.
 - Updated skill resource URI naming to include the configured root namespace for paths under `skills/<name>` (for example `skill://dknet/<skill>/SKILL.md`).
 - Updated agent resource naming and URIs to include the configured root namespace for paths under `agents/<name>` (for example `agent://dknet/test-generator.agent.md` and `.../_manifest`).
 - Consolidated skill/prompt/agent resource provider implementations under `proxies/resource/` and switched MCP skill mounting to `SkillsDirectoryProvider` from that unified package.
 - Switched MCP agent mounting to `AgentsDirectoryProvider` from `proxies/resource/` and removed remaining legacy provider modules (`agent_provider`, `custom_agents_directory_provider`, `custom_skills_directory_provider`) with corresponding unit test migration.
+- Added explicit `description` metadata for all `Field(...)` declarations in `utils/config_yaml.py` to improve schema clarity and generated docs.
 
 ### Fixed
 

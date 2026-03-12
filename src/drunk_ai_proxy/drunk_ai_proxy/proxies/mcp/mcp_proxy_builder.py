@@ -115,7 +115,7 @@ class McpProxyBuilder:
         """Build MCP proxy configs for OpenAPI providers."""
         proxy_configs: list[McpProxyConfig] = []
         for config in configs:
-            if config.spec_data is None:
+            if config.get_openapi_spec_data() is None:
                 continue
 
             provider = provider_factory(config)

@@ -29,23 +29,29 @@ class OpenApiMcpProvider(McpBaseProvider):
         super().__init__(config)
         self.mcp: FastMCP | None = None
 
+    def _get_filters(self):
+        """Return configured OpenAPI filters, if any."""
+        return self.config.get_openapi_filters()
+
     def custom_route_mapper(self, route: "HTTPRoute", mcp_type: "MCPType") -> "MCPType | None":
-        if self.config.filters is not None:
-            if self.config.filters.methods:
-                if route.method not in self.config.filters.methods:
+        filters = self._get_filters()
+        if filters is not None:
+            if filters.methods:
+                if route.method not in filters.methods:
                     return MCPType.EXCLUDE
 
-            if self.config.filters.tags:
-                if not any(tag in route.tags for tag in self.config.filters.tags):
+            if filters.tags:
+                if not any(tag in route.tags for tag in filters.tags):
                     return MCPType.EXCLUDE
 
         return mcp_type
 
     def create_client(self) -> httpx.AsyncClient:
         """Return an appropriate HTTP client for the configured service."""
-        if not self.config.base_url:
+        base_url = self.config.get_openapi_base_url()
+        if not base_url:
             raise ValueError("base_url is required for OpenAPI clients without Azure auth")
-        return httpx.AsyncClient(base_url=self.config.base_url, auth=self._create_client_auth())
+        return httpx.AsyncClient(base_url=base_url, auth=self._create_client_auth())
 
     def create_proxy(self) -> FastMCP:
         """
@@ -56,10 +62,13 @@ class OpenApiMcpProvider(McpBaseProvider):
 
         client = self.create_client()
 
-        assert self.config.spec_data
+        openapi_spec = self.config.get_openapi_spec_data()
+        if openapi_spec is None:
+            raise ValueError("open_api.spec_data is required for OpenAPI proxy creation")
+
         self.mcp = FastMCP.from_openapi(
             name=f"{SERVER_NAME}{self.config.path}",
-            openapi_spec=self.config.spec_data,
+            openapi_spec=openapi_spec,
             client=client,
             route_map_fn=self.custom_route_mapper,
             tags=self.config.tags
@@ -67,6 +76,7 @@ class OpenApiMcpProvider(McpBaseProvider):
         
         self.mcp.auth = super()._get_app_auth_provider()
         self._create_skill_proxy(self.mcp)
+        self._create_agent_proxy(self.mcp)
         
         return self.mcp
 
