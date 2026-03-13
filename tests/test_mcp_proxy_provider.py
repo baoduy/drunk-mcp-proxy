@@ -221,6 +221,9 @@ class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_mcp_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_prompt_proxy")
@@ -233,6 +236,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_prompt_proxy,
         mock_create_agent_proxy,
         mock_add_mcp_proxy,
+        mock_add_remote_skill_proxy,
+        mock_add_remote_prompt_proxy,
+        mock_add_remote_agent_proxy,
         mock_get_app_config,
     ):
         """Test that create_proxy calls _add_skill_proxy."""
@@ -258,6 +264,9 @@ class TestMcpProxyProviderCreateProxy:
         assert result == mock_mcp
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_mcp_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_prompt_proxy")
@@ -270,6 +279,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_prompt_proxy,
         mock_create_agent_proxy,
         mock_add_mcp_proxy,
+        mock_add_remote_skill_proxy,
+        mock_add_remote_prompt_proxy,
+        mock_add_remote_agent_proxy,
         mock_get_app_config,
     ):
         """Test that create_proxy uses root_mcp when path is '/'."""
@@ -295,6 +307,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_mcp_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_prompt_proxy")
@@ -307,6 +322,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_prompt_proxy,
         mock_create_agent_proxy,
         mock_add_mcp_proxy,
+        mock_add_remote_skill_proxy,
+        mock_add_remote_prompt_proxy,
+        mock_add_remote_agent_proxy,
         mock_get_app_config,
     ):
         """Test that create_proxy returns cached mcp on subsequent calls."""

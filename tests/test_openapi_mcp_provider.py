@@ -147,6 +147,9 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             patch.object(provider, "_add_skill_proxy"),
             patch.object(provider, "_add_prompt_proxy"),
             patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
             patch.object(provider, "_create_openapi_client", return_value=Mock()),
         ):
             result = provider.create_proxy()
@@ -195,6 +198,9 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             patch.object(provider, "_add_skill_proxy"),
             patch.object(provider, "_add_prompt_proxy"),
             patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
             patch.object(provider, "_create_openapi_client", return_value=Mock()),
         ):
             first = provider.create_proxy()
@@ -225,6 +231,9 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             patch.object(provider, "_add_skill_proxy"),
             patch.object(provider, "_add_prompt_proxy"),
             patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
             patch.object(provider, "_create_openapi_client", return_value=Mock()),
             pytest.raises(ValueError, match="open_api.spec_data is required"),
         ):

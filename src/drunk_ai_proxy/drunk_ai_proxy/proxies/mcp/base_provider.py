@@ -195,6 +195,62 @@ class McpBaseProvider(ABC):
                 details={"error_type": type(e).__name__},
             )
 
+    def _add_remote_skill_proxy(self, mcp: FastMCP) -> None:
+        """Mount remote on-demand skill providers from section-level remote_resources.
+
+        Each entry in ``skills.remote_resources`` is wired to a
+        :class:`~drunk_ai_proxy.proxies.mcp.remote_skill_provider.RemoteSkillProvider`
+        backed by the shared on-demand service.
+
+        Args:
+            mcp: FastMCP instance to mount skill providers to.
+        """
+        remote_skills = self.config.get_skill_remote_resources()
+        if not remote_skills:
+            return
+
+        if self.config.get_skill_dirs():
+            logger.warning(
+                "Path '%s' has both skills.dirs and skills.remote_resources configured. "
+                "Local and remote skill URIs may overlap if names collide.",
+                self.config.path,
+            )
+
+        from drunk_ai_proxy.app.cache_provider import CacheProvider
+        from drunk_ai_proxy.proxies.mcp.remote_skill_provider import RemoteSkillProvider
+        import httpx
+
+        cache = CacheProvider.get_cache_store()
+        http_client = httpx.AsyncClient()
+
+        for entry in remote_skills:
+            try:
+                provider = RemoteSkillProvider(
+                    config=entry,
+                    cache=cache,
+                    http_client=http_client,
+                )
+                mcp.add_provider(provider)
+                logger.info(
+                    "Registered remote skill provider '%s' for path '%s'",
+                    entry.name,
+                    self.config.path,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to create remote skill provider '%s' for path '%s': %s",
+                    entry.name,
+                    self.config.path,
+                    type(e).__name__,
+                )
+                audit_log(
+                    logger=logger,
+                    event="mcp_remote_skill_provider_failed",
+                    status="failure",
+                    resource=self.config.path,
+                    details={"entry_name": entry.name, "error_type": type(e).__name__},
+                )
+
     def _add_agent_proxy(self, mcp: FastMCP) -> None:
         """Create and mount agent provider if agents are configured.
         
@@ -238,6 +294,118 @@ class McpBaseProvider(ABC):
                 resource=self.config.path,
                 details={"error_type": type(e).__name__},
             )
+
+    def _add_remote_agent_proxy(self, mcp: FastMCP) -> None:
+        """Mount remote on-demand agent providers from section-level remote_resources.
+
+        Each entry in ``agents.remote_resources`` is wired to a
+        :class:`~drunk_ai_proxy.proxies.mcp.remote_agent_provider.RemoteAgentProvider`
+        backed by the shared on-demand service.
+
+        Args:
+            mcp: FastMCP instance to mount agent providers to.
+        """
+        remote_agents = self.config.get_agent_remote_resources()
+        if not remote_agents:
+            return
+
+        if self.config.get_agent_dirs():
+            logger.warning(
+                "Path '%s' has both agents.dirs and agents.remote_resources configured. "
+                "Local and remote agent URIs may overlap if names collide.",
+                self.config.path,
+            )
+
+        from drunk_ai_proxy.app.cache_provider import CacheProvider
+        from drunk_ai_proxy.proxies.mcp.remote_agent_provider import RemoteAgentProvider
+        import httpx
+
+        cache = CacheProvider.get_cache_store()
+        http_client = httpx.AsyncClient()
+
+        for entry in remote_agents:
+            try:
+                provider = RemoteAgentProvider(
+                    config=entry,
+                    cache=cache,
+                    http_client=http_client,
+                )
+                mcp.add_provider(provider)
+                logger.info(
+                    "Registered remote agent provider '%s' for path '%s'",
+                    entry.name,
+                    self.config.path,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to create remote agent provider '%s' for path '%s': %s",
+                    entry.name,
+                    self.config.path,
+                    type(e).__name__,
+                )
+                audit_log(
+                    logger=logger,
+                    event="mcp_remote_agent_provider_failed",
+                    status="failure",
+                    resource=self.config.path,
+                    details={"entry_name": entry.name, "error_type": type(e).__name__},
+                )
+
+    def _add_remote_prompt_proxy(self, mcp: FastMCP) -> None:
+        """Mount remote on-demand prompt providers from section-level remote_resources.
+
+        Each entry in ``prompts.remote_resources`` is wired to a lazy remote
+        prompt backed by the shared on-demand service.
+
+        Args:
+            mcp: FastMCP instance to register remote prompts to.
+        """
+        remote_prompts = self.config.get_prompt_remote_resources()
+        if not remote_prompts:
+            return
+
+        if self.config.get_prompt_dirs():
+            logger.warning(
+                "Path '%s' has both prompts.dirs and prompts.remote_resources configured. "
+                "Local and remote prompt names may collide.",
+                self.config.path,
+            )
+
+        from drunk_ai_proxy.app.cache_provider import CacheProvider
+        from drunk_ai_proxy.proxies.prompt.remote_prompt_provider import RemotePromptProvider
+        import httpx
+
+        cache = CacheProvider.get_cache_store()
+        http_client = httpx.AsyncClient()
+
+        for entry in remote_prompts:
+            try:
+                provider = RemotePromptProvider(
+                    config=self.config,
+                    remote_config=entry,
+                    cache=cache,
+                    http_client=http_client,
+                )
+                provider.register_to_mcp(mcp)
+                logger.info(
+                    "Registered remote prompt '%s' for path '%s'",
+                    entry.name,
+                    self.config.path,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to create remote prompt provider '%s' for path '%s': %s",
+                    entry.name,
+                    self.config.path,
+                    type(e).__name__,
+                )
+                audit_log(
+                    logger=logger,
+                    event="mcp_remote_prompt_provider_failed",
+                    status="failure",
+                    resource=self.config.path,
+                    details={"entry_name": entry.name, "error_type": type(e).__name__},
+                )
 
     def _create_client_auth(self) -> "Auth | None":
         pass_through = self.config.auth.pass_through if self.config.auth else False

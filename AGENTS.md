@@ -240,13 +240,20 @@ Use modern async patterns (Python 3.11+):
 **Every class in the codebase must follow these standards:**
 
 1. **Logger Pattern** - Always:
-   - `from fastmcp.utilities import logging` at the **top of each module**
-   - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
-   - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
-   - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
-   - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
+    - `from fastmcp.utilities import logging` at the **top of each module**
+    - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
+    - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
+    - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
+    - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
 
-2. **Type Hints** - Always:
+2. **OOP and Class Design** - Always:
+    - **One primary class per module**: Every module must have a primary class (e.g., `AuthService`, `ProxyBuilder`, `ConfigLoader`) that encapsulates all core business logic.
+    - **No module-level procedural functions for business logic**: All orchestration, state management, and executable logic must be inside class methods. Only pure utility/helper functions (stateless, no side effects) are allowed at module level.
+    - **No global mutable state**: Avoid module-level variables that change during execution. All state must be stored as private attributes in class instances (`self._state`).
+    - **Module-level code restriction**: The only code that can execute at module level (outside functions/classes) should be imports, constants, type aliases, and class/function definitions. No I/O, no initialization, no computation.
+    - **Example violation**: Don't do this: `cached_config = load_config()` at module top. Instead, wrap in a class: `class ConfigService: ... def load(self): ...`
+
+3. **Type Hints** - Always:
    - Avoid `Any` type - use specific types or `Protocol`
    - Use `dict[str, str]` not `dict[str, Any]`
    - Use union types: `str | int | None`
@@ -602,6 +609,16 @@ Use modern async patterns (Python 3.11+):
 ### Logger Pattern (Standard Convention)
 
 **All modules must follow this exact pattern for logging:**
+
+### OOP and Class Design (Critical)
+
+**Every module must be structured around one primary class with these strict rules:**
+
+1. **One primary class per module**: Every module must have a primary class (e.g., `AuthService`, `ProxyBuilder`, `ConfigLoader`) that encapsulates all core business logic.
+2. **No module-level procedural functions for business logic**: All orchestration, state management, and executable logic must be inside class methods. Only pure utility/helper functions (stateless, no side effects) are allowed at module level.
+3. **No global mutable state**: Avoid module-level variables that change during execution. All state must be stored as private attributes in class instances (`self._state`).
+4. **Module-level code restriction**: The only code that can execute at module level (outside functions/classes) should be imports, constants, type aliases, and class/function definitions. No I/O, no initialization, no computation.
+5. **Example violation**: Don't do this: `cached_config = load_config()` at module top. Instead, wrap in a class: `class ConfigService: ... def load(self): ...`
 
 ```python
 """Module docstring."""
@@ -1018,40 +1035,46 @@ result = handler.handle({"url": "https://example.com"})
 ### OOP & Modularity Principles
 
 - **Guideline**: Prefer composition over inheritance unless the relationship is a strict is-a, and keep modules cohesive with small, intentional public interfaces.
-- **Project Rule (Strict)**: New modules must be implemented with class-based design first. Avoid module-level procedural functions for core logic unless they are tiny pure utility helpers.
+- **Project Rule (Strict)**: New modules must be implemented with class-based design first. AVOID ALL MODULE-LEVEL PROCEDURAL FUNCTIONS FOR BUSINESS LOGIC. Core logic must be encapsulated in one primary class per module.
 - **Bad Example**:
   ```python
-  class ReportService:
+  # ❌ BAD - Module-level function with business logic
+  def process_user_data(users: list[dict]) -> dict:
+      # Procedural logic at module level - VIOLATES OOP
+      result = {}
+      for user in users:
+          if user.get("active"):
+              result[user["id"]] = user
+      return result
+
+  class UserService:
       def __init__(self):
-          self.db = Database()
-          self.mailer = Mailer()
-
-      def create_and_send(self, user_id: int) -> None:
-          report = self.db.fetch_report(user_id)
-          self.mailer.send(report)
-          self._cleanup_temp_files()
-
-      def _cleanup_temp_files(self) -> None:
-          pass
+          self.data = {}  # Module-level state should be in class
+          process_user_data(load_users())  # Procedural call in constructor
   ```
 - **Good Example**:
   ```python
-  class ReportRepository(Protocol):
-      def fetch_report(self, user_id: int) -> str: ...
+  from typing import Protocol
+
+  class UserRepository(Protocol):
+      def fetch_users(self) -> list[dict]: ...
 
 
-  class Mailer(Protocol):
-      def send(self, report: str) -> None: ...
-
-
-  class ReportService:
-      def __init__(self, repository: ReportRepository, mailer: Mailer) -> None:
+  class UserProcessor:
+      """Primary class that encapsulates ALL user processing logic."""
+      
+      def __init__(self, repository: UserRepository):
           self._repository = repository
-          self._mailer = mailer
-
-      def send_report(self, user_id: int) -> None:
-          report = self._repository.fetch_report(user_id)
-          self._mailer.send(report)
+          self._data: dict = {}  # State encapsulated in class
+      
+      def process_users(self) -> dict:
+          """Process users using class methods - NO module-level logic."""
+          users = self._repository.fetch_users()
+          return self._filter_active_users(users)
+      
+      def _filter_active_users(self, users: list[dict]) -> dict:
+          """Private helper method - logic encapsulated in class."""
+          return {user["id"]: user for user in users if user.get("active")}
   ```
 
 ### SOLID Principles
@@ -1537,12 +1560,12 @@ user = repo.find_by_id(1)
 **Every class in the codebase must follow these standards:**
 
 1. **Logger Pattern** - Always:
-   - `from logging import Logger`
-   - `self._logger: Logger = setup_logging(__name__)` in `__init__`
-   - Use `self._logger.info()`, `self._logger.error()`, etc.
-   - Log only exception types: `self._logger.error("Failed: %s", type(e).__name__)`
-
-    > **Note:** This section duplicates the Consistency Requirements in section 3. See section 3 for the canonical logger pattern (`from fastmcp.utilities import logging; logger = logging.get_logger(__name__)` at module level).
+    - `from fastmcp.utilities import logging` at the **top of each module**
+    - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
+    - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
+    - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
+    - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
+    - See **Section 3.1** for the canonical logger pattern.
 
 2. **Type Hints** - Always:
     - Avoid `Any` type - use specific types or `Protocol`

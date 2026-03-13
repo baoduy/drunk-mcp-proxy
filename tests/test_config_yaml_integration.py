@@ -204,7 +204,7 @@ mcp:
         try:
             with pytest.raises(
                 ValueError,
-                match="For MCP spec type, mcp_servers, prompts, agents, or skills.dirs must be provided",
+                match="For MCP spec type, mcp_servers, prompts, agents, skills.dirs, or remote_resources must be provided",
             ):
                 ConfigYaml.load_from_file(temp_file)
         finally:

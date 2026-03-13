@@ -8,9 +8,17 @@ from .config_yaml import (
     BearerAuthConfig,
     JwtAuthConfig,
     McpConfig,
+    McpResourceConfig,
+    OnDemandRemoteResourceConfig,
     OpenApiFilters,
     LlmConfig,
     RemoteResourceConfig,
+)
+from .config_yaml_uri import (
+    build_skill_resource_uris,
+    build_agent_resource_uri,
+    build_prompt_resource_uri,
+    build_name_from_url,
 )
 from .env_resolver import resolve_env_vars
 from .security import (
@@ -35,10 +43,17 @@ __all__ = [
     "BearerAuthConfig",
     "JwtAuthConfig",
     "McpConfig",
+    "McpResourceConfig",
+    "OnDemandRemoteResourceConfig",
     "OpenApiFilters",
     "LlmConfig",
     "ConfigYaml",
     "RemoteResourceConfig",
+    # config_yaml_uri
+    "build_skill_resource_uris",
+    "build_agent_resource_uri",
+    "build_prompt_resource_uri",
+    "build_name_from_url",
     # env_resolver
     "resolve_env_vars",
     # security

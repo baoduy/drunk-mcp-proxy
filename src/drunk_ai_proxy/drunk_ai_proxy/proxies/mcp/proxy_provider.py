@@ -123,8 +123,11 @@ class McpProxyProvider(McpBaseProvider):
 
         self.mcp.auth = self._get_app_auth_provider()
         self._add_skill_proxy(self.mcp)
+        self._add_remote_skill_proxy(self.mcp)
         self._add_prompt_proxy(self.mcp)
+        self._add_remote_prompt_proxy(self.mcp)
         self._add_agent_proxy(self.mcp)
+        self._add_remote_agent_proxy(self.mcp)
 
         return self.mcp
     

@@ -14,11 +14,14 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 import yaml
+from fastmcp.utilities import logging
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from drunk_ai_proxy.utils.env import CONFIG_DIR
 
 from .env_resolver import resolve_env_vars, resolve_env_vars_in_dict
+
+logger = logging.get_logger(__name__)
 
 
 class AuthType(str, Enum):
@@ -273,6 +276,70 @@ class McpServerConfig(ConfigBaseModel):
     )
 
 
+class OnDemandRemoteResourceConfig(ConfigBaseModel):
+    """Configuration for a single on-demand remote resource entry.
+
+    Used in ``skills``, ``prompts``, and ``agents`` sections to declare
+    remote HTTPS content that is fetched on first access and cached in
+    the TTL cache store.
+
+    Skills support multiple files via ``urls`` (one must be ``SKILL.md``).
+    Agents and prompts support only a single ``url``.
+    """
+
+    name: str = Field(description="Logical name for this remote resource entry.")
+    url: str | None = Field(
+        default=None,
+        description="Single HTTPS URL for agents or prompts.",
+    )
+    urls: list[str] | None = Field(
+        default=None,
+        description="Multiple HTTPS URLs for skills (SKILL.md required in list).",
+    )
+    headers: dict[str, str] | None = Field(
+        default=None,
+        description="Optional HTTP headers (e.g. Authorization) for private endpoints.",
+    )
+
+    @model_validator(mode="after")
+    def validate_remote_resource(self) -> "OnDemandRemoteResourceConfig":
+        """Validate URLs are HTTPS and that url/urls are not both set.
+
+        Returns:
+            Validated model.
+
+        Raises:
+            ValueError: If both ``url`` and ``urls`` are set, neither is set,
+                or any URL is not HTTPS.
+        """
+        has_url = self.url is not None
+        has_urls = self.urls is not None and len(self.urls) > 0
+
+        if has_url and has_urls:
+            raise ValueError(
+                f"Remote resource '{self.name}': provide either 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
+            raise ValueError(
+                f"Remote resource '{self.name}': either 'url' or 'urls' must be provided."
+            )
+
+        all_urls: list[str] = []
+        if self.url:
+            all_urls.append(self.url)
+        if self.urls:
+            all_urls.extend(self.urls)
+
+        for u in all_urls:
+            if not u.startswith("https://"):
+                raise ValueError(
+                    f"Remote resource '{self.name}': all URLs must use HTTPS. "
+                    f"Got: {u}"
+                )
+
+        return self
+
+
 class McpResourceConfig(ConfigBaseModel):
     """MCP resource directories configuration."""
 
@@ -280,6 +347,53 @@ class McpResourceConfig(ConfigBaseModel):
         default_factory=list,
         description="Directory list containing discoverable MCP resources.",
     )
+    remote_resources: list[str | OnDemandRemoteResourceConfig] = Field(
+        default_factory=list,
+        description=(
+            "On-demand remote HTTPS resources fetched on first access and "
+            "cached by TTL. Shorthand string entries are auto-normalized."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def normalize_remote_resources(self) -> "McpResourceConfig":
+        """Normalize shorthand string entries into OnDemandRemoteResourceConfig.
+
+        A bare HTTPS URL string is converted to a config entry whose ``name``
+        is derived from the URL path and whose ``url``/``urls`` is set
+        accordingly.  A warning is logged recommending the explicit object form.
+
+        Returns:
+            Validated model with normalized remote_resources.
+        """
+        from drunk_ai_proxy.utils.config_yaml_uri import build_name_from_url  # noqa: PLC0415
+
+        normalized: list[str | OnDemandRemoteResourceConfig] = []
+        for entry in self.remote_resources:
+            if isinstance(entry, str):
+                url = entry
+                if not url.startswith("https://"):
+                    raise ValueError(
+                        f"Shorthand remote_resource URL must use HTTPS. Got: {url}"
+                    )
+                name = build_name_from_url(url)
+                logger.warning(
+                    "Shorthand remote_resource string '%s' detected. "
+                    "Recommend using explicit object form with 'name' and 'urls'.",
+                    url,
+                )
+                if url.endswith("SKILL.md"):
+                    normalized.append(
+                        OnDemandRemoteResourceConfig(name=name, urls=[url])
+                    )
+                else:
+                    normalized.append(
+                        OnDemandRemoteResourceConfig(name=name, url=url)
+                    )
+            else:
+                normalized.append(entry)
+        self.remote_resources = normalized
+        return self
 
 
 class OpenApiConfig(ConfigBaseModel):
@@ -429,6 +543,48 @@ class McpConfig(ConfigBaseModel):
             return []
         return self.agents.dirs
 
+    def get_skill_remote_resources(self) -> list[OnDemandRemoteResourceConfig]:
+        """Return on-demand remote skill resource configs.
+
+        Returns:
+            List of normalized OnDemandRemoteResourceConfig entries for
+            this MCP route's skills section.
+        """
+        if self.skills is None:
+            return []
+        return [
+            r for r in self.skills.remote_resources
+            if isinstance(r, OnDemandRemoteResourceConfig)
+        ]
+
+    def get_prompt_remote_resources(self) -> list[OnDemandRemoteResourceConfig]:
+        """Return on-demand remote prompt resource configs.
+
+        Returns:
+            List of normalized OnDemandRemoteResourceConfig entries for
+            this MCP route's prompts section.
+        """
+        if self.prompts is None:
+            return []
+        return [
+            r for r in self.prompts.remote_resources
+            if isinstance(r, OnDemandRemoteResourceConfig)
+        ]
+
+    def get_agent_remote_resources(self) -> list[OnDemandRemoteResourceConfig]:
+        """Return on-demand remote agent resource configs.
+
+        Returns:
+            List of normalized OnDemandRemoteResourceConfig entries for
+            this MCP route's agents section.
+        """
+        if self.agents is None:
+            return []
+        return [
+            r for r in self.agents.remote_resources
+            if isinstance(r, OnDemandRemoteResourceConfig)
+        ]
+
     @staticmethod
     def _validate_openapi_spec(spec_data: dict[str, Any]) -> None:
         """Validate basic OpenAPI document requirements."""
@@ -499,14 +655,22 @@ class McpConfig(ConfigBaseModel):
             self._validate_dir_list(prompt_dirs, "prompts")
             self._validate_dir_list(agent_dirs, "agents")
 
+            has_remote_resources = (
+                bool(self.get_skill_remote_resources())
+                or bool(self.get_prompt_remote_resources())
+                or bool(self.get_agent_remote_resources())
+            )
+
             if (
                 not self.mcp_servers
                 and not prompt_dirs
                 and not agent_dirs
                 and not skill_dirs
+                and not has_remote_resources
             ):
                 raise ValueError(
-                    "For MCP spec type, mcp_servers, prompts, agents, or skills.dirs must be provided."
+                    "For MCP spec type, mcp_servers, prompts, agents, skills.dirs, "
+                    "or remote_resources must be provided."
                 )
         
     def load_spec_data(self):

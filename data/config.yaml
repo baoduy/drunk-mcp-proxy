@@ -167,15 +167,42 @@ mcp:
       dirs:
         - skills/dknet
         - skills/dotnet
+      # remote_resources: serve HTTPS-hosted skill files on-demand (no local sync).
+      # Accepts shorthand (URL string) or full object form.
+      # Skills must use "urls" (multiple files) with one ending in SKILL.md.
+      remote_resources:
+        # Shorthand: single URL – treated as the SKILL.md entry point
+        - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
+        # Full object form with multiple support files
+        # - name: my-remote-skill
+        #   urls:
+        #     - https://example.com/skills/my-skill/SKILL.md
+        #     - https://example.com/skills/my-skill/query-plan.md
+        #   headers:
+        #     Authorization: "Bearer $MY_TOKEN"
+        
     prompts:
       dirs:
         - prompts/custom
         - prompts/dotnet
+      # remote_resources: serve HTTPS-hosted prompt templates on-demand.
+      # Prompts must use "url" (single file) pointing to a markdown template.
+      # remote_resources:
+      #   - name: my-remote-prompt
+      #     url: https://example.com/prompts/my-template.md
+      #     headers:
+      #       Authorization: "Bearer $MY_TOKEN"
+
     agents:
       dirs:
         - agents/core
         - agents/dotnet
         - agents/tools
+      # remote_resources: serve HTTPS-hosted agent markdown files on-demand.
+      # Agents must use "url" (single file).
+      # remote_resources:
+      #   - name: my-remote-agent
+      #     url: https://example.com/agents/my-agent.md
 
 # Sync/Download the remote resources to the local filesystem on startup. This allows you to reference remote files (e.g. markdown prompts) in your skills without having to manually download them.
 remote_resources:

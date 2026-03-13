@@ -22,6 +22,8 @@ from drunk_ai_proxy.utils.config_yaml import (
     LlmConfig,
     McpAuthConfig,
     McpConfig,
+    McpResourceConfig,
+    OnDemandRemoteResourceConfig,
     OpenApiFilters,
     McpServerConfig,
     RemoteResourceConfig,
@@ -821,3 +823,227 @@ auth:
                 assert config.auth.jwt.issuer == "https://sts.windows.net/my-tenant/"
             finally:
                 os.unlink(temp_file)
+
+
+# ---------------------------------------------------------------------------
+# TestOnDemandRemoteResourceConfig
+# ---------------------------------------------------------------------------
+
+
+class TestOnDemandRemoteResourceConfig:
+    """Tests for OnDemandRemoteResourceConfig Pydantic model."""
+
+    def test_single_url_field(self) -> None:
+        """Valid config with a single 'url' field."""
+        cfg = OnDemandRemoteResourceConfig(
+            name="my-agent", url="https://example.com/agent.md"
+        )
+        assert cfg.url == "https://example.com/agent.md"
+        assert cfg.urls is None
+
+    def test_urls_list_field(self) -> None:
+        """Valid config with a 'urls' list field."""
+        cfg = OnDemandRemoteResourceConfig(
+            name="my-skill",
+            urls=["https://example.com/SKILL.md", "https://example.com/utils.py"],
+        )
+        assert len(cfg.urls) == 2  # type: ignore[arg-type]
+        assert cfg.url is None
+
+    def test_both_url_and_urls_raises(self) -> None:
+        """Providing both url and urls must raise."""
+        with pytest.raises(ValueError, match="not both"):
+            OnDemandRemoteResourceConfig(
+                name="bad",
+                url="https://example.com/agent.md",
+                urls=["https://example.com/SKILL.md"],
+            )
+
+    def test_neither_url_nor_urls_raises(self) -> None:
+        """Neither url nor urls must raise."""
+        with pytest.raises(ValueError, match="must be provided"):
+            OnDemandRemoteResourceConfig(name="empty")
+
+    def test_http_url_raises(self) -> None:
+        """HTTP (non-HTTPS) URL must raise."""
+        with pytest.raises(ValueError, match="HTTPS"):
+            OnDemandRemoteResourceConfig(
+                name="insecure", url="http://example.com/agent.md"
+            )
+
+    def test_http_in_urls_list_raises(self) -> None:
+        """HTTP URL inside urls list must raise."""
+        with pytest.raises(ValueError, match="HTTPS"):
+            OnDemandRemoteResourceConfig(
+                name="mixed",
+                urls=["https://example.com/SKILL.md", "http://example.com/bad.py"],
+            )
+
+    def test_optional_headers(self) -> None:
+        """Optional headers are stored correctly."""
+        cfg = OnDemandRemoteResourceConfig(
+            name="private",
+            url="https://example.com/agent.md",
+            headers={"Authorization": "Bearer secret"},
+        )
+        assert cfg.headers == {"Authorization": "Bearer secret"}
+
+    def test_no_headers_defaults_to_none(self) -> None:
+        """Headers default to None when omitted."""
+        cfg = OnDemandRemoteResourceConfig(
+            name="public", url="https://example.com/agent.md"
+        )
+        assert cfg.headers is None
+
+
+# ---------------------------------------------------------------------------
+# TestMcpResourceConfigRemoteResources
+# ---------------------------------------------------------------------------
+
+
+class TestMcpResourceConfigRemoteResources:
+    """Tests for McpResourceConfig.remote_resources shorthand parsing."""
+
+    def test_shorthand_skill_md_normalized_to_urls(self) -> None:
+        """Shorthand SKILL.md string is normalized with urls (list)."""
+        cfg = McpResourceConfig(
+            remote_resources=["https://example.com/SKILL.md"]
+        )
+        assert len(cfg.remote_resources) == 1
+        entry = cfg.remote_resources[0]
+        assert isinstance(entry, OnDemandRemoteResourceConfig)
+        assert entry.urls == ["https://example.com/SKILL.md"]
+        assert entry.url is None
+
+    def test_shorthand_non_skill_md_normalized_to_url(self) -> None:
+        """Shorthand non-SKILL.md string is normalized with url (singular)."""
+        cfg = McpResourceConfig(
+            remote_resources=["https://example.com/agent.md"]
+        )
+        entry = cfg.remote_resources[0]
+        assert isinstance(entry, OnDemandRemoteResourceConfig)
+        assert entry.url == "https://example.com/agent.md"
+        assert entry.urls is None
+
+    def test_shorthand_http_url_raises(self) -> None:
+        """Shorthand HTTP URL must raise during normalization."""
+        with pytest.raises(ValueError, match="HTTPS"):
+            McpResourceConfig(remote_resources=["http://example.com/SKILL.md"])
+
+    def test_explicit_object_form_passes_through(self) -> None:
+        """Fully specified object form is stored unchanged."""
+        entry = OnDemandRemoteResourceConfig(
+            name="my-skill",
+            urls=["https://example.com/SKILL.md"],
+        )
+        cfg = McpResourceConfig(remote_resources=[entry])
+        assert cfg.remote_resources[0] is entry
+
+    def test_empty_remote_resources(self) -> None:
+        """Empty remote_resources defaults correctly."""
+        cfg = McpResourceConfig()
+        assert cfg.remote_resources == []
+
+    def test_dirs_and_remote_resources_coexist(self) -> None:
+        """dirs and remote_resources can both be configured."""
+        cfg = McpResourceConfig(
+            dirs=["/skills"],
+            remote_resources=["https://example.com/SKILL.md"],
+        )
+        assert cfg.dirs == ["/skills"]
+        assert len(cfg.remote_resources) == 1
+
+
+# ---------------------------------------------------------------------------
+# TestMcpConfigGetRemoteResources
+# ---------------------------------------------------------------------------
+
+
+class TestMcpConfigGetRemoteResources:
+    """Tests for McpConfig.get_*_remote_resources helper methods."""
+
+    def _make_mcp_config(
+        self,
+        *,
+        skills_remote: list | None = None,
+        prompts_remote: list | None = None,
+        agents_remote: list | None = None,
+    ) -> McpConfig:
+        # McpConfig requires at least one meaningful section; use mcp_servers
+        # as a sentinel when testing empty remote_resources.
+        has_something = any([skills_remote, prompts_remote, agents_remote])
+        sentinel_servers = (
+            None if has_something
+            else {"s": McpServerConfig(name="s", url="http://s")}
+        )
+        return McpConfig(
+            path="/test",
+            name="test",
+            mcp_servers=sentinel_servers,
+            skills=McpResourceConfig(remote_resources=skills_remote or []),
+            prompts=McpResourceConfig(remote_resources=prompts_remote or []),
+            agents=McpResourceConfig(remote_resources=agents_remote or []),
+        )
+
+    def test_get_skill_remote_resources_empty(self) -> None:
+        cfg = self._make_mcp_config()
+        assert cfg.get_skill_remote_resources() == []
+
+    def test_get_skill_remote_resources_returns_normalized_entries(self) -> None:
+        cfg = self._make_mcp_config(
+            skills_remote=["https://example.com/SKILL.md"]
+        )
+        results = cfg.get_skill_remote_resources()
+        assert len(results) == 1
+        assert isinstance(results[0], OnDemandRemoteResourceConfig)
+
+    def test_get_prompt_remote_resources_empty(self) -> None:
+        cfg = self._make_mcp_config()
+        assert cfg.get_prompt_remote_resources() == []
+
+    def test_get_prompt_remote_resources_returns_normalized_entries(self) -> None:
+        cfg = self._make_mcp_config(
+            prompts_remote=["https://example.com/prompt.md"]
+        )
+        results = cfg.get_prompt_remote_resources()
+        assert len(results) == 1
+        assert isinstance(results[0], OnDemandRemoteResourceConfig)
+
+    def test_get_agent_remote_resources_empty(self) -> None:
+        cfg = self._make_mcp_config()
+        assert cfg.get_agent_remote_resources() == []
+
+    def test_get_agent_remote_resources_returns_normalized_entries(self) -> None:
+        cfg = self._make_mcp_config(
+            agents_remote=["https://example.com/agent.md"]
+        )
+        results = cfg.get_agent_remote_resources()
+        assert len(results) == 1
+        assert isinstance(results[0], OnDemandRemoteResourceConfig)
+
+    def test_get_skill_remote_resources_none_skills(self) -> None:
+        """get_skill_remote_resources returns [] when skills is None."""
+        cfg = McpConfig(path="/test", name="test", mcp_servers={"s": McpServerConfig(name="s", url="http://s")})
+        assert cfg.get_skill_remote_resources() == []
+
+    def test_get_prompt_remote_resources_none_prompts(self) -> None:
+        """get_prompt_remote_resources returns [] when prompts is None."""
+        cfg = McpConfig(path="/test", name="test", mcp_servers={"s": McpServerConfig(name="s", url="http://s")})
+        assert cfg.get_prompt_remote_resources() == []
+
+    def test_get_agent_remote_resources_none_agents(self) -> None:
+        """get_agent_remote_resources returns [] when agents is None."""
+        cfg = McpConfig(path="/test", name="test", mcp_servers={"s": McpServerConfig(name="s", url="http://s")})
+        assert cfg.get_agent_remote_resources() == []
+
+    def test_validate_fields_passes_with_only_remote_resources(self) -> None:
+        """McpConfig validation passes when only remote_resources is set (no dirs)."""
+        cfg = McpConfig(
+            path="/test",
+            name="test",
+            skills=McpResourceConfig(
+                remote_resources=["https://example.com/SKILL.md"]
+            ),
+        )
+        assert cfg.skills is not None
+        assert len(cfg.get_skill_remote_resources()) == 1

@@ -28,6 +28,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -66,6 +69,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -96,6 +102,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -128,6 +137,9 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -206,6 +218,9 @@ class TestMcpProxyProviderCodeModeOverride:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -250,6 +265,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
+        mock_config.get_skill_remote_resources.return_value = []
+        mock_config.get_prompt_remote_resources.return_value = []
+        mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
         mock_app_config = Mock()
@@ -287,6 +305,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config2.get_skill_dirs.return_value = []
         mock_config2.get_prompt_dirs.return_value = []
         mock_config2.get_agent_dirs.return_value = []
+        mock_config2.get_skill_remote_resources.return_value = []
+        mock_config2.get_prompt_remote_resources.return_value = []
+        mock_config2.get_agent_remote_resources.return_value = []
         mock_config2.auth = None
 
         mock_app_config = Mock()
@@ -319,6 +340,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config1.get_skill_dirs.return_value = []
         mock_config1.get_prompt_dirs.return_value = []
         mock_config1.get_agent_dirs.return_value = []
+        mock_config1.get_skill_remote_resources.return_value = []
+        mock_config1.get_prompt_remote_resources.return_value = []
+        mock_config1.get_agent_remote_resources.return_value = []
         mock_config1.auth = None
 
         mock_config2 = Mock(spec=McpConfig)
@@ -329,6 +353,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config2.get_skill_dirs.return_value = []
         mock_config2.get_prompt_dirs.return_value = []
         mock_config2.get_agent_dirs.return_value = []
+        mock_config2.get_skill_remote_resources.return_value = []
+        mock_config2.get_prompt_remote_resources.return_value = []
+        mock_config2.get_agent_remote_resources.return_value = []
         mock_config2.auth = None
 
         mock_app_config = Mock()
