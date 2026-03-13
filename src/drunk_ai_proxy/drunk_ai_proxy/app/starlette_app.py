@@ -7,7 +7,6 @@ with MCP server mounts, health check endpoints, middleware, and lifespan managem
 
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from fastmcp.server.http import StarletteWithLifespan
@@ -191,14 +190,15 @@ class StarletteApp:
         logger.info(
             "Returning Starlette application with %d MCP mount(s)", len(self.mcp_apps))
 
+        self.lifespan_manager = AppLifespanManager(
+            mcp_apps=self.mcp_apps,
+            remote_resources=self._remote_resources,
+        )
+
         # Create new app with custom lifespan
         app = Starlette(
             middleware=self.middleware,
-            lifespan=partial(
-                self.lifespan_manager.lifespans,
-                mcp_apps=self.mcp_apps,
-                remote_resources=self._remote_resources,
-            ),
+            lifespan=self.lifespan_manager.lifespans,
             exception_handlers={Exception: self._exception_handler}
         )
 

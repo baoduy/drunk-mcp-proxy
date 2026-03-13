@@ -29,14 +29,20 @@ class AppLifespanManager:
         logger: Logger instance for debug and error messages.
     """
 
-    def __init__(self) -> None:
-        """Initialize the AppLifespanManager."""
+    def __init__(
+        self,
+        mcp_apps: list[tuple[str | None, StarletteWithLifespan]] | None = None,
+        remote_resources: list[RemoteResourceConfig] | None = None,
+    ) -> None:
+        """Initialize lifespan manager with managed app/resource references."""
+        self._mcp_apps = mcp_apps or []
+        self._remote_resources = remote_resources
 
     @asynccontextmanager
     async def lifespans(
         self,
         _: object,
-        mcp_apps: list[tuple[str | None, StarletteWithLifespan]],
+        mcp_apps: list[tuple[str | None, StarletteWithLifespan]] | None = None,
         remote_resources: list[RemoteResourceConfig] | None = None,
     ):
         """
@@ -50,10 +56,21 @@ class AppLifespanManager:
             None - delegates to _create_app_lifespans.
         """
         sync_task: asyncio.Task[None] | None = None
-        if remote_resources:
+        active_mcp_apps = mcp_apps if mcp_apps is not None else self._mcp_apps
+        active_remote_resources = (
+            remote_resources
+            if remote_resources is not None
+            else self._remote_resources
+        )
+
+        if active_remote_resources:
             from drunk_ai_proxy.app.tasks import RemoteResourceSyncTask
 
-            enabled_remote_resources = [resource for resource in remote_resources if resource.enabled]
+            enabled_remote_resources = [
+                resource
+                for resource in active_remote_resources
+                if resource.enabled
+            ]
 
             if enabled_remote_resources:
                 sync_task = asyncio.create_task(
@@ -67,7 +84,7 @@ class AppLifespanManager:
             else:
                 logger.info("Remote resource sync skipped: no enabled bundle(s)")
 
-        async with self._create_app_lifespans(mcp_apps):
+        async with self._create_app_lifespans(active_mcp_apps):
             yield
 
         if sync_task is not None and not sync_task.done():

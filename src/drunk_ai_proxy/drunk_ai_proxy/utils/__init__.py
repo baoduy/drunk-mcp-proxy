@@ -1,7 +1,7 @@
 """Tools package for MCP proxy."""
 
-from .config_yaml import (
-    ConfigYaml,
+from .config_yaml import ConfigYaml
+from .config_yaml_models import (
     AuthType,
     SpecType,
     AuthConfig,

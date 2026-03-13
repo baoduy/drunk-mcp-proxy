@@ -44,90 +44,93 @@ class AgentInfo:
     frontmatter: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())
 
 
-def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
-    """Parse YAML frontmatter from markdown content.
+class AgentParser:
+    """Parser utilities for agent markdown files and metadata."""
 
-    Args:
-        content: Markdown content potentially starting with ---
+    @staticmethod
+    def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
+        """Parse YAML frontmatter from markdown content.
 
-    Returns:
-        Tuple of (frontmatter dict, remaining content)
-    """
-    if not content.startswith("---"):
-        return {}, content
+        Args:
+            content: Markdown content potentially starting with ---
 
-    # Find the closing ---
-    end_match = re.search(r"\n---\s*\n", content[3:])
-    if not end_match:
-        return {}, content
+        Returns:
+            Tuple of (frontmatter dict, remaining content).
+        """
+        if not content.startswith("---"):
+            return {}, content
 
-    frontmatter_text = content[3 : 3 + end_match.start()]
-    remaining = content[3 + end_match.end() :]
+        end_match = re.search(r"\n---\s*\n", content[3:])
+        if not end_match:
+            return {}, content
 
-    # Parse YAML (simple key: value parsing, no complex types)
-    frontmatter: dict[str, Any] = {}
-    for line in frontmatter_text.strip().split("\n"):
-        if ":" in line:
-            key, _, value = line.partition(":")
-            key = key.strip()
-            value = value.strip()
+        frontmatter_text = content[3 : 3 + end_match.start()]
+        remaining = content[3 + end_match.end() :]
 
-            # Handle quoted strings
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
-            ):
-                value = value[1:-1]
+        frontmatter: dict[str, Any] = {}
+        for line in frontmatter_text.strip().split("\n"):
+            if ":" in line:
+                key, _, value = line.partition(":")
+                key = key.strip()
+                value = value.strip()
 
-            # Handle boolean values
-            if value.lower() in ("true", "false"):
-                value = value.lower() == "true"
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    value = value[1:-1]
 
-            # Handle lists [a, b, c]
-            if isinstance(value, str) and value.startswith("[") and value.endswith("]"):
-                items = value[1:-1].split(",")
-                value = [item.strip().strip("\"'") for item in items if item.strip()]
+                if value.lower() in ("true", "false"):
+                    value = value.lower() == "true"
 
-            frontmatter[key] = value
+                if isinstance(value, str) and value.startswith("[") and value.endswith("]"):
+                    items = value[1:-1].split(",")
+                    value = [item.strip().strip("\"'") for item in items if item.strip()]
 
-    return frontmatter, remaining
+                frontmatter[key] = value
 
+        return frontmatter, remaining
 
-def compute_file_hash(path: Path) -> str:
-    """Compute SHA256 hash of a file.
+    @staticmethod
+    def compute_file_hash(path: Path) -> str:
+        """Compute SHA256 hash of a file.
 
-    Args:
-        path: Path to the file.
+        Args:
+            path: Path to the file.
 
-    Returns:
-        Hash string in format 'sha256:hexdigest'.
-    """
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    return f"sha256:{sha256.hexdigest()}"
+        Returns:
+            Hash string in format 'sha256:hexdigest'.
+        """
+        sha256 = hashlib.sha256()
+        with open(path, "rb") as file_handle:
+            for chunk in iter(lambda: file_handle.read(8192), b""):
+                sha256.update(chunk)
+        return f"sha256:{sha256.hexdigest()}"
 
+    @staticmethod
+    def scan_agent_files(agent_path: Path) -> list[AgentFileInfo]:
+        """Scan agent file for manifest information.
 
-def scan_agent_files(agent_path: Path) -> list[AgentFileInfo]:
-    """Scan agent file for manifest information.
+        Args:
+            agent_path: Path to the agent markdown file.
 
-    Args:
-        agent_path: Path to the agent markdown file.
-
-    Returns:
-        List containing file info for the agent markdown file.
-    """
-    files = []
-    if agent_path.is_file():
-        files.append(
-            AgentFileInfo(
-                # Use just the filename for single-file agents
-                path=agent_path.name,
-                size=agent_path.stat().st_size,
-                hash=compute_file_hash(agent_path),
+        Returns:
+            List containing file info for the agent markdown file.
+        """
+        files: list[AgentFileInfo] = []
+        if agent_path.is_file():
+            files.append(
+                AgentFileInfo(
+                    path=agent_path.name,
+                    size=agent_path.stat().st_size,
+                    hash=AgentParser.compute_file_hash(agent_path),
+                )
             )
-        )
-    return files
+        return files
+
+
+parse_frontmatter = AgentParser.parse_frontmatter
+compute_file_hash = AgentParser.compute_file_hash
+scan_agent_files = AgentParser.scan_agent_files
 
 
 class AgentResource(Resource):
@@ -245,11 +248,11 @@ class AgentProvider(Provider):
             raise ValueError(f"Agent path is not a file: {self._agent_path}")
 
         # Scan agent files for manifest
-        files = scan_agent_files(self._agent_path)
+        files = AgentParser.scan_agent_files(self._agent_path)
         
         # Load frontmatter for metadata
         content = self._agent_path.read_text()
-        frontmatter, _ = parse_frontmatter(content)
+        frontmatter, _ = AgentParser.parse_frontmatter(content)
         
         # Create agent info
         self._agent_info = AgentInfo(

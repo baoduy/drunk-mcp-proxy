@@ -6,6 +6,7 @@ This module provides an abstract base class for creating MCP provider implementa
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from drunk_ai_proxy.utils import audit_log
@@ -13,6 +14,7 @@ from drunk_ai_proxy.utils.protocols import AuthProviderFactory
 from drunk_ai_proxy.utils.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from drunk_ai_proxy.utils import McpConfig
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
@@ -23,13 +25,6 @@ if TYPE_CHECKING:
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 
-
-class AppConfigProvider:
-    """Compatibility shim for tests patching legacy AppConfigProvider path."""
-
-    @staticmethod
-    def get_instance() -> None:
-        return None
 
 @dataclass
 class McpProxyConfig:
@@ -169,31 +164,111 @@ class McpBaseProvider(ABC):
         from drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider import (
             CustomSkillsDirectoryProvider,
         )
+        self._attach_directory_provider(
+            mcp=mcp,
+            resource_type="skill",
+            dirs=skill_dirs,
+            provider_factory=lambda valid_dirs: CustomSkillsDirectoryProvider(
+                roots=valid_dirs,
+                reload=True,
+            ),
+            failure_event="mcp_skill_provider_failed",
+        )
 
-        skill_dir_paths = self._validate_resource_directories(skill_dirs, "skill")
+    def _attach_directory_provider(
+        self,
+        mcp: FastMCP,
+        resource_type: str,
+        dirs: list[str],
+        provider_factory: Callable[[list["Path"]], object],
+        failure_event: str,
+    ) -> None:
+        """Create and attach a local directory-based provider.
 
-        if not skill_dir_paths:
+        Args:
+            mcp: FastMCP server to attach provider to.
+            resource_type: Resource type label used in log messages.
+            dirs: Configured directories to validate and attach.
+            provider_factory: Factory creating provider from validated directories.
+            failure_event: Audit event name used on provider-creation failure.
+        """
+        valid_dirs = self._validate_resource_directories(dirs, resource_type)
+        if not valid_dirs:
             return
 
         try:
-            provider = CustomSkillsDirectoryProvider(roots=skill_dir_paths, reload=True)
-            if not provider.providers:
+            provider = provider_factory(valid_dirs)
+            providers_attr = getattr(provider, "providers", None)
+            if providers_attr is not None and not providers_attr:
                 return
 
             mcp.add_provider(provider)
+            logger.info(
+                "Registered %s provider for path '%s' from directories: %s",
+                resource_type,
+                self.config.path,
+                ",".join(dirs),
+            )
         except Exception as e:
             logger.error(
-                "Failed to create skill provider for path '%s': %s",
+                "Failed to create %s provider for path '%s': %s",
+                resource_type,
                 self.config.path,
                 type(e).__name__,
             )
             audit_log(
                 logger=logger,
-                event="mcp_skill_provider_failed",
+                event=failure_event,
                 status="failure",
                 resource=self.config.path,
                 details={"error_type": type(e).__name__},
             )
+
+    def _attach_remote_providers(
+        self,
+        mcp: FastMCP,
+        entries: list[object],
+        resource_type: str,
+        create_provider: Callable[[object], object],
+        register_provider: Callable[[object, FastMCP], None],
+        failure_event: str,
+    ) -> None:
+        """Create and attach remote providers for each configured entry.
+
+        Args:
+            mcp: FastMCP server to attach provider resources to.
+            entries: Remote resource configuration entries.
+            resource_type: Resource type label used in logs.
+            create_provider: Provider factory for each remote entry.
+            register_provider: Registration callback for created providers.
+            failure_event: Audit event name used on provider-creation failure.
+        """
+        for entry in entries:
+            entry_name = getattr(entry, "name", "unknown")
+            try:
+                provider = create_provider(entry)
+                register_provider(provider, mcp)
+                logger.info(
+                    "Registered remote %s provider '%s' for path '%s'",
+                    resource_type,
+                    entry_name,
+                    self.config.path,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to create remote %s provider '%s' for path '%s': %s",
+                    resource_type,
+                    entry_name,
+                    self.config.path,
+                    type(e).__name__,
+                )
+                audit_log(
+                    logger=logger,
+                    event=failure_event,
+                    status="failure",
+                    resource=self.config.path,
+                    details={"entry_name": entry_name, "error_type": type(e).__name__},
+                )
 
     def _add_remote_skill_proxy(self, mcp: FastMCP) -> None:
         """Mount remote on-demand skill providers from section-level remote_resources.
@@ -223,33 +298,18 @@ class McpBaseProvider(ABC):
         cache = CacheProvider.get_cache_store()
         http_client = httpx.AsyncClient()
 
-        for entry in remote_skills:
-            try:
-                provider = RemoteSkillProvider(
-                    config=entry,
-                    cache=cache,
-                    http_client=http_client,
-                )
-                mcp.add_provider(provider)
-                logger.info(
-                    "Registered remote skill provider '%s' for path '%s'",
-                    entry.name,
-                    self.config.path,
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to create remote skill provider '%s' for path '%s': %s",
-                    entry.name,
-                    self.config.path,
-                    type(e).__name__,
-                )
-                audit_log(
-                    logger=logger,
-                    event="mcp_remote_skill_provider_failed",
-                    status="failure",
-                    resource=self.config.path,
-                    details={"entry_name": entry.name, "error_type": type(e).__name__},
-                )
+        self._attach_remote_providers(
+            mcp=mcp,
+            entries=remote_skills,
+            resource_type="skill",
+            create_provider=lambda entry: RemoteSkillProvider(
+                config=entry,
+                cache=cache,
+                http_client=http_client,
+            ),
+            register_provider=lambda provider, target_mcp: target_mcp.add_provider(provider),
+            failure_event="mcp_remote_skill_provider_failed",
+        )
 
     def _add_agent_proxy(self, mcp: FastMCP) -> None:
         """Create and mount agent provider if agents are configured.
@@ -265,35 +325,16 @@ class McpBaseProvider(ABC):
             CustomAgentsDirectoryProvider,
         )
 
-        agents_dir_paths = self._validate_resource_directories(agent_dirs, "agent")
-
-        if not agents_dir_paths:
-            return
-
-        try:
-            provider = CustomAgentsDirectoryProvider(roots=agents_dir_paths, reload=True)
-            if not provider.providers:
-                return
-
-            mcp.add_provider(provider)
-            logger.info(
-                "Registered agent provider for path '%s' from directory: %s",
-                self.config.path,
-                ",".join(agent_dirs),
-            )
-        except Exception as e:
-            logger.error(
-                "Failed to create agent provider for path '%s': %s",
-                self.config.path,
-                type(e).__name__,
-            )
-            audit_log(
-                logger=logger,
-                event="mcp_agent_provider_failed",
-                status="failure",
-                resource=self.config.path,
-                details={"error_type": type(e).__name__},
-            )
+        self._attach_directory_provider(
+            mcp=mcp,
+            resource_type="agent",
+            dirs=agent_dirs,
+            provider_factory=lambda valid_dirs: CustomAgentsDirectoryProvider(
+                roots=valid_dirs,
+                reload=True,
+            ),
+            failure_event="mcp_agent_provider_failed",
+        )
 
     def _add_remote_agent_proxy(self, mcp: FastMCP) -> None:
         """Mount remote on-demand agent providers from section-level remote_resources.
@@ -323,33 +364,18 @@ class McpBaseProvider(ABC):
         cache = CacheProvider.get_cache_store()
         http_client = httpx.AsyncClient()
 
-        for entry in remote_agents:
-            try:
-                provider = RemoteAgentProvider(
-                    config=entry,
-                    cache=cache,
-                    http_client=http_client,
-                )
-                mcp.add_provider(provider)
-                logger.info(
-                    "Registered remote agent provider '%s' for path '%s'",
-                    entry.name,
-                    self.config.path,
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to create remote agent provider '%s' for path '%s': %s",
-                    entry.name,
-                    self.config.path,
-                    type(e).__name__,
-                )
-                audit_log(
-                    logger=logger,
-                    event="mcp_remote_agent_provider_failed",
-                    status="failure",
-                    resource=self.config.path,
-                    details={"entry_name": entry.name, "error_type": type(e).__name__},
-                )
+        self._attach_remote_providers(
+            mcp=mcp,
+            entries=remote_agents,
+            resource_type="agent",
+            create_provider=lambda entry: RemoteAgentProvider(
+                config=entry,
+                cache=cache,
+                http_client=http_client,
+            ),
+            register_provider=lambda provider, target_mcp: target_mcp.add_provider(provider),
+            failure_event="mcp_remote_agent_provider_failed",
+        )
 
     def _add_remote_prompt_proxy(self, mcp: FastMCP) -> None:
         """Mount remote on-demand prompt providers from section-level remote_resources.
@@ -378,34 +404,19 @@ class McpBaseProvider(ABC):
         cache = CacheProvider.get_cache_store()
         http_client = httpx.AsyncClient()
 
-        for entry in remote_prompts:
-            try:
-                provider = RemotePromptProvider(
-                    config=self.config,
-                    remote_config=entry,
-                    cache=cache,
-                    http_client=http_client,
-                )
-                provider.register_to_mcp(mcp)
-                logger.info(
-                    "Registered remote prompt '%s' for path '%s'",
-                    entry.name,
-                    self.config.path,
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to create remote prompt provider '%s' for path '%s': %s",
-                    entry.name,
-                    self.config.path,
-                    type(e).__name__,
-                )
-                audit_log(
-                    logger=logger,
-                    event="mcp_remote_prompt_provider_failed",
-                    status="failure",
-                    resource=self.config.path,
-                    details={"entry_name": entry.name, "error_type": type(e).__name__},
-                )
+        self._attach_remote_providers(
+            mcp=mcp,
+            entries=remote_prompts,
+            resource_type="prompt",
+            create_provider=lambda entry: RemotePromptProvider(
+                config=self.config,
+                remote_config=entry,
+                cache=cache,
+                http_client=http_client,
+            ),
+            register_provider=lambda provider, target_mcp: provider.register_to_mcp(target_mcp),
+            failure_event="mcp_remote_prompt_provider_failed",
+        )
 
     def _create_client_auth(self) -> "Auth | None":
         pass_through = self.config.auth.pass_through if self.config.auth else False

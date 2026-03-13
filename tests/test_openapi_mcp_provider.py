@@ -110,14 +110,12 @@ class TestMcpProxyProviderOpenApiClient:
 class TestMcpProxyProviderOpenApiCreateProxy:
     """Tests for create_proxy OpenAPI branch."""
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.OpenAPIProvider")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_openapi_success(
         self,
         mock_create_fastmcp_server: Mock,
         mock_openapi_provider: Mock,
-        mock_get_app_config: Mock,
     ) -> None:
         """Build OpenAPI provider and attach it to a FastMCP server."""
         mock_config = Mock(spec=McpConfig)
@@ -132,9 +130,6 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             "paths": {},
         }
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         openapi_mcp = MagicMock()
         mock_create_fastmcp_server.return_value = openapi_mcp
@@ -163,14 +158,12 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         mock_openapi_provider.assert_called_once()
         openapi_mcp.add_provider.assert_called_once_with(provider_instance)
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.OpenAPIProvider")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_openapi_returns_cached(
         self,
         mock_create_fastmcp_server: Mock,
         mock_openapi_provider: Mock,
-        mock_get_app_config: Mock,
     ) -> None:
         """Avoid rebuilding OpenAPI proxy on repeated calls."""
         mock_config = Mock(spec=McpConfig)
@@ -185,9 +178,6 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             "paths": {},
         }
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_create_fastmcp_server.return_value = MagicMock()
         mock_openapi_provider.return_value = Mock()
@@ -210,8 +200,7 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         assert mock_create_fastmcp_server.call_count == 1
         assert mock_openapi_provider.call_count == 1
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
-    def test_create_proxy_openapi_missing_spec_data_raises(self, mock_get_app_config: Mock) -> None:
+    def test_create_proxy_openapi_missing_spec_data_raises(self) -> None:
         """Raise ValueError when OpenAPI spec data is not loaded."""
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/openapi"
@@ -221,9 +210,6 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.get_openapi_spec_data.return_value = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
 

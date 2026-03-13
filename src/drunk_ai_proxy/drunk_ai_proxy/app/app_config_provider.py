@@ -1,3 +1,7 @@
+"""Application configuration provider and auth factory accessors."""
+
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig, RemoteResourceConfig
@@ -9,13 +13,33 @@ if TYPE_CHECKING:
     from httpx import Auth
 
 
-class AppConfigProvider:
-    """Provides application configuration."""
-
-    _instance: "AppConfigProvider | None" = None
+class AppConfigReader:
+    """Read-only application configuration accessor."""
 
     def __init__(self) -> None:
         self._configs = ConfigYaml.load_from_file(f"{CONFIG_DIR}/config.yaml")
+
+    def get_mcp_configs(self) -> list["McpConfig"]:
+        """Get the list of MCP server configurations."""
+        return [mcp for mcp in self._configs.mcp if mcp.enabled] if self._configs.mcp else []
+
+    def get_llm_configs(self) -> list["LlmConfig"]:
+        """Get the list of LLM provider configurations."""
+        return [llm for llm in self._configs.llm if llm.enabled] if self._configs.llm else []
+
+    def get_remote_resources(self) -> list[RemoteResourceConfig]:
+        """Get the list of remote resource configurations.
+
+        Returns:
+            List of RemoteResourceConfig instances, or empty list if none configured.
+        """
+        return self._configs.remote_resources if self._configs.remote_resources else []
+
+
+class AppConfigProvider(AppConfigReader):
+    """Configuration provider with auth factory methods."""
+
+    _instance: "AppConfigProvider | None" = None
 
     def _get_auth_config(
         self,
@@ -77,22 +101,6 @@ class AppConfigProvider:
             config=config,
             provider_names=self._get_auth_provider_names(),
         )
-
-    def get_mcp_configs(self) -> list["McpConfig"]:
-        """Get the list of MCP server configurations."""
-        return [mcp for mcp in self._configs.mcp if mcp.enabled] if self._configs.mcp else []
-
-    def get_llm_configs(self) -> list["LlmConfig"]:
-        """Get the list of LLM provider configurations."""
-        return [llm for llm in self._configs.llm if llm.enabled] if self._configs.llm else []
-
-    def get_remote_resources(self) -> list[RemoteResourceConfig]:
-        """Get the list of remote resource configurations.
-        
-        Returns:
-            List of RemoteResourceConfig instances, or empty list if none configured.
-        """
-        return self._configs.remote_resources if self._configs.remote_resources else []
 
     @classmethod
     def get_instance(cls) -> "AppConfigProvider":

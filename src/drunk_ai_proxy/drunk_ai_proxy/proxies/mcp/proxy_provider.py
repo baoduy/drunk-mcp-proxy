@@ -15,6 +15,7 @@ from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyCo
 from drunk_ai_proxy.utils.protocols import AuthProviderFactory
 from drunk_ai_proxy.utils import McpConfig, SpecType, audit_log
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION, CONFIG_DIR
+from drunk_ai_proxy.proxies.mcp.mcp_server_factory import McpServerFactory
 from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
 
 from fastmcp.utilities import logging
@@ -102,26 +103,28 @@ class McpProxyProvider(McpBaseProvider):
         codemode_enabled = getattr(self.config, "codemode_enabled", True)
 
         if spec_type == SpecType.OPENAPI:
-            self.mcp = McpProxyBuilder.create_fastmcp_server(
-                f"{SERVER_NAME}{self.config.path}",
-                SERVER_VERSION,
+            self.mcp = McpServerFactory.create(
+                self.config.path,
                 codemode_enabled,
+                server_name=SERVER_NAME,
+                server_version=SERVER_VERSION,
             )
             self._add_open_api_proxy(self.mcp)
         else:
             self.mcp = (
                 self.root_mcp
                 if self.config.path == "/" and self.root_mcp is not None
-                else McpProxyBuilder.create_fastmcp_server(
-                    f"{SERVER_NAME}{self.config.path}",
-                    SERVER_VERSION,
+                else McpServerFactory.create(
+                    self.config.path,
                     codemode_enabled,
+                    server_name=SERVER_NAME,
+                    server_version=SERVER_VERSION,
                 )
             )
 
             self._add_mcp_proxy(self.mcp)
 
-        self.mcp.auth = self._get_app_auth_provider()
+        McpServerFactory.configure_auth(self.mcp, self._get_app_auth_provider())
         self._add_skill_proxy(self.mcp)
         self._add_remote_skill_proxy(self.mcp)
         self._add_prompt_proxy(self.mcp)

@@ -8,7 +8,8 @@ and parameter validation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Protocol
 
 from fastapi.responses import JSONResponse
 from drunk_ai_proxy.utils.security import get_actionable_message
@@ -16,6 +17,14 @@ from drunk_ai_proxy.utils.serialization import to_dict
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
+
+
+class FormDataLike(Protocol):
+    """Protocol for form-data like objects used by provider helpers."""
+
+    def __iter__(self) -> object: ...
+
+    def get(self, key: str, default: object | None = None) -> object | None: ...
 
 class LlmBaseProvider(ABC):
     """Abstract base class for LLM providers.
@@ -117,8 +126,9 @@ class LlmBaseProvider(ABC):
 
     @staticmethod
     def _form_data_to_dict(
-        form_data: Any, exclude_key: str = "model"
-    ) -> dict[str, Any]:
+        form_data: FormDataLike,
+        exclude_key: str = "model",
+    ) -> dict[str, object | None]:
         """Convert form data to dict, excluding a specific key.
 
         Useful for extracting form data while removing a key that's already
@@ -134,7 +144,10 @@ class LlmBaseProvider(ABC):
         return {k: form_data.get(k) for k in form_data if k != exclude_key}
 
     @staticmethod
-    def _require_form_field(form_data: Any, field_name: str) -> JSONResponse | None:
+    def _require_form_field(
+        form_data: FormDataLike,
+        field_name: str,
+    ) -> JSONResponse | None:
         """Check if a required form field exists.
 
         Args:
@@ -151,7 +164,9 @@ class LlmBaseProvider(ABC):
         return None
 
     def extract_and_validate_model(
-        self, source: Mapping[str, Any], key: str = "model"
+        self,
+        source: Mapping[str, object],
+        key: str = "model",
     ) -> tuple[str, str] | JSONResponse:
         """Extract and validate model_id from input dict (body or form).
 
@@ -180,9 +195,9 @@ class LlmBaseProvider(ABC):
 
     @staticmethod
     def _split_params(
-        body: dict[str, Any],
+        body: dict[str, object],
         known_params_set: set[str],
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    ) -> tuple[dict[str, object], dict[str, object] | None]:
         """Split request body into known API params and extra_body.
 
         Separates parameters into those recognized by the API and those that
@@ -196,8 +211,8 @@ class LlmBaseProvider(ABC):
             Tuple of (known_params, extra_body). extra_body is None when
             there are no unknown keys.
         """
-        known: dict[str, Any] = {}
-        extra: dict[str, Any] = {}
+        known: dict[str, object] = {}
+        extra: dict[str, object] = {}
         for key, value in body.items():
             if key in known_params_set:
                 known[key] = value
@@ -207,7 +222,7 @@ class LlmBaseProvider(ABC):
         return known, extra or None
 
     @abstractmethod
-    def mount(self, app: Any, route_prefix: str) -> None:
+    def mount(self, app: object, route_prefix: str) -> None:
         """Mount provider to Starlette application.
 
         Args:

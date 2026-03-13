@@ -220,7 +220,6 @@ class TestMcpBaseProviderValidateResourceDirectories:
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
@@ -239,7 +238,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_add_remote_skill_proxy,
         mock_add_remote_prompt_proxy,
         mock_add_remote_agent_proxy,
-        mock_get_app_config,
     ):
         """Test that create_proxy calls _add_skill_proxy."""
         mock_config = Mock(spec=McpConfig)
@@ -250,11 +248,6 @@ class TestMcpProxyProviderCreateProxy:
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
         mock_create_fastmcp_server.return_value = mock_mcp
-        
-        # Mock AppConfigProvider
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
         result = provider.create_proxy()
@@ -263,7 +256,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_skill_proxy.assert_called_once_with(mock_mcp)
         assert result == mock_mcp
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
@@ -282,7 +274,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_add_remote_skill_proxy,
         mock_add_remote_prompt_proxy,
         mock_add_remote_agent_proxy,
-        mock_get_app_config,
     ):
         """Test that create_proxy uses root_mcp when path is '/'."""
         mock_config = Mock(spec=McpConfig)
@@ -292,11 +283,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.auth = None  # Add auth attribute
 
         mock_root_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
-        
-        # Mock AppConfigProvider
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config, root_mcp=mock_root_mcp)
         result = provider.create_proxy()
@@ -306,7 +292,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_fastmcp_server.assert_not_called()
         mock_create_skill_proxy.assert_called_once_with(mock_root_mcp)
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_agent_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_prompt_proxy")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyProvider._add_remote_skill_proxy")
@@ -325,7 +310,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_add_remote_skill_proxy,
         mock_add_remote_prompt_proxy,
         mock_add_remote_agent_proxy,
-        mock_get_app_config,
     ):
         """Test that create_proxy returns cached mcp on subsequent calls."""
         mock_config = Mock(spec=McpConfig)
@@ -336,11 +320,6 @@ class TestMcpProxyProviderCreateProxy:
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
         mock_create_fastmcp_server.return_value = mock_mcp
-        
-        # Mock AppConfigProvider
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
 

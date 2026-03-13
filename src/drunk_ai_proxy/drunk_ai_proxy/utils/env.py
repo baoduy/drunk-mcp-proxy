@@ -10,51 +10,60 @@ variables with sensible defaults.
 import os
 
 
-def get_env_string(key: str, default: str = "") -> str:
-    """Get an environment variable as a string with a default fallback.
+class EnvReader:
+    """Static environment variable reader helpers."""
 
-    Args:
-        key: The name of the environment variable to retrieve.
-        default: The default value to return if the variable is not set.
+    @staticmethod
+    def string(key: str, default: str = "") -> str:
+        """Get an environment variable as a string with a default fallback.
 
-    Returns:
-        The value of the environment variable or the default if not set.
-    """
-    return os.environ.get(key, default).strip()
+        Args:
+            key: The name of the environment variable to retrieve.
+            default: The default value to return if the variable is not set.
 
+        Returns:
+            The value of the environment variable or the default if not set.
+        """
+        return os.environ.get(key, default).strip()
 
-def get_env_int(key: str, default: int = 0) -> int:
-    """Get an environment variable as an integer with a default fallback.
+    @staticmethod
+    def integer(key: str, default: int = 0) -> int:
+        """Get an environment variable as an integer with a default fallback.
 
-    Args:
-        key: The name of the environment variable to retrieve.
-        default: The default value to return if not set or invalid.
+        Args:
+            key: The name of the environment variable to retrieve.
+            default: The default value to return if not set or invalid.
 
-    Returns:
-        The integer value of the environment variable or the default.
-    """
-    try:
-        return int(os.environ.get(key, str(default)).strip())
-    except ValueError:
+        Returns:
+            The integer value of the environment variable or the default.
+        """
+        try:
+            return int(os.environ.get(key, str(default)).strip())
+        except ValueError:
+            return default
+
+    @staticmethod
+    def boolean(key: str, default: bool = False) -> bool:
+        """Get an environment variable as a boolean with a default fallback.
+
+        Args:
+            key: The name of the environment variable to retrieve.
+            default: The default value to return if the variable is not set.
+
+        Returns:
+            The boolean value of the environment variable or the default.
+        """
+        value = os.environ.get(key, "").strip().lower()
+        if value in {"1", "true", "yes", "on"}:
+            return True
+        if value in {"0", "false", "no", "off"}:
+            return False
         return default
 
 
-def get_env_bool(key: str, default: bool = False) -> bool:
-    """Get an environment variable as a boolean with a default fallback.
-
-    Args:
-        key: The name of the environment variable to retrieve.
-        default: The default value to return if the variable is not set.
-
-    Returns:
-        The boolean value of the environment variable or the default.
-    """
-    value = os.environ.get(key, "").strip().lower()
-    if value in {"1", "true", "yes", "on"}:
-        return True
-    if value in {"0", "false", "no", "off"}:
-        return False
-    return default
+get_env_string = EnvReader.string
+get_env_int = EnvReader.integer
+get_env_bool = EnvReader.boolean
 
 
 # Configuration Files

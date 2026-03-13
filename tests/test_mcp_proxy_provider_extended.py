@@ -15,10 +15,9 @@ from drunk_ai_proxy.utils.config_yaml import McpConfig
 class TestMcpProxyProviderCreateProxy:
     """Test suite for create_proxy method."""
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     def test_create_proxy_returns_cached_instance(
-        self, mock_create_fastmcp_server, mock_get_app_config
+        self, mock_create_fastmcp_server
     ):
         """Test that create_proxy returns cached mcp instance on subsequent calls."""
         mock_config = Mock(spec=McpConfig)
@@ -33,9 +32,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         provider = McpProxyProvider(mock_config)
 
@@ -54,12 +50,11 @@ class TestMcpProxyProviderCreateProxy:
         # FastMCP should only be called once
         assert mock_create_fastmcp_server.call_count == 1
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_NAME", "test-server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_VERSION", "2.0.0")
     def test_create_proxy_with_root_path_uses_root_mcp(
-        self, mock_create_fastmcp_server, mock_get_app_config
+        self, mock_create_fastmcp_server
     ):
         """Test that create_proxy uses root_mcp for path='/'."""
         mock_config = Mock(spec=McpConfig)
@@ -74,9 +69,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_root_mcp = MagicMock()
         provider = McpProxyProvider(mock_config, root_mcp=mock_root_mcp)
@@ -87,12 +79,11 @@ class TestMcpProxyProviderCreateProxy:
         assert result == mock_root_mcp
         mock_create_fastmcp_server.assert_not_called()
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_NAME", "test-server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_VERSION", "2.0.0")
     def test_create_proxy_with_non_root_path_creates_new_mcp(
-        self, mock_create_fastmcp_server, mock_get_app_config
+        self, mock_create_fastmcp_server
     ):
         """Test that create_proxy creates new FastMCP for non-root paths."""
         mock_config = Mock(spec=McpConfig)
@@ -107,9 +98,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_mcp = MagicMock()
         mock_create_fastmcp_server.return_value = mock_mcp
@@ -123,11 +111,10 @@ class TestMcpProxyProviderCreateProxy:
         mock_create_fastmcp_server.assert_called_once_with("test-server/api", "2.0.0", True)
         assert result == mock_mcp
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     @patch("fastmcp.server.create_proxy")
     def test_create_proxy_calls_create_proxy_method(
-        self, mock_create_proxy_fn, mock_create_fastmcp_server, mock_get_app_config
+        self, mock_create_proxy_fn, mock_create_fastmcp_server
     ):
         """Test that create_proxy calls _create_proxy with spec_data."""
         mock_config = Mock(spec=McpConfig)
@@ -142,9 +129,6 @@ class TestMcpProxyProviderCreateProxy:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_mcp = MagicMock()
         mock_create_fastmcp_server.return_value = mock_mcp
@@ -201,14 +185,12 @@ class TestMcpProxyProviderCreateProxyMethod:
 class TestMcpProxyProviderCodeModeOverride:
     """Tests for per-route codemode_enabled wiring."""
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_NAME", "test-server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_VERSION", "2.0.0")
     def test_create_proxy_passes_codemode_false(
         self,
         mock_create_fastmcp_server,
-        mock_get_app_config,
     ):
         """Pass codemode_enabled=False through to server creation."""
         mock_config = Mock(spec=McpConfig)
@@ -223,9 +205,6 @@ class TestMcpProxyProviderCodeModeOverride:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_create_fastmcp_server.return_value = MagicMock()
 
@@ -251,12 +230,11 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         # Should return empty list for empty input
         assert result == []
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.mcp_proxy_builder.FastMCP")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_NAME", "test-server")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_VERSION", "1.0.0")
     def test_create_mcp_proxies_configs_creates_root_mcp(
-        self, mock_fastmcp_cls, mock_get_app_config
+        self, mock_fastmcp_cls
     ):
         """Test create_mcp_proxies_configs creates root MCP instance."""
         mock_config = Mock(spec=McpConfig)
@@ -270,9 +248,6 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config.get_agent_remote_resources.return_value = []
         mock_config.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_root = Mock()
         mock_fastmcp_cls.return_value = mock_root
@@ -287,10 +262,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         # Verify mock was returned by checking it was called
         assert result[0].mcp_server is mock_root
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.FastMCP")
     def test_create_mcp_proxies_configs_skips_none_spec_data(
-        self, mock_fastmcp_cls, mock_get_app_config
+        self, mock_fastmcp_cls
     ):
         """Test create_mcp_proxies_configs skips configs with None spec_data."""
         mock_config1 = Mock(spec=McpConfig)
@@ -310,9 +284,6 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config2.get_agent_remote_resources.return_value = []
         mock_config2.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_root = Mock()
         mock_fastmcp_cls.return_value = mock_root
@@ -326,10 +297,9 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         assert result[0].path == "/"
         # config1 should be skipped, so only config2 is processed
 
-    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
     @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.FastMCP")
     def test_create_mcp_proxies_configs_processes_multiple_configs(
-        self, mock_fastmcp_cls, mock_get_app_config
+        self, mock_fastmcp_cls
     ):
         """Test create_mcp_proxies_configs processes multiple valid configs."""
         mock_config1 = Mock(spec=McpConfig)
@@ -358,9 +328,6 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         mock_config2.get_agent_remote_resources.return_value = []
         mock_config2.auth = None
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
 
         mock_root = Mock()
         mock_fastmcp_cls.return_value = mock_root

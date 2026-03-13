@@ -17,7 +17,6 @@ import re
 from ipaddress import ip_address
 from logging import Logger
 from pathlib import Path
-from typing import Any, Optional
 from urllib.parse import urlparse
 
 from fastapi import UploadFile
@@ -148,8 +147,8 @@ def handle_validation_error(error: ValidationError) -> JSONResponse:
 
 def validate_url(
     url: str,
-    allowed_schemes: Optional[list[str]] = None,
-    blocked_hosts: Optional[list[str]] = None,
+    allowed_schemes: list[str] | None = None,
+    blocked_hosts: list[str] | None = None,
     require_public_ip: bool = False,
 ) -> JSONResponse | None:
     """Validate URL to prevent SSRF attacks.
@@ -269,8 +268,8 @@ def safe_path_join(base_dir: Path | str, user_path: str) -> Path | None:
 
 async def validate_file_upload(
     file: UploadFile,
-    allowed_extensions: Optional[list[str]] = None,
-    allowed_mimetypes: Optional[list[str]] = None,
+    allowed_extensions: list[str] | None = None,
+    allowed_mimetypes: list[str] | None = None,
     max_size_mb: int = 10,
 ) -> JSONResponse | None:
     """Validate file upload before processing.
@@ -341,7 +340,7 @@ async def validate_file_upload(
 # ============================================================================
 
 def mask_sensitive_value(
-    value: Any,
+    value: object,
     key: str = "",
     show_chars: int = 4,
 ) -> str:
@@ -398,8 +397,8 @@ def audit_log(
     status: str = "unknown",
     user_id: str | None = None,
     resource: str | None = None,
-    details: dict[str, Any] | None = None,
-    **kwargs: Any,
+    details: dict[str, object] | None = None,
+    **kwargs: object,
 ) -> None:
     """Log security-relevant events for audit trail.
 
@@ -425,7 +424,7 @@ def audit_log(
         ...     resource="/api/data",
         ... )
     """
-    audit_data: dict[str, Any] = {
+    audit_data: dict[str, object] = {
         "event": event,
         "status": status,
     }
@@ -511,3 +510,34 @@ def validate_content_type(
         )
 
     return None
+
+
+class SecurityUtils:
+    """Static utility wrapper for security helper functions."""
+
+    USER_ACTIONABLE_KEYWORDS = _USER_ACTIONABLE_KEYWORDS
+
+    sanitize_error_response = staticmethod(sanitize_error_response)
+    is_user_actionable_error = staticmethod(is_user_actionable_error)
+    get_actionable_message = staticmethod(get_actionable_message)
+    handle_validation_error = staticmethod(handle_validation_error)
+    validate_url = staticmethod(validate_url)
+    safe_path_join = staticmethod(safe_path_join)
+    validate_file_upload = staticmethod(validate_file_upload)
+    mask_sensitive_value = staticmethod(mask_sensitive_value)
+    audit_log = staticmethod(audit_log)
+    validate_request_size = staticmethod(validate_request_size)
+    validate_content_type = staticmethod(validate_content_type)
+
+
+sanitize_error_response = SecurityUtils.sanitize_error_response
+is_user_actionable_error = SecurityUtils.is_user_actionable_error
+get_actionable_message = SecurityUtils.get_actionable_message
+handle_validation_error = SecurityUtils.handle_validation_error
+validate_url = SecurityUtils.validate_url
+safe_path_join = SecurityUtils.safe_path_join
+validate_file_upload = SecurityUtils.validate_file_upload
+mask_sensitive_value = SecurityUtils.mask_sensitive_value
+audit_log = SecurityUtils.audit_log
+validate_request_size = SecurityUtils.validate_request_size
+validate_content_type = SecurityUtils.validate_content_type

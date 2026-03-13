@@ -38,6 +38,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated MCP static provider documentation to reference YAML-based config loading (`config.yaml`) instead of legacy `config.json` wording.
 - Added `import-linter` to `src/drunk_ai_proxy` development dependencies.
 - Removed legacy MCP JSON-schema validation from `McpConfig` and now rely on Pydantic model/validator-based config validation.
+- Completed phased architecture refactor plan for app/auth/llm/mcp/utils: introduced `AuthTypeRegistry`, `LlmRouter` + `LlmRequestDispatcher`, `McpServerFactory`, `AppConfigReader`, and `EnvReader`, with compatibility shims preserved for existing imports and patch targets.
+- Split configuration concerns by moving YAML model definitions into `utils/config_yaml_models.py` and reducing `utils/config_yaml.py` to a loader-focused `ConfigYaml` surface with backward-compatible re-exports.
 
 ### Fixed
 
@@ -45,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - MCP config validation now enforces unified resource structure (`skills.dirs`, `prompts.dirs`, `agents.dirs`) and rejects legacy keys (`skill_dir`, `prompt_dir`, `agents_dir`).
 - Fixed prompt registration for relative `prompts.dirs` so MCP prompt provider no longer resolves paths as `data/data/...`, restoring prompt discovery in mounted MCP routes.
 - Consolidated auth-header middleware ownership by removing the unused duplicate FastMCP middleware module and its dedicated tests; Starlette middleware in `app/middleware_provider.py` remains the canonical runtime path.
+- Restored backward-compatible module-level middleware helper symbols in `app/middleware_provider.py` (`_parse_csv`, `_create_*`) used by existing tests and patch-based integrations.
+- Preserved `CONFIG_DIR` monkeypatch compatibility for config model spec-file loading after the `config_yaml` model split.
 
 ### Removed
 

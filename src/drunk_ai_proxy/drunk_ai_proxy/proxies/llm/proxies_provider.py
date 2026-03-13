@@ -4,12 +4,13 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
-from drunk_ai_proxy.middleware.fast_auth import FastAuthMiddleware
+from drunk_ai_proxy.proxies.llm.request_dispatcher import LlmRequestDispatcher
+from drunk_ai_proxy.proxies.llm.router import LlmRouter
 from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
 from drunk_ai_proxy.utils import LlmConfig, audit_log
@@ -59,22 +60,26 @@ class ProviderModel(ModelBase):
     slug: str
 
 
+class ChatCompletionRequest(ModelBase):
+    model: str | None = None
+    messages: list[dict[str, object]] | None = None
+    stream: bool = False
+
+
+class EmbeddingsRequest(ModelBase):
+    model: str | None = None
+    input: str | list[str] | None = None
+
+
+class ModelsResponse(ModelBase):
+    data: list[LlmModel]
+
+
+class ProvidersResponse(ModelBase):
+    data: list[ProviderModel]
+
+
 class LlmProxiesProvider(LlmBaseProvider):
-    # _BLOCKED_FORWARD_HEADERS = {
-    #     "authorization",
-    #     "proxy-authorization",
-    #     "forwarded",
-    #     "via",
-    #     "connection",
-    #     "keep-alive",
-    #     "te",
-    #     "trailer",
-    #     "transfer-encoding",
-    #     "upgrade",
-    #     "host",
-    # }
-    # _BLOCKED_FORWARD_PREFIXES = ("x-forwarded-",)
-    
     def __init__(
         self,
         providers: list[LlmConfig],
@@ -91,6 +96,28 @@ class LlmProxiesProvider(LlmBaseProvider):
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self.websocket_provider = LlmWebSocketProvider(self.providers)
         self._fastapi_app: FastAPI | None = None
+        self._dispatcher = LlmRequestDispatcher(
+            get_client=lambda provider_name: self._get_openai_client(provider_name),
+            handle_exception=self.handle_exception,
+        )
+        self._router = LlmRouter(
+            get_auth_provider=lambda: (
+                self._auth_factory.get_fast_mcp_auth_provider()
+                if self._auth_factory
+                else None
+            ),
+            chat_completions_endpoint=self._chat_completions_endpoint,
+            embeddings_endpoint=self._embeddings_endpoint,
+            audio_transcriptions_endpoint=self._audio_transcriptions_endpoint,
+            audio_translations_endpoint=self._audio_translations_endpoint,
+            images_generations_endpoint=self._images_generations_endpoint,
+            get_models_endpoint=self._get_models_endpoint,
+            get_providers_endpoint=self._get_providers_endpoint,
+            anthropic_messages_endpoint=self._anthropic_messages_endpoint,
+            websocket_response_endpoint=self.websocket_provider.websocket_response_endpoint,
+            models_response_model=ModelsResponse,
+            providers_response_model=ProvidersResponse,
+        )
 
     def mount(self, app: Starlette, route_prefix: str) -> None:
         logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
@@ -98,62 +125,7 @@ class LlmProxiesProvider(LlmBaseProvider):
 
     def _get_fastapi_app(self) -> FastAPI:
         if self._fastapi_app is None:
-            dependencies = []
-
-            auth = self._auth_factory.get_fast_mcp_auth_provider() if self._auth_factory else None
-            if auth:
-                dependencies = [Depends(FastAuthMiddleware(auth_provider=auth))]
-           
-            app = FastAPI(title=SERVER_NAME, version=SERVER_VERSION, dependencies=dependencies)
-            
-            app.add_api_route(
-                "/chat/completions",
-                self._chat_completions_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
-                "/embeddings",
-                self._embeddings_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
-                "/audio/transcriptions",
-                self._audio_transcriptions_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
-                "/audio/translations",
-                self._audio_translations_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
-                "/images/generations",
-                self._images_generations_endpoint,
-                methods=["POST"],
-            )
-            app.add_api_route(
-                "/models",
-                self._get_models_endpoint,
-                methods=["GET"],
-            )
-            app.add_api_route(
-                "/providers",
-                self._get_providers_endpoint,
-                methods=["GET"],
-                tags=["Providers"],
-            )
-            app.add_api_route(
-                "/messages",
-                self._anthropic_messages_endpoint,
-                methods=["POST"],
-            )
-
-            app.add_websocket_route(
-                "/responses",
-                self.websocket_provider.websocket_response_endpoint,
-            )
-
-            self._fastapi_app = app
+            self._fastapi_app = self._router.get_app()
         return self._fastapi_app
 
     @staticmethod
@@ -230,35 +202,41 @@ class LlmProxiesProvider(LlmBaseProvider):
         )
         return [model for models in results for model in models]
     
-    async def _get_models_endpoint(self, request: Request) -> dict[str, object]:
+    async def _get_models_endpoint(self, request: Request) -> ModelsResponse:
         # For simplicity, we return a static list of models for each provider.
         # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
         models = await self._get_models_by_provider(provider) if provider else await self._get_all_models()
-        return {"data": models}
+        return ModelsResponse(data=models)
 
-    def _get_providers_endpoint(self) -> dict[str, object]:
+    def _get_providers_endpoint(self) -> ProvidersResponse:
         providers_list = [ProviderModel(name=p.provider, slug=p.provider) for p in self.providers]
-        return {"data": [self._to_dict(p) for p in providers_list]}
+        return ProvidersResponse(data=providers_list)
     
-    async def _embeddings_endpoint(self, request: Request):
+    async def _embeddings_endpoint(
+        self,
+        body: EmbeddingsRequest,
+    ) -> JSONResponse | StreamingResponse:
         """Handle embeddings requests."""
-        body = await request.json()
-        result = self.extract_and_validate_model(body)
+        payload = body.model_dump(exclude_none=True)
+        result = self.extract_and_validate_model(payload)
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
         return await self._call_openai_endpoint(
             provider_name=provider_name,
             model_name=model_name,
-            payload=body,
+            payload=payload,
             known_params=self._EMBEDDINGS_KNOWN_PARAMS,
             call_fn=lambda client, params: client.embeddings.create(**params),
             context=f"embeddings for '{model_name}'",
             response_builder=self._format_json_response,
         )
     
-    async def _audio_transcriptions_endpoint(self, request: Request):
+    async def _audio_transcriptions_endpoint(
+        self,
+        request: Request,
+    ) -> JSONResponse | StreamingResponse:
         """Handle audio transcriptions requests."""
         form_data = await request.form()
         result = self.extract_and_validate_model(form_data)
@@ -281,7 +259,10 @@ class LlmProxiesProvider(LlmBaseProvider):
             response_builder=self._format_json_response,
         )
     
-    async def _audio_translations_endpoint(self, request: Request):
+    async def _audio_translations_endpoint(
+        self,
+        request: Request,
+    ) -> JSONResponse | StreamingResponse:
         """Handle audio translations requests."""
         form_data = await request.form()
         result = self.extract_and_validate_model(form_data)
@@ -304,7 +285,10 @@ class LlmProxiesProvider(LlmBaseProvider):
             response_builder=self._format_json_response,
         )
     
-    async def _images_generations_endpoint(self, request: Request):
+    async def _images_generations_endpoint(
+        self,
+        request: Request,
+    ) -> JSONResponse | StreamingResponse:
         """Handle image generations requests."""
         body = await request.json()
         result = self.extract_and_validate_model(body)
@@ -412,13 +396,16 @@ class LlmProxiesProvider(LlmBaseProvider):
         "web_search_options",
     }
 
-    async def _chat_completions_endpoint(self, request: Request):
-        body = await request.json()
-        result = self.extract_and_validate_model(body)
+    async def _chat_completions_endpoint(
+        self,
+        body: ChatCompletionRequest,
+    ) -> JSONResponse | StreamingResponse:
+        payload = body.model_dump(exclude_none=True)
+        result = self.extract_and_validate_model(payload)
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        if "messages" not in body:
+        if not body.messages:
             return JSONResponse(
                 content={"error": {"message": "messages is required"}},
                 status_code=400,
@@ -426,7 +413,7 @@ class LlmProxiesProvider(LlmBaseProvider):
         return await self._call_openai_endpoint(
             provider_name=provider_name,
             model_name=model_name,
-            payload=body,
+            payload=payload,
             known_params=self._CHAT_COMPLETION_KNOWN_PARAMS,
             call_fn=lambda client, params: client.chat.completions.create(**params),
             context=f"chat completions for '{model_name}'",
@@ -439,11 +426,12 @@ class LlmProxiesProvider(LlmBaseProvider):
         model_name: str,
         known_params: set[str],
     ) -> dict[str, object]:
-        payload["model"] = model_name
-        known_params_dict, extra_body = self._split_params(payload, known_params)
-        if extra_body:
-            known_params_dict["extra_body"] = extra_body
-        return known_params_dict
+        return self._dispatcher.build_openai_params(
+            payload=payload,
+            model_name=model_name,
+            split_params=self._split_params,
+            known_params=known_params,
+        )
 
     async def _call_openai_endpoint(
         self,
@@ -456,20 +444,16 @@ class LlmProxiesProvider(LlmBaseProvider):
         context: str,
         response_builder: Callable[[object, dict[str, object]], Awaitable[JSONResponse | StreamingResponse]],
     ) -> JSONResponse | StreamingResponse:
-        client = self._get_openai_client(provider_name)
-        try:
-            known_params_dict = self._build_openai_params(payload, model_name, known_params)
-            response = await call_fn(client, known_params_dict)
-            return await response_builder(response, payload)
-        except Exception as e:
-            audit_log(
-                logger=logger,
-                event="llm_endpoint_call_failed",
-                status="failure",
-                resource=context,
-                details={"provider": provider_name, "model": model_name, "error_type": type(e).__name__},
-            )
-            return self.handle_exception(e, context)
+        return await self._dispatcher.call_openai_endpoint(
+            provider_name=provider_name,
+            model_name=model_name,
+            payload=payload,
+            known_params=known_params,
+            split_params=self._split_params,
+            call_fn=call_fn,
+            context=context,
+            response_builder=response_builder,
+        )
 
     @staticmethod
     async def _format_json_response(
@@ -512,7 +496,10 @@ class LlmProxiesProvider(LlmBaseProvider):
         """Delegate to AnthropicProvider for streaming conversion."""
         return await AnthropicProvider.format_anthropic_streaming_response(stream, model_id)
 
-    async def _anthropic_messages_endpoint(self, request: Request):
+    async def _anthropic_messages_endpoint(
+        self,
+        request: Request,
+    ) -> JSONResponse | StreamingResponse:
         """Handle Anthropic Messages API compatible requests (POST /messages)."""
         body = await request.json()
         result = self.extract_and_validate_model(body)

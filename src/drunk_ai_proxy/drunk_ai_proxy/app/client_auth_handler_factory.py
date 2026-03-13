@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from drunk_ai_proxy.app.cache_provider import CacheProvider
+import httpx
+
+from drunk_ai_proxy.app.auth_type_registry import AuthTypeRegistry
 from drunk_ai_proxy.utils import AuthType
 
 
@@ -16,7 +18,7 @@ class ClientAuthHandlerFactory:
         name: AuthType,
         config: dict[str, Any],
         provider_names: list[str],
-    ) -> object:
+    ) -> httpx.Auth:
         """Create an outbound httpx auth handler for the given auth type.
 
         Args:
@@ -30,21 +32,8 @@ class ClientAuthHandlerFactory:
         Raises:
             ValueError: If provider type is unsupported.
         """
-        match name:
-            case AuthType.BASIC:
-                from fastmcp.client.auth import BearerAuth
-
-                return BearerAuth(**config)
-            case AuthType.AZURE:
-                from drunk_ai_proxy.auth import HttpxAzureOauth
-
-                return HttpxAzureOauth(
-                    client_id=config["client_id"],
-                    client_secret=config["client_secret"],
-                    tenant_id=config["tenant_id"],
-                    token_storage=CacheProvider.get_oauth_store(),
-                )
-            case _:
-                raise ValueError(
-                    f"Unsupported authentication provider type: {name} in {provider_names}"
-                )
+        return AuthTypeRegistry.create_httpx_handler(
+            name=name,
+            config=config,
+            provider_names=provider_names,
+        )

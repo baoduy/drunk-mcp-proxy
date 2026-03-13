@@ -1,6 +1,6 @@
 import hashlib
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
-from pydantic.v1 import AnyHttpUrl
+from pydantic import AnyUrl
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -9,7 +9,7 @@ logger = logging.get_logger(__name__)
 class ApiKeyAuthProvider(TokenVerifier):
     """Authentication provider that uses a static API key for authentication."""
 
-    def __init__(self, token: str, base_url: AnyHttpUrl | str | None = None):
+    def __init__(self, token: str, base_url: AnyUrl | str | None = None):
         super().__init__(
             base_url=base_url,
             required_scopes=None,
