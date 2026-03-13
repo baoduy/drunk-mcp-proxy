@@ -99,11 +99,13 @@ class McpProxyProvider(McpBaseProvider):
             return self.mcp
 
         spec_type = getattr(self.config, "spec_type", SpecType.MCP)
+        codemode_enabled = getattr(self.config, "codemode_enabled", True)
 
         if spec_type == SpecType.OPENAPI:
             self.mcp = McpProxyBuilder.create_fastmcp_server(
                 f"{SERVER_NAME}{self.config.path}",
                 SERVER_VERSION,
+                codemode_enabled,
             )
             self._add_open_api_proxy(self.mcp)
         else:
@@ -113,6 +115,7 @@ class McpProxyProvider(McpBaseProvider):
                 else McpProxyBuilder.create_fastmcp_server(
                     f"{SERVER_NAME}{self.config.path}",
                     SERVER_VERSION,
+                    codemode_enabled,
                 )
             )
 

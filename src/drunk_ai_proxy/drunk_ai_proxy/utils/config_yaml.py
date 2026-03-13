@@ -306,6 +306,10 @@ class OpenApiConfig(ConfigBaseModel):
 class McpConfig(ConfigBaseModel):
     """MCP server configuration."""
     enabled: bool = Field(default=True, description="Enable or disable this MCP route.")
+    codemode_enabled: bool = Field(
+        default=True,
+        description="Enable or disable FastMCP Code Mode for this MCP route.",
+    )
     path: str = Field(description="Base path for the MCP proxy")
     spec_type: SpecType = Field(
         default=SpecType.MCP,

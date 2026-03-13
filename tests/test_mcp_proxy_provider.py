@@ -239,6 +239,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.codemode_enabled = True
         mock_config.auth = None  # Add auth attribute
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
@@ -275,6 +276,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.codemode_enabled = True
         mock_config.auth = None  # Add auth attribute
 
         mock_root_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute
@@ -311,6 +313,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {}}
+        mock_config.codemode_enabled = True
         mock_config.auth = None  # Add auth attribute
 
         mock_mcp = MagicMock()  # Use MagicMock to allow setting auth attribute

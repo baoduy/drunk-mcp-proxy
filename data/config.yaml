@@ -85,6 +85,7 @@ llm:
 mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
   - enabled: true # Set to false to disable this server 
+    codemode_enabled: true # Enable or disable Code Mode for this MCP route
     path: /deepsea # URL path where this service is available
     spec_type: openapi
     open_api:
@@ -102,6 +103,7 @@ mcp:
 
   # ========== Example 2: MCP servers with skills directory ==========
   - path: / # Root path for these services
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     mcp_servers: # Define MCP servers
       server-memory: # Server name
@@ -114,6 +116,7 @@ mcp:
 
   # ========== Example 3: Multiple MCP servers on same path ==========
   - path: /stock # All servers below available under /stock
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     mcp_servers: # Multiple servers can be configured
       trading_view: # Server 1: TradingView data
@@ -143,6 +146,7 @@ mcp:
 
   # ========== Example 4: HTTP-based MCP server ==========
   - path: /wiki # URL path for this service
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     base_url: null # Backend service URL (not used for HTTP transport)
     mcp_servers: # Define MCP servers
@@ -157,6 +161,7 @@ mcp:
 
   # ========== Example 5: Prompt provider with markdown templates ==========
   - path: /resources # URL path for prompt templates
+    codemode_enabled: true # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     skills: 
       dirs:

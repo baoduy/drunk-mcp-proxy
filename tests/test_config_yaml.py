@@ -158,6 +158,20 @@ class TestMcpConfig:
         assert config.path == "/api"
         assert config.spec_type == "mcp"
         assert config.open_api is None
+        assert config.codemode_enabled is True
+
+    def test_mcp_config_codemode_enabled_explicit_false(self) -> None:
+        """Test McpConfig accepts explicit codemode_enabled false."""
+        mcp_servers = {
+            "test-server": {
+                "enabled": True,
+                "command": "npx",
+                "args": ["@playwright/mcp@0.0.64"],
+                "transport": "stdio",
+            }
+        }
+        config = McpConfig(path="/api", mcp_servers=mcp_servers, codemode_enabled=False)
+        assert config.codemode_enabled is False
 
     def test_mcp_config_with_openapi_spec(self) -> None:
         """Test McpConfig with OpenAPI specification."""

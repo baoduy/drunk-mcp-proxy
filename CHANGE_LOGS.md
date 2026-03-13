@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
+- Switched Code Mode control from global environment toggle to per-route MCP config via `mcp[].codemode_enabled`.
 - Reorganized documentation into module-based roots under `docs/drunk_ai_proxy` and `docs/drunk_ai_client`, archived loose legacy docs into `docs/drunk_ai_proxy/legacy`, and converted top-level `docs/README.md` + `docs/INDEX.md` into module routers.
 - Updated `.github/agents/architecture-reviewer-20260313-082355.agent.md` to always produce a timestamped architecture recommendation report under `docs/drunk_ai_proxy/architecture/reviews/architecture-review-<timestamp>.md` after each review.
 - Refactored OpenAPI MCP configuration to use nested `open_api` fields (`spec_file`, `base_url`, `filters`, `spec_data`) and removed redundant top-level OpenAPI fields from `McpConfig`.
@@ -49,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Removed legacy schema artifact `schemas/mcp.schema.json` and schema directory runtime wiring from Docker image build.
 - Removed `FASTMCP_SCHEMA_DIR` environment variable from runtime configuration, templates, and documentation.
+- Removed `FASTMCP_CODEMODE_ENABLED` environment variable from runtime configuration; Code Mode is now configured per MCP route.
 
 ## [0.2.0] - 2026-03-11
 
@@ -99,7 +101,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **App Lifespan Manager** (`app/lifespan.py`): Manages startup/shutdown lifecycle including remote resource sync background tasks and MCP app lifespans with proper error handling for partial startup failures.
 - **Security Headers Middleware** (`app/security_headers_middleware.py`): Enhanced HTTP security headers.
 - **Swagger Provider** (`app/swagger_provider.py`): Auto-generated API documentation.
-- **Code Mode** (`FASTMCP_CODEMODE_ENABLED`): Toggleable code mode for development.
+- **Code Mode**: Toggleable code mode for development.
 
 ### Changed
 
@@ -147,7 +149,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 | `FASTMCP_HOST` | `0.0.0.0` | Bind host |
 | `FASTMCP_PORT` | `9123` | Bind port |
 | `FASTMCP_AUTH_ENABLED` | `false` | Authentication toggle |
-| `FASTMCP_CODEMODE_ENABLED` | `true` | Code mode toggle |
 | `FASTMCP_SWAGGER_ENABLED` | `true` | Swagger UI toggle |
 | `FASTMCP_RATE_LIMIT_ENABLED` | — | Rate limiting toggle |
 | `FASTMCP_CORS_ALLOW_ORIGINS` | `*` | CORS allowed origins |

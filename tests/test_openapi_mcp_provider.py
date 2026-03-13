@@ -123,6 +123,7 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/openapi"
         mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
         mock_config.tags = ["v1"]
         mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.get_openapi_spec_data.return_value = {
@@ -151,6 +152,11 @@ class TestMcpProxyProviderOpenApiCreateProxy:
             result = provider.create_proxy()
 
         assert result == openapi_mcp
+        mock_create_fastmcp_server.assert_called_once_with(
+            "drunk-ai-proxy/openapi",
+            "1.0.0",
+            True,
+        )
         mock_openapi_provider.assert_called_once()
         openapi_mcp.add_provider.assert_called_once_with(provider_instance)
 
@@ -167,6 +173,7 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/openapi"
         mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
         mock_config.tags = []
         mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.get_openapi_spec_data.return_value = {
@@ -203,6 +210,7 @@ class TestMcpProxyProviderOpenApiCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/openapi"
         mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
         mock_config.tags = []
         mock_config.get_openapi_base_url.return_value = "https://api.example.com"
         mock_config.get_openapi_spec_data.return_value = None

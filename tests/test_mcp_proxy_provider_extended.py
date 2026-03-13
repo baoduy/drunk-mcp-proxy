@@ -24,6 +24,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
+        mock_config.codemode_enabled = True
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
@@ -61,6 +62,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
+        mock_config.codemode_enabled = True
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
@@ -90,6 +92,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/api"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
+        mock_config.codemode_enabled = True
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
@@ -108,7 +111,7 @@ class TestMcpProxyProviderCreateProxy:
         result = provider.create_proxy()
 
         # Should create new FastMCP instance
-        mock_create_fastmcp_server.assert_called_once_with("test-server/api", "2.0.0")
+        mock_create_fastmcp_server.assert_called_once_with("test-server/api", "2.0.0", True)
         assert result == mock_mcp
 
     @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
@@ -121,6 +124,7 @@ class TestMcpProxyProviderCreateProxy:
         mock_config = Mock(spec=McpConfig)
         mock_config.path = "/test"
         mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
+        mock_config.codemode_enabled = True
         mock_config.get_skill_dirs.return_value = []
         mock_config.get_prompt_dirs.return_value = []
         mock_config.get_agent_dirs.return_value = []
@@ -180,6 +184,40 @@ class TestMcpProxyProviderCreateProxyMethod:
         provider._add_mcp_proxy(mock_mcp)
         mock_logger.info.assert_called_once()
         assert "Creating proxy for MCP config" in str(mock_logger.info.call_args)
+
+
+class TestMcpProxyProviderCodeModeOverride:
+    """Tests for per-route codemode_enabled wiring."""
+
+    @patch("drunk_ai_proxy.proxies.mcp.base_provider.AppConfigProvider.get_instance")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_NAME", "test-server")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.SERVER_VERSION", "2.0.0")
+    def test_create_proxy_passes_codemode_false(
+        self,
+        mock_create_fastmcp_server,
+        mock_get_app_config,
+    ):
+        """Pass codemode_enabled=False through to server creation."""
+        mock_config = Mock(spec=McpConfig)
+        mock_config.path = "/api"
+        mock_config.spec_data = {"mcpServers": {"test": {"url": "http://example.com"}}}
+        mock_config.codemode_enabled = False
+        mock_config.get_skill_dirs.return_value = []
+        mock_config.get_prompt_dirs.return_value = []
+        mock_config.get_agent_dirs.return_value = []
+        mock_config.auth = None
+
+        mock_app_config = Mock()
+        mock_app_config.get_fast_mcp_auth_provider.return_value = None
+        mock_get_app_config.return_value = mock_app_config
+
+        mock_create_fastmcp_server.return_value = MagicMock()
+
+        provider = McpProxyProvider(mock_config)
+        provider.create_proxy()
+
+        mock_create_fastmcp_server.assert_called_once_with("test-server/api", "2.0.0", False)
 
 
 class TestMcpProxyProviderCreateMcpProxiesConfigs:
