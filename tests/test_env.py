@@ -41,20 +41,6 @@ class TestEnvConfiguration:
         finally:
             os.environ.pop("FASTMCP_CONFIG_DIR", None)
 
-    def test_schema_dir_default(self):
-        """Test SCHEMA_DIR defaults to 'schemas' when not set."""
-        env_backup = os.environ.pop("FASTMCP_SCHEMA_DIR", None)
-        
-        try:
-            import importlib
-            import drunk_ai_proxy.utils.env as env_module
-            importlib.reload(env_module)
-            
-            assert env_module.SCHEMA_DIR == "schemas"
-        finally:
-            if env_backup is not None:
-                os.environ["FASTMCP_SCHEMA_DIR"] = env_backup
-
     def test_log_level_default(self):
         """Test LOG_LEVEL defaults to 'INFO' when not set."""
         env_backup = os.environ.pop("FASTMCP_LOG_LEVEL", None)

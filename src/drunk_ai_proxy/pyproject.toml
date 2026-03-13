@@ -12,7 +12,6 @@ requires-python = ">=3.10"
 # Runtime dependencies (migrated from requirements.txt)
 dependencies = [
     "fastmcp>=3.1.0",
-    "jsonschema>=4.0.0",
     "uvicorn>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-core>=2.41.5",

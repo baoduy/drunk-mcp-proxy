@@ -13,11 +13,10 @@ import os
 from collections.abc import Sequence
 from typing import Any, cast
 
-import jsonschema
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from drunk_ai_proxy.utils.env import CONFIG_DIR, SCHEMA_DIR
+from drunk_ai_proxy.utils.env import CONFIG_DIR
 
 from .env_resolver import resolve_env_vars, resolve_env_vars_in_dict
 
@@ -426,32 +425,6 @@ class McpConfig(ConfigBaseModel):
             return []
         return self.agents.dirs
 
-    def _validate_mcp_schema(self) -> None:
-        """
-        Validate MCP spec_data against the MCP JSON schema.
-        
-        Raises:
-            ValueError: If the spec_data doesn't conform to the MCP schema
-            FileNotFoundError: If the schema file is not found
-        """
-        # Use the SCHEMA_DIR from environment configuration
-        schema_path = os.path.join(SCHEMA_DIR, "mcp.schema.json")
-
-        if not os.path.exists(schema_path):
-            raise FileNotFoundError(f"MCP schema file not found at: {schema_path}")
-
-        # Load the MCP schema
-        with open(schema_path, "r") as f:
-            schema = json.load(f)
-
-        # Validate spec_data against schema
-        try:
-            jsonschema.validate(instance=self.spec_data, schema=schema)
-        except jsonschema.ValidationError as e:
-            raise ValueError(f"MCP specification does not conform to MCP schema: {e.message}") from e
-        except jsonschema.SchemaError as e:
-            raise ValueError(f"Invalid MCP schema file: {e.message}") from e
-
     @staticmethod
     def _validate_openapi_spec(spec_data: dict[str, Any]) -> None:
         """Validate basic OpenAPI document requirements."""
@@ -577,9 +550,6 @@ class McpConfig(ConfigBaseModel):
             if self.mcp_servers
             else None
         )
-
-        if self.spec_data is not None:
-            self._validate_mcp_schema()
         
     @model_validator(mode="after")
     def after_model_validator(self) -> McpConfig:

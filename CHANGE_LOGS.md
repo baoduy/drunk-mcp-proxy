@@ -15,11 +15,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a user-invocable `Architecture Reviewer` custom agent at `.github/agents/architecture-reviewer.agent.md` for repository structure, layering, security, and naming/folder architecture audits.
 - Added an improved, timestamped `Architecture Reviewer` agent variant at `.github/agents/architecture-reviewer-20260313-082355.agent.md` with tighter scope controls, clearer evidence-first output contract, and a direct handoff to `Feature Planner`.
 - Added import-linter bootstrap guardrails via `src/drunk_ai_proxy/.importlinter` and a non-blocking CI workflow at `.github/workflows/architecture-lint.yml`.
+- Added `docs/drunk_ai_proxy/architecture/drunk-ai-proxy-module-reference.md` with a code-verified architecture, runtime flow, config dependencies, extension points, and common failure modes for `src/drunk_ai_proxy`.
+- Added a dedicated diagram set under `docs/drunk_ai_proxy/architecture/diagrams/drunk_ai_proxy-*.md` including one system-level diagram and focused diagrams for `app`, `auth`, `middleware`, `proxies`, `utils`, and proxy subpackages (`llm`, `mcp`, `prompt`, `agent`).
+- Added `docs/drunk_ai_proxy/architecture/drunk-ai-proxy-route-appendix.md` with consolidated server, MCP, LLM HTTP, and WebSocket route mapping.
+- Added `docs/drunk_ai_proxy/development/drunk-ai-proxy-operator-runbook.md` with startup checks, incident triage, and operational verification steps.
 
 ### Changed
 
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
-- Updated `.github/agents/architecture-reviewer-20260313-082355.agent.md` to always produce a timestamped architecture recommendation report under `docs/architecture/reviews/architecture-review-<timestamp>.md` after each review.
+- Reorganized documentation into module-based roots under `docs/drunk_ai_proxy` and `docs/drunk_ai_client`, archived loose legacy docs into `docs/drunk_ai_proxy/legacy`, and converted top-level `docs/README.md` + `docs/INDEX.md` into module routers.
+- Updated `.github/agents/architecture-reviewer-20260313-082355.agent.md` to always produce a timestamped architecture recommendation report under `docs/drunk_ai_proxy/architecture/reviews/architecture-review-<timestamp>.md` after each review.
 - Refactored OpenAPI MCP configuration to use nested `open_api` fields (`spec_file`, `base_url`, `filters`, `spec_data`) and removed redundant top-level OpenAPI fields from `McpConfig`.
 - Consolidated OpenAPI MCP proxy creation into `McpProxyProvider` and removed the separate `proxies/mcp/openapi_provider.py` implementation.
 - Updated MCP and prompt provider wiring to use effective multi-directory accessors for local resources.
@@ -31,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added explicit `description` metadata for all `Field(...)` declarations in `utils/config_yaml.py` to improve schema clarity and generated docs.
 - Updated MCP static provider documentation to reference YAML-based config loading (`config.yaml`) instead of legacy `config.json` wording.
 - Added `import-linter` to `src/drunk_ai_proxy` development dependencies.
+- Removed legacy MCP JSON-schema validation from `McpConfig` and now rely on Pydantic model/validator-based config validation.
 
 ### Fixed
 
@@ -38,6 +44,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - MCP config validation now enforces unified resource structure (`skills.dirs`, `prompts.dirs`, `agents.dirs`) and rejects legacy keys (`skill_dir`, `prompt_dir`, `agents_dir`).
 - Fixed prompt registration for relative `prompts.dirs` so MCP prompt provider no longer resolves paths as `data/data/...`, restoring prompt discovery in mounted MCP routes.
 - Consolidated auth-header middleware ownership by removing the unused duplicate FastMCP middleware module and its dedicated tests; Starlette middleware in `app/middleware_provider.py` remains the canonical runtime path.
+
+### Removed
+
+- Removed legacy schema artifact `schemas/mcp.schema.json` and schema directory runtime wiring from Docker image build.
+- Removed `FASTMCP_SCHEMA_DIR` environment variable from runtime configuration, templates, and documentation.
 
 ## [0.2.0] - 2026-03-11
 
@@ -130,7 +141,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 | Variable | Default | Description |
 |---|---|---|
 | `FASTMCP_CONFIG_DIR` | `data` | Configuration/data directory |
-| `FASTMCP_SCHEMA_DIR` | `schemas` | JSON schema directory |
 | `FASTMCP_LLM_ROUTE_PREFIX` | `/api/v1` | LLM API route prefix |
 | `FASTMCP_LOG_LEVEL` | `INFO` | Logging level |
 | `FASTMCP_SERVER_TRANSPORT` | `streamable-http` | MCP transport protocol |

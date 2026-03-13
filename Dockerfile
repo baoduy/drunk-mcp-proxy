@@ -59,9 +59,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Verify package installation and entry point
 RUN drunk-ai-proxy --help 2>&1 | head -5 || echo "Entry point verification skipped"
 
-# Copy application data and schemas directly from project
+# Copy application data directly from project
 RUN mkdir -p ./data && chown -R appuser:appuser ./data
-COPY --chown=appuser:appuser schemas/ ./schemas/
 
 # Setup user directories and environment in single layer
 RUN mkdir -p /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/appuser/.cache/uv /home/appuser/.local/uv/tools && \
@@ -69,7 +68,6 @@ RUN mkdir -p /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/a
 
 # Consolidate environment variables
 ENV FASTMCP_CONFIG_DIR=/drunk-ai-proxy/data \
-    FASTMCP_SCHEMA_DIR=/drunk-ai-proxy/schemas \
     FASTMCP_STATELESS_HTTP=true \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser \

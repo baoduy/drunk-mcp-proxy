@@ -61,8 +61,6 @@ def get_env_bool(key: str, default: bool = False) -> bool:
 # ===================
 # Directory containing MCP server configuration files (*.mcp.json)
 CONFIG_DIR = get_env_string("FASTMCP_CONFIG_DIR", "data")
-# Directory containing JSON schemas (mcp.schema.json, auth.schema.json)
-SCHEMA_DIR = get_env_string("FASTMCP_SCHEMA_DIR", "schemas")
 # Route prefix for LLM proxy endpoints
 LLM_ROUTE_PREFIX = get_env_string("FASTMCP_LLM_ROUTE_PREFIX", "/api/v1")
 
