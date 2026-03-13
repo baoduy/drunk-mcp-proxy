@@ -86,6 +86,8 @@ class TestMcpProxyProviderCreateSkillProxy:
         """Test that _add_skill_proxy returns early when no skills are discovered."""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = True
+        mock_path_instance.rglob.return_value = []
         mock_path_cls.return_value = mock_path_instance
 
         mock_provider = Mock()
@@ -102,9 +104,7 @@ class TestMcpProxyProviderCreateSkillProxy:
         result = provider._add_skill_proxy(mock_mcp)
 
         assert result is None
-        mock_skills_provider_cls.assert_called_once_with(
-            roots=[mock_path_instance], reload=True
-        )
+        mock_skills_provider_cls.assert_not_called()
         mock_mcp.add_provider.assert_not_called()
 
     @patch("pathlib.Path")
@@ -117,6 +117,8 @@ class TestMcpProxyProviderCreateSkillProxy:
         """Test that _add_skill_proxy adds provider when skills are discovered."""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = True
+        mock_path_instance.rglob.return_value = [Mock()]
         mock_path_cls.return_value = mock_path_instance
 
         mock_provider = Mock()
@@ -180,6 +182,39 @@ class TestMcpProxyProviderCreatePromptProxy:
             prompt_dirs=["prompts/custom"],
         )
         mock_prompt_provider.register_to_mcp.assert_called_once_with(mock_mcp)
+
+
+class TestMcpBaseProviderValidateResourceDirectories:
+    """Tests for McpBaseProvider._validate_resource_directories."""
+
+    def test_validate_resource_directories_returns_only_markdown_dirs(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Return only existing directories containing at least one markdown file."""
+        config_dir = tmp_path / "config"
+        skill_dir = config_dir / "skills"
+        empty_dir = config_dir / "empty"
+        missing_dir_name = "missing"
+
+        skill_dir.mkdir(parents=True)
+        empty_dir.mkdir(parents=True)
+        (skill_dir / "hello.md").write_text("# Hello", encoding="utf-8")
+        (empty_dir / "note.txt").write_text("not markdown", encoding="utf-8")
+
+        monkeypatch.setattr("drunk_ai_proxy.utils.env.CONFIG_DIR", str(config_dir))
+
+        mock_config = Mock(spec=McpConfig)
+        mock_config.path = "/test"
+        provider = McpProxyProvider(mock_config)
+
+        result = provider._validate_resource_directories(
+            dirs=["skills", "empty", missing_dir_name],
+            resource_type="skill",
+        )
+
+        assert result == [skill_dir]
 
 
 class TestMcpProxyProviderCreateProxy:

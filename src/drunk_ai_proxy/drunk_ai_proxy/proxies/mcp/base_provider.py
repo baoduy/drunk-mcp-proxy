@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
-from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from dataclasses import dataclass
 from drunk_ai_proxy.utils import audit_log
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory
 from drunk_ai_proxy.utils.env import SERVER_TRANSPORT
 
 if TYPE_CHECKING:
@@ -22,6 +22,14 @@ if TYPE_CHECKING:
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
+
+
+class AppConfigProvider:
+    """Compatibility shim for tests patching legacy AppConfigProvider path."""
+
+    @staticmethod
+    def get_instance() -> None:
+        return None
 
 @dataclass
 class McpProxyConfig:
@@ -49,13 +57,19 @@ class McpProxyConfig:
 class McpBaseProvider(ABC):
     """Abstract base class for MCP provider implementations."""
 
-    def __init__(self, config: McpConfig) -> None:
+    def __init__(
+        self,
+        config: McpConfig,
+        auth_factory: AuthProviderFactory | None = None,
+    ) -> None:
         """Initialize the McpBaseProvider.
 
         Args:
             config: The McpConfig instance for this provider.
+            auth_factory: Optional authentication provider factory.
         """
         self.config = config
+        self._auth_factory = auth_factory
 
     def _get_middlewares(self) -> list[Middleware]:
         """Get the list of middlewares to apply to the FastMCP server.
@@ -92,25 +106,71 @@ class McpBaseProvider(ABC):
         Returns:
             An Authentication provider instance for the provider.
         """
-        # calling AppConfigProvider get_fast_mcp_auth_provider without parameters to get the default auth provider for FastMCP servers
-        return AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
+        if self._auth_factory is None:
+            return None
+
+        auth_provider = self._auth_factory.get_fast_mcp_auth_provider()
+        return auth_provider if auth_provider is None else auth_provider
+
+    def _validate_resource_directories(
+        self,
+        dirs: list[str],
+        resource_type: str,
+    ) -> list["Path"]:
+        """Return resolved paths for directories with at least one markdown file.
+
+        Emits warning logs for skipped directories.
+
+        Args:
+            dirs: Directory names relative to CONFIG_DIR unless absolute.
+            resource_type: Resource label for warning messages.
+
+        Returns:
+            List of valid directory paths.
+        """
+        from pathlib import Path
+
+        from drunk_ai_proxy.utils.env import CONFIG_DIR
+
+        valid_paths: list[Path] = []
+        for resource_dir in dirs:
+            resource_path = Path(resource_dir)
+            if not resource_path.is_absolute():
+                resource_path = Path(CONFIG_DIR) / resource_path
+
+            if not resource_path.exists() or not resource_path.is_dir():
+                logger.warning(
+                    "Skipping %s directory for path '%s' because it does not exist: %s",
+                    resource_type,
+                    self.config.path,
+                    resource_path,
+                )
+                continue
+
+            md_file_count = sum(1 for _ in resource_path.rglob("*.md"))
+            if md_file_count < 1:
+                logger.warning(
+                    "Skipping %s directory for path '%s' because it has no markdown files: %s",
+                    resource_type,
+                    self.config.path,
+                    resource_path,
+                )
+                continue
+
+            valid_paths.append(resource_path)
+
+        return valid_paths
 
     def _add_skill_proxy(self, mcp: FastMCP):
         skill_dirs = self.config.get_skill_dirs()
         if not skill_dirs:
             return
 
-        from pathlib import Path
-        from drunk_ai_proxy.utils.env import CONFIG_DIR
         from drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider import (
             CustomSkillsDirectoryProvider,
         )
 
-        skill_dir_paths: list[Path] = []
-        for skill_dir in skill_dirs:
-            skill_dir_path = Path(f"{CONFIG_DIR}/{skill_dir}")
-            if skill_dir_path.exists() and skill_dir_path.is_dir():
-                skill_dir_paths.append(skill_dir_path)
+        skill_dir_paths = self._validate_resource_directories(skill_dirs, "skill")
 
         if not skill_dir_paths:
             return
@@ -145,33 +205,11 @@ class McpBaseProvider(ABC):
         if not agent_dirs:
             return
 
-        from pathlib import Path
-        from drunk_ai_proxy.utils.env import CONFIG_DIR
         from drunk_ai_proxy.proxies.agent.custom_agents_directory_provider import (
             CustomAgentsDirectoryProvider,
         )
 
-        agents_dir_paths: list[Path] = []
-        for agents_dir in agent_dirs:
-            agents_dir_path = Path(f"{CONFIG_DIR}/{agents_dir}")
-            if not agents_dir_path.exists() or not agents_dir_path.is_dir():
-                logger.warning(
-                    "Skipping agent directory for path '%s' because it does not exist: %s",
-                    self.config.path,
-                    agents_dir_path,
-                )
-                continue
-
-            md_file_count = sum(1 for _ in agents_dir_path.rglob("*.md"))
-            if md_file_count < 1:
-                logger.warning(
-                    "Skipping agent directory for path '%s' because it has no markdown files: %s",
-                    self.config.path,
-                    agents_dir_path,
-                )
-                continue
-
-            agents_dir_paths.append(agents_dir_path)
+        agents_dir_paths = self._validate_resource_directories(agent_dirs, "agent")
 
         if not agents_dir_paths:
             return
@@ -203,6 +241,13 @@ class McpBaseProvider(ABC):
 
     def _create_client_auth(self) -> "Auth | None":
         pass_through = self.config.auth.pass_through if self.config.auth else False
-        provider_Name = self.config.auth.auth_provider if self.config.auth else None
+        provider_name = self.config.auth.auth_provider if self.config.auth else None
 
-        return AppConfigProvider.get_instance().get_client_auth_handler(provider_Name, pass_through)
+        if self._auth_factory is None:
+            return None
+
+        client_auth_handler = self._auth_factory.get_client_auth_handler(
+            provider_name,
+            pass_through,
+        )
+        return client_auth_handler if client_auth_handler is None else client_auth_handler

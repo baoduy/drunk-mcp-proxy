@@ -20,8 +20,6 @@ from httpx_oauth.oauth2 import (
 )
 from key_value.aio.protocols import AsyncKeyValue
 
-from drunk_ai_proxy.app.cache_provider import CacheProvider
-
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 
@@ -93,7 +91,12 @@ class HttpxOauthBase(httpx.Auth):
         """
         self._client_id = client_id
         self._client_secret = client_secret
-        self._storage = token_storage or CacheProvider.get_oauth_store()
+        if token_storage is None:
+            from key_value.aio.stores.memory import MemoryStore
+
+            self._storage = MemoryStore()
+        else:
+            self._storage = token_storage
         self._expires_in_buffer = expires_in_buffer
         self._scope = " ".join(scopes) if scopes else None
         self._oauth_client = _ClientCredentialsOAuth2(

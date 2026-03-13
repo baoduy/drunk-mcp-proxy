@@ -142,15 +142,18 @@ async def test_async_run_happy_path(monkeypatch):
     mcp_services = ["svc1", "svc2"]
 
     class DummyMcpProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
 
         def get_config_services(self):
             return mcp_services
 
     class DummyLlmProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None, cache=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
+            self.cache = cache
             self.providers = ["provider1"]
 
     # Mock AppConfigProvider to avoid loading the actual config file
@@ -183,15 +186,18 @@ async def test_async_run_loads_llm_providers(monkeypatch):
     mcp_services = []
 
     class DummyMcpProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
 
         def get_config_services(self):
             return mcp_services
 
     class DummyLlmProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None, cache=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
+            self.cache = cache
             self.providers = ["provider1"]
 
     # Mock AppConfigProvider to avoid loading the actual config file

@@ -240,10 +240,11 @@ Use modern async patterns (Python 3.11+):
 **Every class in the codebase must follow these standards:**
 
 1. **Logger Pattern** - Always:
-   - `from logging import Logger`
-   - `self._logger: Logger = setup_logging(__name__)` in `__init__`
-   - Use `self._logger.info()`, `self._logger.error()`, etc.
-   - Log only exception types: `self._logger.error("Failed: %s", type(e).__name__)`
+   - `from fastmcp.utilities import logging` at the **top of each module**
+   - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
+   - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
+   - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
+   - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
 
 2. **Type Hints** - Always:
    - Avoid `Any` type - use specific types or `Protocol`
@@ -532,8 +533,8 @@ Use modern async patterns (Python 3.11+):
   ```
 - Log errors using the project's logging configuration:
   ```python
-  from tools.logging_config import setup_logging
-  logger = setup_logging(__name__)
+  from fastmcp.utilities import logging
+  logger = logging.get_logger(__name__)
   logger.error("Operation failed: %s", type(e).__name__)
   ```
 - Use context managers for resource cleanup:
@@ -600,15 +601,15 @@ Use modern async patterns (Python 3.11+):
 
 ### Logger Pattern (Standard Convention)
 
-**All classes must follow this exact pattern for logging:**
+**All modules must follow this exact pattern for logging:**
 
 ```python
 """Module docstring."""
 
 from __future__ import annotations
 
-from logging import Logger
-from tools.logging_config import setup_logging
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class MyClass:
@@ -620,30 +621,29 @@ class MyClass:
         Args:
             config: Configuration dictionary.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._config = config
+        logger.debug("MyClass initialized")
     
     def process(self) -> None:
         """Process something."""
-        self._logger.info("Starting process")
+        logger.info("Starting process")
         try:
             result = self._do_work()
-            self._logger.debug("Process completed: %s", result)
+            logger.debug("Process completed: %s", result)
         except Exception as e:
             # Log only exception type, not message (security)
-            self._logger.error("Process failed: %s", type(e).__name__)
+            logger.error("Process failed: %s", type(e).__name__)
             raise
 ```
 
 **Key Rules for Loggers:**
 
-1. **Import**: Always `from logging import Logger` and `from tools.logging_config import setup_logging`
-2. **Initialization**: Create in `__init__` as `self._logger: Logger = setup_logging(__name__)`
-3. **Naming**: Always use `_logger` (private attribute) with type hint `Logger`
-4. **Usage**: Reference as `self._logger.info()`, `self._logger.error()`, etc.
-5. **Error Logging**: Log only exception type: `self._logger.error("Context: %s", type(e).__name__)`
-6. **Never**: Do not log full exception messages (may contain secrets/paths)
-7. **Never**: Do not pass logger as parameter; each class creates its own
+1. **Import**: Always `from fastmcp.utilities import logging`
+2. **Module-level**: Create logger at module level: `logger = logging.get_logger(__name__)`
+3. **Usage**: Reference as `logger.info()`, `logger.error()`, etc. (no `self.` prefix)
+4. **Error Logging**: Log only exception type: `logger.error("Context: %s", type(e).__name__)`
+5. **Never**: Do not log full exception messages (may contain secrets/paths)
+6. **Shared**: Logger is shared across all classes in the same module
 
 **❌ BAD - Inconsistent Logger Usage**:
 ```python
@@ -683,9 +683,8 @@ class GoodClass:
         Args:
             timeout: Operation timeout in seconds.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
-        self._logger.debug("Initialized with timeout=%d", timeout)
+        logger.debug("Initialized with timeout=%d", timeout)
     
     def process(self, data: dict[str, str]) -> bool:
         """Process data.
@@ -699,19 +698,19 @@ class GoodClass:
         Raises:
             ValueError: If data is invalid.
         """
-        self._logger.info("Processing data")
+        logger.info("Processing data")
         try:
             self._validate(data)
             result = self._execute(data)
-            self._logger.debug("Processing completed successfully")
+            logger.debug("Processing completed successfully")
             return result
         except ValueError as e:
             # Log only type, not message
-            self._logger.error("Validation failed: %s", type(e).__name__)
+            logger.error("Validation failed: %s", type(e).__name__)
             raise
         except Exception as e:
             # Generic error logging
-            self._logger.error("Processing error: %s", type(e).__name__)
+            logger.error("Processing error: %s", type(e).__name__)
             raise
 ```
 
@@ -734,24 +733,28 @@ class BadService:
     """Service with unsafe logging."""
     
     def __init__(self, api_key: str, auth_token: str):
-        self._logger: Logger = setup_logging(__name__)
         self._api_key = api_key
         
         # DANGER: Exposes full API key in logs!
-        self._logger.info(f"Initialized with API key: {api_key}")
+        logger.info(f"Initialized with API key: {api_key}")
         
         # DANGER: Full token visible in logs!
-        self._logger.debug("Auth token: %s", auth_token)
+        logger.debug("Auth token: %s", auth_token)
     
     def authenticate(self, password: str) -> bool:
         """Authenticate user."""
         # DANGER: Password in logs!
-        self._logger.info(f"Authenticating with password: {password}")
+        logger.info(f"Authenticating with password: {password}")
         return True
 ```
 
 **✅ GOOD - Safe Logging with Truncation**:
 ```python
+from fastmcp.utilities import logging
+
+logger = logging.get_logger(__name__)
+
+
 class GoodService:
     """Service with safe logging practices."""
     
@@ -762,18 +765,17 @@ class GoodService:
             api_key: API authentication key.
             auth_token: Bearer authentication token.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._api_key = api_key
         self._auth_token = auth_token
         
         # Safe: Shows last 4 chars only
-        self._logger.info("Initialized with api_key=...%s", api_key[-4:])
-        self._logger.debug("Using auth_token=...%s", auth_token[-4:])
+        logger.info("Initialized with api_key=...%s", api_key[-4:])
+        logger.debug("Using auth_token=...%s", auth_token[-4:])
     
     def authenticate(self, password: str) -> bool:
         """Authenticate user."""
         # Safe: Never log passwords, even truncated
-        self._logger.info("Authentication attempt")
+        logger.info("Authentication attempt")
         return True
     
     def _mask_sensitive(self, value: str | None, show_chars: int = 4) -> str:
@@ -792,6 +794,22 @@ class GoodService:
             return "..." + "*" * len(value)  # Don't expose short values
         return "..." + value[-show_chars:]
     
+    def _mask_sensitive(self, value: str | None, show_chars: int = 4) -> str:
+        """Mask sensitive value showing only last N characters.
+        
+        Args:
+            value: Sensitive string to mask.
+            show_chars: Number of characters to show at end.
+            
+        Returns:
+            Masked string like '...XXXX' or '[None]' if value is None.
+        """
+        if value is None:
+            return "[None]"
+        if len(value) <= show_chars:
+            return "..." + "*" * len(value)
+        return "..." + value[-show_chars:]
+    
     def process_request(self, session_id: str | None) -> dict[str, str]:
         """Process request with session.
         
@@ -803,7 +821,7 @@ class GoodService:
         """
         # Safe: Uses helper to handle None and truncation
         masked = self._mask_sensitive(session_id)
-        self._logger.info("Processing request with session_id=%s", masked)
+        logger.info("Processing request with session_id=%s", masked)
         return {"status": "ok"}
 ```
 
@@ -852,12 +870,11 @@ class ServiceClass:
             api_key: API authentication key.
             timeout: Request timeout in seconds.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._config = config
         self._api_key = api_key
         self._timeout = timeout
         # Safe: Log last 4 chars of API key for debugging
-        self._logger.debug("Service initialized with api_key=...%s", api_key[-4:])
+        logger.debug("Service initialized with api_key=...%s", api_key[-4:])
     
     def execute(self) -> dict[str, str]:
         """Execute service operation."""
@@ -904,25 +921,8 @@ class ConfigManager:
         """
         # Prevent re-initialization
         if ConfigManager._initialized:
-            return
-        
-        self._logger: Logger = setup_logging(__name__)
-        self._config_path = config_path
-        self._config: dict[str, str | int] = self._load_config()
-        ConfigManager._initialized = True
-        self._logger.info("ConfigManager initialized")
     
-    def _load_config(self) -> dict[str, str | int]:
-        """Load configuration from file."""
-        # Implementation
-        return {}
-
-# Usage - always returns same instance
-config1 = ConfigManager()
-config2 = ConfigManager()
-assert config1 is config2  # True
-```
-
+            def process_request
 ### Factory Pattern (Standard Convention)
 
 **For creating objects based on configuration or type:**
@@ -945,12 +945,11 @@ class HttpHandler(Handler):
     """HTTP-specific handler."""
     
     def __init__(self, timeout: int):
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
     
     def handle(self, request: dict[str, str]) -> dict[str, str]:
         """Handle HTTP request."""
-        self._logger.debug("Handling HTTP request")
+        logger.debug("Handling HTTP request")
         return {"status": "ok"}
 
 
@@ -958,12 +957,11 @@ class GrpcHandler(Handler):
     """gRPC-specific handler."""
     
     def __init__(self, timeout: int):
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
     
     def handle(self, request: dict[str, str]) -> dict[str, str]:
         """Handle gRPC request."""
-        self._logger.debug("Handling gRPC request")
+        logger.debug("Handling gRPC request")
         return {"status": "ok"}
 
 
@@ -975,10 +973,6 @@ class HandlerFactory:
         "http": HttpHandler,
         "grpc": GrpcHandler,
     }
-    
-    def __init__(self):
-        """Initialize factory."""
-        self._logger: Logger = setup_logging(__name__)
     
     @classmethod
     def create(cls, protocol: str, timeout: int = 30) -> Handler:
@@ -1548,17 +1542,19 @@ user = repo.find_by_id(1)
    - Use `self._logger.info()`, `self._logger.error()`, etc.
    - Log only exception types: `self._logger.error("Failed: %s", type(e).__name__)`
 
+    > **Note:** This section duplicates the Consistency Requirements in section 3. See section 3 for the canonical logger pattern (`from fastmcp.utilities import logging; logger = logging.get_logger(__name__)` at module level).
+
 2. **Type Hints** - Always:
-   - Avoid `Any` type - use specific types or `Protocol`
-   - Use `dict[str, str]` not `dict[str, Any]`
-   - Use union types: `str | int | None`
-   - Type all function parameters and return values
+    - Avoid `Any` type - use specific types or `Protocol`
+    - Use `dict[str, str]` not `dict[str, Any]`
+    - Use union types: `str | int | None`
+    - Type all function parameters and return values
 
 3. **Dependency Injection** - Always:
-   - Pass dependencies to `__init__`, never use globals
-   - Store as private attributes: `self._dependency`
-   - Use `Protocol` for interface dependencies
-   - Validate critical dependencies on initialization
+    - Pass dependencies to `__init__`, never use globals
+    - Store as private attributes: `self._dependency`
+    - Use `Protocol` for interface dependencies
+    - Validate critical dependencies on initialization
 
 4. **Naming Conventions** - Always:
    - Private attributes: `self._attribute_name`
@@ -1696,8 +1692,9 @@ Use this checklist when writing or reviewing code:
 
 from __future__ import annotations
 
-from logging import Logger
-from tools.logging_config import setup_logging
+from fastmcp.utilities import logging
+
+logger = logging.get_logger(__name__)  # module-level; shared by all classes below
 
 
 class MyNewClass:
@@ -1711,17 +1708,14 @@ class MyNewClass:
             api_token: API authentication token.
             timeout: Operation timeout in seconds.
         """
-        # 1. Logger (always first)
-        self._logger: Logger = setup_logging(__name__)
-        
-        # 2. Store dependencies as private attributes with type hints
+        # Store dependencies as private attributes with type hints
         self._config = config
         self._api_token = api_token
         self._timeout = timeout
         
-        # 3. Log initialization (debug level)
+        # Log initialization (debug level)
         # Safe: Show last 4 chars of sensitive token
-        self._logger.debug(
+        logger.debug(
             "Initialized with timeout=%d, api_token=...%s",
             timeout,
             api_token[-4:]
@@ -1739,15 +1733,15 @@ class MyNewClass:
         Raises:
             ValueError: If data is invalid.
         """
-        self._logger.info("Processing started")
+        logger.info("Processing started")
         try:
             validated = self._validate_input(data)
             result = self._process_data(validated)
-            self._logger.debug("Processing completed")
+            logger.debug("Processing completed")
             return result
         except ValueError as e:
             # Log only exception type
-            self._logger.error("Validation failed: %s", type(e).__name__)
+            logger.error("Validation failed: %s", type(e).__name__)
             raise
     
     def _validate_input(self, data: dict[str, str]) -> dict[str, str]:
@@ -1784,12 +1778,12 @@ class MyNewClass:
 
 ### ✅ Logger Usage Checklist:
 
-- [ ] Import: `from logging import Logger`
-- [ ] Import: `from tools.logging_config import setup_logging`
-- [ ] Initialize in `__init__`: `self._logger: Logger = setup_logging(__name__)`
-- [ ] Use consistent naming: `self._logger` (not `self.log`, `self.logger`, etc.)
-- [ ] Error logging: `self._logger.error("Context: %s", type(e).__name__)`
+- [ ] Import: `from fastmcp.utilities import logging` at **module level**
+- [ ] Declare: `logger = logging.get_logger(__name__)` at **module level** (not inside a class)
+- [ ] Use module-level `logger` directly: `logger.info()`, `logger.error()` — no `self._logger`
+- [ ] Error logging: `logger.error("Context: %s", type(e).__name__)`
 - [ ] Never log full exception messages
+- [ ] Never create a `self._logger` per-class instance attribute
 - [ ] Never pass logger as constructor parameter
 - [ ] Sensitive data logged with truncation: `...%s", value[-4:]`
 - [ ] Never log full tokens, API keys, passwords, or secrets

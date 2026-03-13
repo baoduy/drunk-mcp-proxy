@@ -12,6 +12,7 @@ from fastmcp.server.providers import Provider
 from fastmcp.server.providers.openapi import MCPType, OpenAPIProvider
 from fastmcp.utilities.openapi import HTTPRoute
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory
 from drunk_ai_proxy.utils import McpConfig, SpecType, audit_log
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION, CONFIG_DIR
 from drunk_ai_proxy.proxies.mcp.mcp_proxy_builder import McpProxyBuilder
@@ -22,8 +23,13 @@ logger = logging.get_logger(__name__)
 class McpProxyProvider(McpBaseProvider):
     """Provider class for creating FastMCP instances from MCP configurations."""
 
-    def __init__(self, config: McpConfig, root_mcp: FastMCP | None = None) -> None:
-        super().__init__(config)
+    def __init__(
+        self,
+        config: McpConfig,
+        root_mcp: FastMCP | None = None,
+        auth_factory: AuthProviderFactory | None = None,
+    ) -> None:
+        super().__init__(config, auth_factory=auth_factory)
         self.root_mcp = root_mcp
         self.mcp: FastMCP | None = None
 
@@ -129,30 +135,15 @@ class McpProxyProvider(McpBaseProvider):
         if not prompt_dirs:
             return
 
-        valid_prompt_dirs: list[str] = []
+        valid_prompt_paths = self._validate_resource_directories(prompt_dirs, "prompt")
+        valid_prompt_path_set = {path.resolve() for path in valid_prompt_paths}
+        valid_prompt_dirs = []
         for prompt_dir in prompt_dirs:
             prompt_path = Path(prompt_dir)
             if not prompt_path.is_absolute():
                 prompt_path = Path(CONFIG_DIR) / prompt_path
-
-            if not prompt_path.exists() or not prompt_path.is_dir():
-                logger.warning(
-                    "Skipping prompt directory for path '%s' because it does not exist: %s",
-                    self.config.path,
-                    prompt_path,
-                )
-                continue
-
-            md_file_count = sum(1 for _ in prompt_path.rglob("*.md"))
-            if md_file_count < 1:
-                logger.warning(
-                    "Skipping prompt directory for path '%s' because it has no markdown files: %s",
-                    self.config.path,
-                    prompt_path,
-                )
-                continue
-
-            valid_prompt_dirs.append(prompt_dir)
+            if prompt_path.resolve() in valid_prompt_path_set:
+                valid_prompt_dirs.append(prompt_dir)
 
         if not valid_prompt_dirs:
             return
@@ -185,7 +176,10 @@ class McpProxyProvider(McpBaseProvider):
             )
 
     @staticmethod
-    def create_mcp_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
+    def create_mcp_proxies_configs(
+        configs: list[McpConfig],
+        auth_factory: AuthProviderFactory | None = None,
+    ) -> list[McpProxyConfig]:
         """
         Create MCP proxy configurations from a list of McpConfig instances.
         
@@ -203,15 +197,22 @@ class McpProxyProvider(McpBaseProvider):
             provider_factory=lambda config, root_mcp: McpProxyProvider(
                 config,
                 root_mcp=root_mcp,
+                auth_factory=auth_factory,
             ),
             server_name=SERVER_NAME,
             server_version=SERVER_VERSION,
         )
 
     @staticmethod
-    def create_openapi_proxies_configs(configs: list[McpConfig]) -> list[McpProxyConfig]:
+    def create_openapi_proxies_configs(
+        configs: list[McpConfig],
+        auth_factory: AuthProviderFactory | None = None,
+    ) -> list[McpProxyConfig]:
         """Create OpenAPI-backed MCP proxy configurations."""
         return McpProxyBuilder.build_openapi_proxy_configs(
             configs=configs,
-            provider_factory=lambda config: McpProxyProvider(config=config),
+            provider_factory=lambda config: McpProxyProvider(
+                config=config,
+                auth_factory=auth_factory,
+            ),
         )

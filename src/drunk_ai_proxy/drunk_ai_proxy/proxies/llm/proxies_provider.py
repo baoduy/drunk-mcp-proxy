@@ -3,16 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable
-from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
 from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, Request
-from fastapi.security import HTTPAuthorizationCredentials
-from fastapi.security.http import HTTPBase
 from fastapi.responses import JSONResponse, StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 from starlette.applications import Starlette
-from fastapi.security.utils import get_authorization_scheme_param
+from drunk_ai_proxy.middleware.fast_auth import FastAuthMiddleware
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
 from drunk_ai_proxy.utils import LlmConfig, audit_log
 from drunk_ai_proxy.proxies.llm.base_provider import LlmBaseProvider
@@ -20,10 +18,29 @@ from drunk_ai_proxy.proxies.llm.anthropic_provider import AnthropicProvider
 from drunk_ai_proxy.proxies.llm.client_factory import AsyncOpenAIFactory
 
 if TYPE_CHECKING:
-    from fastmcp.server.auth import AuthProvider
+    from drunk_ai_proxy.proxies.llm.websocket_provider import LlmWebSocketProvider
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
+
+
+class _InMemoryCacheStore:
+    """Simple async in-memory store used when no cache dependency is provided."""
+
+    def __init__(self) -> None:
+        self._values: dict[str, object] = {}
+
+    async def get(self, key: str) -> object | None:
+        return self._values.get(key)
+
+    async def set(
+        self,
+        key: str,
+        value: object,
+        ttl_seconds: int | None = None,
+    ) -> None:
+        del ttl_seconds
+        self._values[key] = value
 
 class ModelBase(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -40,25 +57,6 @@ class LlmModel(ModelBase):
 class ProviderModel(ModelBase):
     name: str
     slug: str
-
-
-class FastAuthMiddleware(HTTPBase):
-    def __init__(self, auth_provider: "AuthProvider"):
-        super().__init__(scheme="bearer")
-        self.auth_provider = auth_provider
-        self.auto_error = True
-
-    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials | None:
-        authorization = request.headers.get("Authorization")
-        scheme, token = get_authorization_scheme_param(authorization)
-
-        if not (authorization and scheme and token):
-            raise self.make_not_authenticated_error()
-
-        rs = await self.auth_provider.verify_token(token)
-        if rs is not None and (rs.claims.__len__() > 0 or rs.scopes.__len__() > 0):
-            return HTTPAuthorizationCredentials(scheme=scheme, credentials=token)
-        raise self.make_not_authenticated_error()
 
 
 class LlmProxiesProvider(LlmBaseProvider):
@@ -79,15 +77,17 @@ class LlmProxiesProvider(LlmBaseProvider):
     
     def __init__(
         self,
-        providers: list[LlmConfig]
+        providers: list[LlmConfig],
+        auth_factory: AuthProviderFactory | None = None,
+        cache: TokenStore | None = None,
     ) -> None:
         super().__init__()
         if not providers or len(providers) == 0:
             raise ValueError("LLM proxy requires at least one provider configuration")
         self.providers = providers
-        from drunk_ai_proxy.app.cache_provider import CacheProvider
         from drunk_ai_proxy.proxies.llm.websocket_provider import LlmWebSocketProvider
-        self.cache = CacheProvider.get_cache_store()
+        self._auth_factory = auth_factory
+        self.cache: TokenStore = cache or _InMemoryCacheStore()
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self.websocket_provider = LlmWebSocketProvider(self.providers)
         self._fastapi_app: FastAPI | None = None
@@ -99,8 +99,8 @@ class LlmProxiesProvider(LlmBaseProvider):
     def _get_fastapi_app(self) -> FastAPI:
         if self._fastapi_app is None:
             dependencies = []
-            
-            auth = AppConfigProvider.get_instance().get_fast_mcp_auth_provider()
+
+            auth = self._auth_factory.get_fast_mcp_auth_provider() if self._auth_factory else None
             if auth:
                 dependencies = [Depends(FastAuthMiddleware(auth_provider=auth))]
            

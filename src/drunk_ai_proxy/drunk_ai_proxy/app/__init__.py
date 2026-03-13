@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .app_config_provider import AppConfigProvider
+    from .auth_provider_registry import AuthProviderRegistry
     from .cache_provider import CacheProvider
+    from .client_auth_handler_factory import ClientAuthHandlerFactory
     from .lifespan import AppLifespanManager
     from .middleware_provider import AuthHeaderMiddleware, RateLimitMiddleware
     from .server import MCPProxyServer
@@ -16,7 +18,8 @@ if TYPE_CHECKING:
 __all__ = [
     # app_config_provider
     "AppConfigProvider",
-    "get_provider",
+    "AuthProviderRegistry",
+    "ClientAuthHandlerFactory",
     # cache_provider
     "CacheProvider",
     # lifespan
@@ -35,10 +38,20 @@ __all__ = [
 
 
 def __getattr__(name: str) -> object:
-    if name in {"AppConfigProvider", "get_provider"}:
+    if name == "AppConfigProvider":
         from . import app_config_provider
 
         return getattr(app_config_provider, name)
+
+    if name == "AuthProviderRegistry":
+        from . import auth_provider_registry
+
+        return auth_provider_registry.AuthProviderRegistry
+
+    if name == "ClientAuthHandlerFactory":
+        from . import client_auth_handler_factory
+
+        return client_auth_handler_factory.ClientAuthHandlerFactory
 
     if name == "CacheProvider":
         from . import cache_provider

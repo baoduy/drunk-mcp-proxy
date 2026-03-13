@@ -31,19 +31,23 @@ def _build_provider() -> LlmProxiesProvider:
             "api_key": "test-key",
         }
     )
-    return LlmProxiesProvider(providers=[provider_config])
+    mock_auth_factory = Mock()
+    mock_auth_factory.get_fast_mcp_auth_provider.return_value = None
+
+    mock_cache = Mock()
+    mock_cache.get = AsyncMock(return_value=None)
+    mock_cache.set = AsyncMock()
+
+    return LlmProxiesProvider(
+        providers=[provider_config],
+        auth_factory=mock_auth_factory,
+        cache=mock_cache,
+    )
 
 
 def _build_app(provider: LlmProxiesProvider) -> Starlette:
     app = Starlette()
-    # Patch the correct import path used in src/proxies/llm_proxies_provider.py
-    with patch(
-        "drunk_ai_proxy.proxies.llm.proxies_provider.AppConfigProvider.get_instance"
-    ) as mock_get_app_config:
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
-        provider.mount(app, route_prefix="/llm/v1")
+    provider.mount(app, route_prefix="/llm/v1")
     return app
 
 

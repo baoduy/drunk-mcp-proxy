@@ -1,12 +1,8 @@
-"""
-Proxy configuration provider module.
-
-This module provides a centralized class for loading and managing proxy
-configurations using McpConfig from the CONFIG_DIR/config.json file.
-"""
+"""Static MCP/OpenAPI proxy configuration provider module."""
 
 from typing import TYPE_CHECKING
 from drunk_ai_proxy.utils import SpecType, McpConfig
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory
 
 if TYPE_CHECKING:
     from .base_provider import McpProxyConfig
@@ -15,32 +11,24 @@ from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 
 class StaticProxiesProvider:
-    """
-    Provider class for loading and managing proxy configurations.
-    
-    This class uses McpConfig to load proxy configurations from the
-    config.json file located in the CONFIG_DIR directory. It handles
-    both OpenAPI and MCP specification configurations.
-    
+    """Provider class for loading and managing static proxy configurations.
+
+    This class uses `McpConfig` instances loaded from the `mcp` section of
+    `config.yaml` and prepares both OpenAPI and MCP specification configs for
+    proxy creation.
+
     Attributes:
-        config_dir: Directory containing configuration files
-        config_file_path: Full path to the config.json file
-        configs: List of loaded McpConfig instances
-        logger: Logger instance for this class
-    
-    Example:
-        provider = ProxyConfigProvider()
-        provider.load_configs()
-        
-        for config in provider.configs:
-            print(f"Loaded {config.name} ({config.spec_type})")
+        configs: List of loaded `McpConfig` instances.
     """
 
-    def __init__(self, configs: list[McpConfig]) -> None:
-        """
-        Initialize the ProxyConfigProvider.
-        """
+    def __init__(
+        self,
+        configs: list[McpConfig],
+        auth_factory: AuthProviderFactory | None = None,
+    ) -> None:
+        """Initialize the StaticProxiesProvider."""
         self.configs = configs
+        self._auth_factory = auth_factory
 
     def _get_configs_by_type(self, spec_type: SpecType) -> list[McpConfig]:
         """ Get all configurations of a specific type. """
@@ -63,7 +51,10 @@ class StaticProxiesProvider:
         if len(mcp_configs) == 0:
             logger.warning("No MCP configurations found in config file")
             return []
-        return McpProxyProvider.create_mcp_proxies_configs(mcp_configs)
+        return McpProxyProvider.create_mcp_proxies_configs(
+            mcp_configs,
+            auth_factory=self._auth_factory,
+        )
 
     def _get_openapi_services(self) -> list["McpProxyConfig"]:
         """
@@ -83,7 +74,10 @@ class StaticProxiesProvider:
         
         from .proxy_provider import McpProxyProvider
 
-        return McpProxyProvider.create_openapi_proxies_configs(openapi_configs)
+        return McpProxyProvider.create_openapi_proxies_configs(
+            openapi_configs,
+            auth_factory=self._auth_factory,
+        )
         
     def get_config_services(self) -> list["McpProxyConfig"]:
         """

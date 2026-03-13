@@ -368,39 +368,25 @@ class TestGetClientIP:
 class TestRateLimitMiddleware:
     """Tests for RateLimitMiddleware dispatch logic."""
 
-    @pytest.mark.asyncio
-    async def test_rate_limit_disabled_when_max_requests_zero(self) -> None:
-        """Skip rate limiting when max_requests is 0."""
-        app = AsyncMock()
-        cache = AsyncMock()
-        
-        middleware = RateLimitMiddleware(app, cache, max_requests=0, window_seconds=60)
-        request = Mock(spec=Request)
-        request.headers = {}
-        request.client = Mock(host="192.168.1.1")
-        
-        call_next = AsyncMock(return_value="response")
-        result = await middleware.dispatch(request, call_next)
-        
-        assert result == "response"
-        cache.get.assert_not_awaited()
+    @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_REQUESTS", 0)
+    @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_WINDOW_SECONDS", 60)
+    def test_create_rate_limit_middleware_raises_for_zero_max_requests(self) -> None:
+        """Raise ValueError when RATE_LIMIT_ENABLED is true and max requests is invalid."""
+        with pytest.raises(
+            ValueError,
+            match="RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW_SECONDS must be greater than 0",
+        ):
+            middleware_provider._create_rate_limit_middleware()
 
-    @pytest.mark.asyncio
-    async def test_rate_limit_disabled_when_window_zero(self) -> None:
-        """Skip rate limiting when window_seconds is 0."""
-        app = AsyncMock()
-        cache = AsyncMock()
-        
-        middleware = RateLimitMiddleware(app, cache, max_requests=10, window_seconds=0)
-        request = Mock(spec=Request)
-        request.headers = {}
-        request.client = Mock(host="192.168.1.1")
-        
-        call_next = AsyncMock(return_value="response")
-        result = await middleware.dispatch(request, call_next)
-        
-        assert result == "response"
-        cache.get.assert_not_awaited()
+    @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_REQUESTS", 10)
+    @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_WINDOW_SECONDS", 0)
+    def test_create_rate_limit_middleware_raises_for_zero_window_seconds(self) -> None:
+        """Raise ValueError when RATE_LIMIT_ENABLED is true and window seconds is invalid."""
+        with pytest.raises(
+            ValueError,
+            match="RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW_SECONDS must be greater than 0",
+        ):
+            middleware_provider._create_rate_limit_middleware()
 
     @pytest.mark.asyncio
     async def test_rate_limit_allows_below_threshold(self) -> None:

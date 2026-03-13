@@ -1,0 +1,18 @@
+[importlinter]
+root_package = drunk_ai_proxy
+
+[importlinter:contract:proxies_must_not_depend_on_app]
+name = Proxies must not import app layer directly
+type = forbidden
+source_modules =
+    drunk_ai_proxy.proxies
+forbidden_modules =
+    drunk_ai_proxy.app
+
+[importlinter:contract:auth_must_not_depend_on_app]
+name = Auth must not import app layer directly
+type = forbidden
+source_modules =
+    drunk_ai_proxy.auth
+forbidden_modules =
+    drunk_ai_proxy.app

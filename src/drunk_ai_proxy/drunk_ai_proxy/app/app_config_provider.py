@@ -2,7 +2,8 @@ from typing import TYPE_CHECKING, Any
 
 from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig, RemoteResourceConfig
 from drunk_ai_proxy.utils.env import AUTH_ENABLED, CONFIG_DIR
-from drunk_ai_proxy.app.cache_provider import CacheProvider
+from drunk_ai_proxy.app.auth_provider_registry import AuthProviderRegistry
+from drunk_ai_proxy.app.client_auth_handler_factory import ClientAuthHandlerFactory
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
@@ -31,7 +32,8 @@ class AppConfigProvider:
 
     def _get_auth_provider_names(self) -> list[str]:
         """Get a list of available authentication provider names."""
-        auth_config = self._configs.auth
+        configs = getattr(self, "_configs", None)
+        auth_config = configs.auth if configs is not None else None
         if auth_config is None:
             return []
         auth_data = auth_config.model_dump(exclude_none=True, by_alias=True)
@@ -49,46 +51,12 @@ class AppConfigProvider:
         name, config = self._get_auth_config(provider_name)
         if config is None:
             return None
-
-        match name:
-            case AuthType.BASIC:
-                from drunk_ai_proxy.auth.api_auth_provider import ApiKeyAuthProvider
-                return ApiKeyAuthProvider(**config)
-            case AuthType.JWT:
-                from fastmcp.server.auth.providers.jwt import JWTVerifier
-                return JWTVerifier(**config)
-            case AuthType.AZURE:
-                 from fastmcp.server.auth.providers.azure import AzureProvider
-                 return AzureProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.AUTH0:
-                 from fastmcp.server.auth.providers.auth0 import Auth0Provider
-                 return Auth0Provider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.AWS:
-                 from fastmcp.server.auth.providers.aws import AWSCognitoProvider
-                 return AWSCognitoProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.DISCORD:
-                from fastmcp.server.auth.providers.discord import DiscordProvider
-                return DiscordProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.GITHUB:
-                from fastmcp.server.auth.providers.github import GitHubProvider
-                return GitHubProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.GOOGLE:
-                from fastmcp.server.auth.providers.google import GoogleProvider
-                return GoogleProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.IN_MEMORY:
-                from fastmcp.server.auth.providers.in_memory import InMemoryOAuthProvider
-                return InMemoryOAuthProvider(**config)
-            case AuthType.INTROSPECTION:
-                from fastmcp.server.auth.providers.introspection import IntrospectionTokenVerifier
-                return IntrospectionTokenVerifier(**config)
-            case AuthType.OCI:
-                 from fastmcp.server.auth.providers.oci import OCIProvider
-                 return OCIProvider(**config,client_storage=CacheProvider.get_oauth_store())
-            case AuthType.SUPABASE:
-                from fastmcp.server.auth.providers.supabase import SupabaseProvider
-                return SupabaseProvider(**config)
-            case _:
-                raise ValueError(f"Unsupported authentication provider type: {name} in {self._get_auth_provider_names()}")
+        assert name is not None
+        return AuthProviderRegistry.create(
+            name=name,
+            config=config,
+            provider_names=self._get_auth_provider_names(),
+        )
 
     def get_client_auth_handler(
         self,
@@ -103,16 +71,12 @@ class AppConfigProvider:
         name, config = self._get_auth_config(provider_name)
         if config is None:
             return None
-
-        match name:
-            case AuthType.BASIC:
-                from fastmcp.client.auth import BearerAuth
-                return BearerAuth(**config)
-            case AuthType.AZURE:
-                from drunk_ai_proxy.auth import HttpxAzureOauth
-                return HttpxAzureOauth(client_id=config["client_id"], client_secret=config["client_secret"], tenant_id=config["tenant_id"],token_storage=CacheProvider.get_oauth_store())
-            case _:
-                raise ValueError(f"Unsupported authentication provider type: {name} in {self._get_auth_provider_names()}")
+        assert name is not None
+        return ClientAuthHandlerFactory.create(
+            name=name,
+            config=config,
+            provider_names=self._get_auth_provider_names(),
+        )
 
     def get_mcp_configs(self) -> list["McpConfig"]:
         """Get the list of MCP server configurations."""
@@ -140,8 +104,3 @@ class AppConfigProvider:
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-
-
-def get_provider() -> AppConfigProvider:
-    """Get the full application configuration."""
-    return AppConfigProvider.get_instance()

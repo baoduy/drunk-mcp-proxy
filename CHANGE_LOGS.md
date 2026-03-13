@@ -13,10 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - On-demand remote skill resources provider for MCP nested `skills.remote_resources` with URL grouping by skill root and cache-backed fetch behavior.
 - New tests for remote skill resource grouping, cache reads, and fail-open behavior in `tests/test_remote_resources_provider.py`.
 - Added a user-invocable `Architecture Reviewer` custom agent at `.github/agents/architecture-reviewer.agent.md` for repository structure, layering, security, and naming/folder architecture audits.
+- Added an improved, timestamped `Architecture Reviewer` agent variant at `.github/agents/architecture-reviewer-20260313-082355.agent.md` with tighter scope controls, clearer evidence-first output contract, and a direct handoff to `Feature Planner`.
+- Added import-linter bootstrap guardrails via `src/drunk_ai_proxy/.importlinter` and a non-blocking CI workflow at `.github/workflows/architecture-lint.yml`.
 
 ### Changed
 
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
+- Updated `.github/agents/architecture-reviewer-20260313-082355.agent.md` to always produce a timestamped architecture recommendation report under `docs/architecture/reviews/architecture-review-<timestamp>.md` after each review.
 - Refactored OpenAPI MCP configuration to use nested `open_api` fields (`spec_file`, `base_url`, `filters`, `spec_data`) and removed redundant top-level OpenAPI fields from `McpConfig`.
 - Consolidated OpenAPI MCP proxy creation into `McpProxyProvider` and removed the separate `proxies/mcp/openapi_provider.py` implementation.
 - Updated MCP and prompt provider wiring to use effective multi-directory accessors for local resources.
@@ -26,12 +29,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Consolidated skill/prompt/agent resource provider implementations under `proxies/resource/` and switched MCP skill mounting to `SkillsDirectoryProvider` from that unified package.
 - Switched MCP agent mounting to `AgentsDirectoryProvider` from `proxies/resource/` and removed remaining legacy provider modules (`agent_provider`, `custom_agents_directory_provider`, `custom_skills_directory_provider`) with corresponding unit test migration.
 - Added explicit `description` metadata for all `Field(...)` declarations in `utils/config_yaml.py` to improve schema clarity and generated docs.
+- Updated MCP static provider documentation to reference YAML-based config loading (`config.yaml`) instead of legacy `config.json` wording.
+- Added `import-linter` to `src/drunk_ai_proxy` development dependencies.
 
 ### Fixed
 
 - MCP config validation now accepts nested `prompts.dirs` as a valid prompt-only MCP configuration.
 - MCP config validation now enforces unified resource structure (`skills.dirs`, `prompts.dirs`, `agents.dirs`) and rejects legacy keys (`skill_dir`, `prompt_dir`, `agents_dir`).
 - Fixed prompt registration for relative `prompts.dirs` so MCP prompt provider no longer resolves paths as `data/data/...`, restoring prompt discovery in mounted MCP routes.
+- Consolidated auth-header middleware ownership by removing the unused duplicate FastMCP middleware module and its dedicated tests; Starlette middleware in `app/middleware_provider.py` remains the canonical runtime path.
 
 ## [0.2.0] - 2026-03-11
 

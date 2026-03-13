@@ -27,6 +27,7 @@ Supported Transports:
 from typing import TYPE_CHECKING, Any
 from drunk_ai_proxy.proxies.llm.proxies_provider import LlmProxiesProvider
 from drunk_ai_proxy.app.app_config_provider import AppConfigProvider
+from drunk_ai_proxy.app.cache_provider import CacheProvider
 from .middleware_provider import get_middlewares
 from .starlette_app import StarletteApp
 from drunk_ai_proxy.proxies import StaticProxiesProvider
@@ -192,14 +193,21 @@ class MCPProxyServer:
             logger.info("%s", "=" * 50)
 
             config_provider = AppConfigProvider.get_instance()
-            provider = StaticProxiesProvider(config_provider.get_mcp_configs())
+            provider = StaticProxiesProvider(
+                config_provider.get_mcp_configs(),
+                auth_factory=config_provider,
+            )
             self.mcp_services = provider.get_config_services()
             remote_resources = config_provider.get_remote_resources()
             self.remote_resources = (
                 remote_resources if isinstance(remote_resources, list) else []
             )
 
-            llmProvider = LlmProxiesProvider(config_provider.get_llm_configs())
+            llmProvider = LlmProxiesProvider(
+                config_provider.get_llm_configs(),
+                auth_factory=config_provider,
+                cache=CacheProvider.get_cache_store(),
+            )
             self.llm_services.append((LLM_ROUTE_PREFIX, llmProvider))
 
             audit_log(

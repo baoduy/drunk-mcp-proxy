@@ -11,7 +11,7 @@ from enum import Enum
 import json
 import os
 from collections.abc import Sequence
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import jsonschema
 import yaml
@@ -105,11 +105,11 @@ class ConfigBaseModel(BaseModel):
 class BearerAuthConfig(ConfigBaseModel):
     """Bearer token authentication configuration."""
 
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Optional base URL for token introspection or auth service.",
     )
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None,
         description="Bearer token value used for upstream authentication.",
     )
@@ -118,19 +118,19 @@ class BearerAuthConfig(ConfigBaseModel):
 class JwtAuthConfig(ConfigBaseModel):
     """JWT authentication configuration."""
 
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Optional base URL for JWT auth metadata endpoints.",
     )
-    jwks_uri: Optional[str] = Field(
+    jwks_uri: str | None = Field(
         default=None,
         description="JWKS endpoint URI used to validate JWT signatures.",
     )
-    issuer: Optional[str] = Field(
+    issuer: str | None = Field(
         default=None,
         description="Expected JWT issuer claim value.",
     )
-    audience: Optional[str] = Field(
+    audience: str | None = Field(
         default=None,
         description="Expected JWT audience claim value.",
     )
@@ -159,15 +159,15 @@ class JwtAuthConfig(ConfigBaseModel):
 
 class AuthConfig(ConfigBaseModel):
     """Authentication configuration section."""
-    default_provider: Optional[AuthType] = Field(
+    default_provider: AuthType | None = Field(
         default=None,
         description="Default authentication provider used when not explicitly specified.",
     )
-    basic: Optional[BearerAuthConfig] = Field(
+    basic: BearerAuthConfig | None = Field(
         default=None,
         description="Bearer/basic authentication provider configuration.",
     )
-    jwt: Optional[JwtAuthConfig] = Field(
+    jwt: JwtAuthConfig | None = Field(
         default=None,
         description="JWT authentication provider configuration.",
     )
@@ -219,7 +219,7 @@ class LlmConfig(ConfigBaseModel):
     )
     provider: str = Field(description="LLM provider name")
     base_url: str = Field(description="Base URL for the LLM provider")
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key for authenticating requests to the LLM provider.",
     )
@@ -228,11 +228,11 @@ class LlmConfig(ConfigBaseModel):
 class OpenApiFilters(ConfigBaseModel):
     """Filters for OpenAPI operation exposure."""
 
-    methods: Optional[list[str]] = Field(
+    methods: list[str] | None = Field(
         default=None,
         description="Allowed HTTP methods to include from the OpenAPI spec.",
     )
-    tags: Optional[list[str]] = Field(
+    tags: list[str] | None = Field(
         default=None,
         description="Allowed OpenAPI tags to include from the OpenAPI spec.",
     )
@@ -244,7 +244,7 @@ class McpAuthConfig(ConfigBaseModel):
         default=False,
         description="Forward incoming client auth context to upstream MCP providers.",
     )
-    auth_provider: Optional[AuthType] = Field(
+    auth_provider: AuthType | None = Field(
         default=None,
         description="Override authentication provider for this MCP entry.",
     )
@@ -252,23 +252,23 @@ class McpAuthConfig(ConfigBaseModel):
 class McpServerConfig(ConfigBaseModel):
     """Individual MCP server configuration."""
     enabled: bool = Field(default=True, description="Enable or disable this MCP server entry.")
-    transport: Optional[str] = Field(
+    transport: str | None = Field(
         default="stdio",
         description="Transport method for MCP server (stdio, http).",
     )
-    url: Optional[str] = Field(
+    url: str | None = Field(
         default=None,
         description="URL for HTTP transport (required when transport is http).",
     )
-    command: Optional[str] = Field(
+    command: str | None = Field(
         default=None,
         description="Executable command for stdio transport (required for stdio).",
     )
-    args: Optional[list[str]] = Field(
+    args: list[str] | None = Field(
         default=None,
         description="Optional arguments passed to the stdio command.",
     )
-    env: Optional[dict[str, Any]] = Field(
+    env: dict[str, Any] | None = Field(
         default=None,
         description="Optional environment variables for the MCP server process.",
     )
@@ -286,19 +286,19 @@ class McpResourceConfig(ConfigBaseModel):
 class OpenApiConfig(ConfigBaseModel):
     """OpenAPI-specific MCP configuration."""
 
-    spec_file: Optional[str] = Field(
+    spec_file: str | None = Field(
         default=None,
         description="Relative path to the OpenAPI specification file.",
     )
-    base_url: Optional[str] = Field(
+    base_url: str | None = Field(
         default=None,
         description="Upstream API base URL used to execute mapped operations.",
     )
-    filters: Optional[OpenApiFilters] = Field(
+    filters: OpenApiFilters | None = Field(
         default=None,
         description="OpenAPI operation filters applied during route mapping.",
     )
-    spec_data: Optional[dict[str, Any]] = Field(
+    spec_data: dict[str, Any] | None = Field(
         default=None,
         exclude=True,
         description="Loaded OpenAPI specification document (internal runtime cache).",
@@ -312,37 +312,37 @@ class McpConfig(ConfigBaseModel):
         default=SpecType.MCP,
         description="Specification type: 'mcp' for MCP servers or 'openapi' for OpenAPI mapping.",
     )
-    open_api: Optional[OpenApiConfig] = Field(
+    open_api: OpenApiConfig | None = Field(
         default=None,
         alias="openApi",
         description="OpenAPI-specific configuration when spec_type is openapi.",
     )
-    skills: Optional[McpResourceConfig] = Field(
+    skills: McpResourceConfig | None = Field(
         default=None,
         description="Skill resource directory configuration for this MCP route.",
     )
-    prompts: Optional[McpResourceConfig] = Field(
+    prompts: McpResourceConfig | None = Field(
         default=None,
         description="Directories containing markdown prompt templates",
     )
-    agents: Optional[McpResourceConfig] = Field(
+    agents: McpResourceConfig | None = Field(
         default=None,
         description="Directories containing markdown agent definitions",
     )
-    auth: Optional[McpAuthConfig] = Field(
+    auth: McpAuthConfig | None = Field(
         default=None,
         description="Authentication behavior overrides for this MCP route.",
     )
-    mcp_servers: Optional[dict[str, McpServerConfig]] = Field(
+    mcp_servers: dict[str, McpServerConfig] | None = Field(
         default=None,
         alias="mcpServers",
         description="Inline MCP server map used when spec_type is mcp.",
     )
-    tags: Optional[set[str]] = Field(
+    tags: set[str] | None = Field(
         default=None,
         description="Optional tags associated with this MCP route configuration.",
     )
-    spec_data: Optional[dict[str, Any]] = Field(
+    spec_data: dict[str, Any] | None = Field(
         default=None,
         exclude=True,
         description="Loaded MCP specification data (internal runtime cache).",
@@ -623,19 +623,19 @@ class ConfigYaml(ConfigBaseModel):
         mcp: List of MCP server configurations
         remote_resources: List of remote resource bundles to sync at startup
     """
-    auth: Optional[AuthConfig] = Field(
+    auth: AuthConfig | None = Field(
         default=None,
         description="Authentication providers and defaults.",
     )
-    llm: Optional[list[LlmConfig]] = Field(
+    llm: list[LlmConfig] | None = Field(
         default=None,
         description="Configured LLM provider definitions.",
     )
-    mcp: Optional[list[McpConfig]] = Field(
+    mcp: list[McpConfig] | None = Field(
         default=None,
         description="Configured MCP route and provider entries.",
     )
-    remote_resources: Optional[list[RemoteResourceConfig]] = Field(
+    remote_resources: list[RemoteResourceConfig] | None = Field(
         default=None,
         description="Remote resource bundles to synchronize at startup.",
     )
