@@ -183,6 +183,19 @@ class TestPromptTemplateRender:
         
         result = template.render(topic="Python")
         assert result == "Explain Python"
+
+    def test_render_without_declared_parameters_returns_literal_content(self):
+        """Templates with no parameters should not apply string formatting."""
+        template = PromptTemplate(
+            name="dotnet_10",
+            description="No parameter declarations",
+            parameters={},
+            content="Use the framework for {language}."
+        )
+
+        result = template.render()
+
+        assert result == "Use the framework for {language}."
     
     def test_render_with_multiple_parameters(self):
         """Test rendering with multiple parameters."""
@@ -365,16 +378,19 @@ Content"""
             template = PromptTemplate.from_markdown_file(f.name, name="custom_name")
             assert template.name == "custom_name"
     
-    def test_load_without_frontmatter_raises_error(self):
-        """Test that files without frontmatter raise ValueError."""
+    def test_load_without_frontmatter_uses_raw_content_defaults(self):
+        """Load files without frontmatter using default metadata."""
         content = "Just plain content without frontmatter"
         
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write(content)
             f.flush()
-            
-            with pytest.raises(ValueError, match="must start with YAML frontmatter"):
-                PromptTemplate.from_markdown_file(f.name)
+
+            template = PromptTemplate.from_markdown_file(f.name)
+            assert template.content == content
+            assert template.parameters == {}
+            assert template.role == "user"
+            assert template.description == f"Prompt template '{Path(f.name).stem}'"
     
     def test_load_with_unclosed_frontmatter_raises_error(self):
         """Test that unclosed frontmatter raises ValueError."""
@@ -624,6 +640,56 @@ Content"""
             # Unrecognized role falls back to 'user'
             template = PromptTemplate.from_markdown_file(f.name)
             assert template.role == "user"
+
+
+class TestPromptTemplateFromMarkdownContent:
+    """Tests for PromptTemplate.from_markdown_content classmethod."""
+
+    def test_load_from_valid_markdown_content(self):
+        """Load template directly from markdown string content."""
+        content = """---
+description: Remote prompt
+parameters:
+  topic: str
+---
+Explain {topic}"""
+
+        template = PromptTemplate.from_markdown_content(
+            content=content,
+            name="remote_prompt",
+            source="https://example.com/remote.md",
+        )
+
+        assert template.name == "remote_prompt"
+        assert template.description == "Remote prompt"
+        assert template.parameters == {"topic": str}
+        assert template.content == "Explain {topic}"
+
+    def test_load_from_content_without_frontmatter_uses_raw_content_defaults(self):
+        """Load markdown content without frontmatter using default metadata."""
+        template = PromptTemplate.from_markdown_content(
+            content="Just plain markdown",
+            name="invalid_prompt",
+        )
+
+        assert template.content == "Just plain markdown"
+        assert template.parameters == {}
+        assert template.role == "user"
+        assert template.description == "Prompt template 'invalid_prompt'"
+
+    def test_load_from_content_with_non_dict_parameters_raises_error(self):
+        """Raise ValueError when parameters field is not a dictionary."""
+        content = """---
+description: Invalid parameters
+parameters: should-be-a-dict
+---
+Content"""
+
+        with pytest.raises(ValueError, match="'parameters' field.*must be a dictionary"):
+            PromptTemplate.from_markdown_content(
+                content=content,
+                name="invalid_parameters",
+            )
 
 
 class TestPromptTemplateRepr:

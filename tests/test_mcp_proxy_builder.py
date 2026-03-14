@@ -74,3 +74,41 @@ class TestMcpProxyBuilderBuildConfigs:
         mock_create_fastmcp_server.assert_called_once_with("test-server", "2.0.0", False)
         assert result[0].path == "/"
         assert result[0].mcp_server == root_server
+
+    @patch("drunk_ai_proxy.proxies.mcp.mcp_proxy_builder.McpProxyBuilder.create_fastmcp_server")
+    def test_build_mcp_proxy_configs_does_not_skip_when_spec_data_is_none(
+        self,
+        mock_create_fastmcp_server: Mock,
+    ) -> None:
+        """Create proxy configs for MCP entries even without pre-validated local resources."""
+        root_server = Mock()
+        remote_server = Mock()
+        mock_create_fastmcp_server.return_value = root_server
+
+        root_config = Mock(spec=McpConfig)
+        root_config.path = "/"
+        root_config.codemode_enabled = True
+        root_config.spec_data = {"mcpServers": {}}
+
+        remotes_config = Mock(spec=McpConfig)
+        remotes_config.path = "/remotes"
+        remotes_config.codemode_enabled = True
+        remotes_config.spec_data = None
+
+        provider = Mock()
+        provider.get_mcp_proxy_config.return_value = McpProxyConfig(
+            path="/remotes",
+            mcp_server=remote_server,
+        )
+
+        provider_factory = Mock(return_value=provider)
+
+        result = McpProxyBuilder.build_mcp_proxy_configs(
+            configs=[root_config, remotes_config],
+            provider_factory=provider_factory,
+            server_name="test-server",
+            server_version="2.0.0",
+        )
+
+        provider_factory.assert_called_with(remotes_config, root_server)
+        assert any(config.path == "/remotes" for config in result)

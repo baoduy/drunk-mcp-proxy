@@ -125,7 +125,10 @@ class RemoteAgentProvider(Provider):
 
         self._config = config
         self._service = OnDemandRemoteResourceService(cache=cache, http_client=http_client)
-        self._resource_uri: str = build_agent_resource_uri(config.url)
+        self._resource_uri: str = build_agent_resource_uri(
+            config.url,
+            resource_name=config.name,
+        )
         # Derive agent name from the content URI (agent://<name>)
         uri_parts = self._resource_uri.split("://", 1)
         self._agent_name: str = uri_parts[1] if len(uri_parts) == 2 else config.name

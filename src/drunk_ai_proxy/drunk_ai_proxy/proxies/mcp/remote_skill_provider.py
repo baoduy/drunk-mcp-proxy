@@ -150,16 +150,25 @@ class RemoteSkillProvider(Provider):
         self._service = OnDemandRemoteResourceService(cache=cache, http_client=http_client)
 
         # Build URI map: url -> mcp resource uri
-        self._uri_map: dict[str, str] = build_skill_resource_uris(config.urls)
+        self._uri_map: dict[str, str] = build_skill_resource_uris(
+            config.urls,
+            resource_name=config.name,
+        )
         # Build reverse map: mcp resource uri -> url
         self._reverse_map: dict[str, str] = {v: k for k, v in self._uri_map.items()}
-        # Derive skill name from the main URI (skill://<skill_name>)
+        # Derive skill name from the main URI (skill://<skill_name>/SKILL.md)
         main_uri = next(
             (uri for url, uri in self._uri_map.items() if url.endswith(_SKILL_MAIN)),
             next(iter(self._uri_map.values()), None),
         )
         uri_tail = main_uri.split("://", 1)[1] if main_uri and "://" in main_uri else config.name
-        self._skill_name: str = uri_tail.split("/")[0]
+        main_suffix = f"/{_SKILL_MAIN}"
+        if uri_tail.endswith(main_suffix):
+            self._skill_name = uri_tail[: -len(main_suffix)]
+        else:
+            self._skill_name = uri_tail
+        self._legacy_main_uri: str = f"skill://{self._skill_name}"
+        self._main_uri: str = f"skill://{self._skill_name}/{_SKILL_MAIN}"
 
     async def _list_resources(self) -> Sequence[Resource]:
         """Return the list of resource descriptors for this skill."""
@@ -197,6 +206,8 @@ class RemoteSkillProvider(Provider):
         """Return resource descriptor if the URI belongs to this provider."""
         if uri == f"skill://{self._skill_name}/{_MANIFEST_SUFFIX}":
             return self._build_manifest_resource()
+        if uri == self._legacy_main_uri and self._main_uri in self._reverse_map:
+            uri = self._main_uri
         if uri not in self._reverse_map:
             return None
 
@@ -248,7 +259,7 @@ class RemoteSkillProvider(Provider):
     @staticmethod
     def _uri_map_to_name(uri: str) -> str:
         """Derive a human-readable name from a skill URI."""
-        # e.g. skill://my-skill -> my-skill
+        # e.g. skill://my-skill/SKILL.md -> my-skill/SKILL.md
         # e.g. skill://my-skill/query-plan.md -> my-skill/query-plan.md
         if uri.startswith("skill://"):
             return uri[len("skill://"):]

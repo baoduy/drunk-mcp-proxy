@@ -6,7 +6,8 @@ with YAML frontmatter parameter definitions.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
+from pathlib import Path
 
 import yaml
 
@@ -51,7 +52,7 @@ class PromptTemplate:
         description: str,
         parameters: dict[str, str],
         content: str,
-        role: str = "user",
+        role: object = "user",
         enabled: bool = True
     ):
         """Initialize a PromptTemplate.
@@ -136,6 +137,9 @@ class PromptTemplate:
             ValueError: If required parameters are missing or types don't match.
             KeyError: If template references undefined parameters.
         """
+        if not self.parameters:
+            return self.content
+
         # Validate that all required parameters are provided
         missing_params = set(self.parameters.keys()) - set(kwargs.keys())
         if missing_params:
@@ -222,7 +226,6 @@ class PromptTemplate:
             ValueError: If file format is invalid or required fields are missing.
             FileNotFoundError: If the file doesn't exist.
         """
-        
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -232,105 +235,135 @@ class PromptTemplate:
         except Exception as e:
             logger.error("Failed to read file %s: %s", file_path, type(e).__name__)
             raise ValueError(f"Failed to read prompt file: {file_path}") from e
-        
-        # Parse frontmatter
+
+        template_name = name if name is not None else Path(file_path).stem
+        return cls.from_markdown_content(
+            content=content,
+            name=template_name,
+            source=file_path,
+        )
+
+    @classmethod
+    def from_markdown_content(
+        cls,
+        content: str,
+        name: str,
+        source: str = "inline markdown",
+    ) -> "PromptTemplate":
+        """Load a prompt template from markdown content with YAML frontmatter.
+
+        Args:
+            content: Raw markdown content with YAML frontmatter.
+            name: Template name.
+            source: Source label used in errors and warnings.
+
+        Returns:
+            PromptTemplate instance loaded from the markdown content.
+
+        Raises:
+            ValueError: If markdown format is invalid or required fields are missing.
+        """
         if not content.startswith("---"):
-            raise ValueError(
-                f"Prompt file '{file_path}' must start with YAML frontmatter delimiter '---'"
+            logger.warning(
+                "Prompt source '%s' has no YAML frontmatter; using raw markdown content "
+                "with default metadata",
+                source,
             )
-        
-        # Find the closing delimiter
+            return cls(
+                name=name,
+                description=f"Prompt template '{name}'",
+                parameters={},
+                content=content,
+                role="user",
+                enabled=True,
+            )
+
         try:
             end_delimiter_pos = content.index("---", 3)
         except ValueError:
             raise ValueError(
-                f"Prompt file '{file_path}' has unclosed YAML frontmatter (missing closing '---')"
+                f"Prompt source '{source}' has unclosed YAML frontmatter "
+                "(missing closing '---')"
             ) from None
-        
+
         frontmatter_str = content[3:end_delimiter_pos].strip()
         template_content = content[end_delimiter_pos + 3:].strip()
-        
-        # Parse YAML frontmatter
+
         try:
-            frontmatter: dict[str, Any] = yaml.safe_load(frontmatter_str)
+            frontmatter_obj: object = yaml.safe_load(frontmatter_str)
         except yaml.YAMLError as e:
-            logger.error("YAML parsing failed for %s: %s", file_path, type(e).__name__)
+            logger.error("YAML parsing failed for %s: %s", source, type(e).__name__)
+            raise ValueError(f"Invalid YAML frontmatter in '{source}': {e}") from e
+
+        if not isinstance(frontmatter_obj, dict):
             raise ValueError(
-                f"Invalid YAML frontmatter in '{file_path}': {e}"
-            ) from e
-        
-        # Validate frontmatter is a dictionary
-        if not isinstance(frontmatter, dict):
-            raise ValueError(
-                f"Prompt file '{file_path}' frontmatter must be a YAML mapping (dictionary), "
-                f"got {type(frontmatter).__name__}"
+                f"Prompt source '{source}' frontmatter must be a YAML mapping (dictionary), "
+                f"got {type(frontmatter_obj).__name__}"
             )
-        
-        # Extract required fields
-        description = frontmatter.get("description")
-        if not description:
+        frontmatter = cast(dict[str, Any], frontmatter_obj)
+
+        description_obj: object = frontmatter.get("description")
+        if not isinstance(description_obj, str) or not description_obj:
             raise ValueError(
-                f"Prompt file '{file_path}' must have a 'description' field in frontmatter"
+                f"Prompt source '{source}' must have a 'description' field in frontmatter"
             )
-        
-        parameters: dict[str, str] = frontmatter.get("parameters", {})
-        
-        # Validate parameters is a dictionary if provided
-        if not isinstance(parameters, dict):
+        description = description_obj
+
+        parameters_obj: object = frontmatter.get("parameters", {})
+        if not isinstance(parameters_obj, dict):
             raise ValueError(
-                f"Prompt file '{file_path}' 'parameters' field must be a dictionary, "
-                f"got {type(parameters).__name__}"
+                f"Prompt source '{source}' 'parameters' field must be a dictionary, "
+                f"got {type(parameters_obj).__name__}"
             )
-        
-        # Extract role field (defaults to "user" if not provided)
-        role = frontmatter.get("role", "user")
-        if not isinstance(role, str):
+        raw_parameters = cast(dict[object, object], parameters_obj)
+        parameters: dict[str, str] = {}
+        for param_name, type_name in raw_parameters.items():
+            parameters[str(param_name)] = str(type_name)
+
+        role_obj: object = frontmatter.get("role", "user")
+        if not isinstance(role_obj, str):
             logger.warning(
                 "'role' field in '%s' must be a string, got %s; falling back to 'user'",
-                file_path,
-                type(role).__name__
+                source,
+                type(role_obj).__name__,
             )
             role = "user"
         else:
-            role = role.strip()
-            
-            # Normalize role: if it's not FastMCP-compatible, fallback to 'user'
+            role = role_obj.strip()
             if role not in cls.ALLOWED_ROLES:
                 logger.warning(
                     "'role' field in '%s' is invalid ('%s'), falling back to 'user'",
-                    file_path,
-                    role
+                    source,
+                    role,
                 )
                 role = "user"
             elif role not in cls.FASTMCP_ROLES:
                 logger.warning(
-                    "'role' field in '%s' is '%s' (not FastMCP-compatible), falling back to 'user'",
-                    file_path,
-                    role
+                    "'role' field in '%s' is '%s' (not FastMCP-compatible), "
+                    "falling back to 'user'",
+                    source,
+                    role,
                 )
                 role = "user"
 
-        enabled = frontmatter.get("enabled", True)
-        if not isinstance(enabled, bool):
+        enabled_obj: object = frontmatter.get("enabled", True)
+        if not isinstance(enabled_obj, bool):
             logger.warning(
                 "'enabled' field in '%s' must be a bool, got %s; defaulting to True",
-                file_path,
-                type(enabled).__name__
+                source,
+                type(enabled_obj).__name__,
             )
             enabled = True
-        
-        # Determine template name
-        if name is None:
-            import os
-            name = os.path.splitext(os.path.basename(file_path))[0]
-        
+        else:
+            enabled = enabled_obj
+
         return cls(
             name=name,
             description=description,
             parameters=parameters,
             content=template_content,
             role=role,
-            enabled=enabled
+            enabled=enabled,
         )
     
     def __repr__(self) -> str:

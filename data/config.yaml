@@ -160,19 +160,36 @@ mcp:
           OUTLINE_API_KEY: "$OUTLINE_API_KEY"
 
   # ========== Example 5: Prompt provider with markdown templates ==========
-  - path: /resources # URL path for prompt templates
+  - path: /locals # URL path for prompt templates
     codemode_enabled: true # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     skills: 
       dirs:
         - skills/dknet
         - skills/dotnet
+    prompts:
+      dirs:
+        - prompts/custom
+        - prompts/dotnet
+    agents:
+      dirs:
+        - agents/core
+        - agents/dotnet
+        - agents/tools
+
+  - path: /remotes # URL path for prompt templates
+    codemode_enabled: true # Enable or disable Code Mode for this MCP route
+    spec_type: mcp # Using Model Context Protocol
+    skills:
       # remote_resources: serve HTTPS-hosted skill files on-demand (no local sync).
       # Accepts shorthand (URL string) or full object form.
       # Skills must use "urls" (multiple files) with one ending in SKILL.md.
       remote_resources:
         # Shorthand: single URL – treated as the SKILL.md entry point
-        - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
+        - https://raw.githubusercontent.com/anthropics/skills/refs/heads/main/skills/pdf/SKILL.md
+        - name: dotnet/optimizing-ef-core-queries
+          urls: 
+            - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
         # Full object form with multiple support files
         # - name: my-remote-skill
         #   urls:
@@ -182,23 +199,20 @@ mcp:
         #     Authorization: "Bearer $MY_TOKEN"
         
     prompts:
-      dirs:
-        - prompts/custom
-        - prompts/dotnet
       # remote_resources: serve HTTPS-hosted prompt templates on-demand.
       # Prompts must use "url" (single file) pointing to a markdown template.
-      # remote_resources:
+      remote_resources:
+        - https://raw.githubusercontent.com/baoduy/DKNet.Templates/refs/heads/main/Skills/QUICK-REFERENCE.md
       #   - name: my-remote-prompt
       #     url: https://example.com/prompts/my-template.md
       #     headers:
       #       Authorization: "Bearer $MY_TOKEN"
 
     agents:
-      dirs:
-        - agents/core
-        - agents/dotnet
-        - agents/tools
-      # remote_resources: serve HTTPS-hosted agent markdown files on-demand.
+      remote_resources: #serve HTTPS-hosted agent markdown files on-demand.
+        - https://raw.githubusercontent.com/baoduy/DKNet.Templates/refs/heads/main/Skills/02-efcore-domain-entity-development.md
+        - name: dotnet/modernize-agent
+          url: https://raw.githubusercontent.com/dotnet/modernize-dotnet/refs/heads/main/plugins/modernize-dotnet/agents/modernize-dotnet.agent.md
       # Agents must use "url" (single file).
       # remote_resources:
       #   - name: my-remote-agent
@@ -207,7 +221,7 @@ mcp:
 # Sync/Download the remote resources to the local filesystem on startup. This allows you to reference remote files (e.g. markdown prompts) in your skills without having to manually download them.
 remote_resources:
   - name: dotnet_prompt # Resource name to reference in skills
-    enabled: true # Optional per-bundle toggle; defaults to true when omitted
+    enabled: false # Optional per-bundle toggle; defaults to true when omitted
     to_dir: prompts/dotnet # Destination under FASTMCP_CONFIG_DIR
     paths:
       - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md

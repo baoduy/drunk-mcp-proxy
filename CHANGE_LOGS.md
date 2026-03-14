@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a user-invocable `Architecture Reviewer` custom agent at `.github/agents/architecture-reviewer.agent.md` for repository structure, layering, security, and naming/folder architecture audits.
 - Added an improved, timestamped `Architecture Reviewer` agent variant at `.github/agents/architecture-reviewer-20260313-082355.agent.md` with tighter scope controls, clearer evidence-first output contract, and a direct handoff to `Feature Planner`.
 - Added import-linter bootstrap guardrails via `src/drunk_ai_proxy/.importlinter` and a non-blocking CI workflow at `.github/workflows/architecture-lint.yml`.
+- Added configuration-driven URI verification tests for `data/config.yaml` remote skill/prompt/agent entries to validate name normalization and generated MCP URI conventions.
 - Added `docs/drunk_ai_proxy/architecture/drunk-ai-proxy-module-reference.md` with a code-verified architecture, runtime flow, config dependencies, extension points, and common failure modes for `src/drunk_ai_proxy`.
 - Added a dedicated diagram set under `docs/drunk_ai_proxy/architecture/diagrams/drunk_ai_proxy-*.md` including one system-level diagram and focused diagrams for `app`, `auth`, `middleware`, `proxies`, `utils`, and proxy subpackages (`llm`, `mcp`, `prompt`, `agent`).
 - Added `docs/drunk_ai_proxy/architecture/drunk-ai-proxy-route-appendix.md` with consolidated server, MCP, LLM HTTP, and WebSocket route mapping.
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Extended `PromptTemplate` with `from_markdown_content(...)` and refactored remote prompt parsing to use in-memory markdown parsing instead of temporary files.
 - Merged `drunk_ai_client.client` runtime/adapter logic into `drunk_ai_client.main` so the stdio client now has a single module entry surface.
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
 - Switched Code Mode control from global environment toggle to per-route MCP config via `mcp[].codemode_enabled`.
@@ -45,6 +47,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Fixed prompt template parsing to support markdown prompts without YAML frontmatter by returning full content with default metadata instead of failing.
+- Fixed remote prompt rendering for markdown files without YAML frontmatter by falling back to raw markdown template content with default prompt metadata.
+- Fixed remote prompt registration to omit companion `prompt://<name>/_manifest` resources so prompts are registered and used without manifest requirements.
+- Fixed MCP proxy configuration building to always create a FastMCP instance for configured MCP routes (including `/remotes`) without pre-validating local prompt/resource directories.
+- Fixed remote skill resource URI mapping to follow FastMCP SkillProvider convention by exposing primary skill files as `skill://<skill-name>/SKILL.md`.
+- Fixed remote agent resource URI mapping to follow `agent://<path>/<file_name>.agent.md` naming convention.
+- Fixed on-demand remote prompt registration to avoid FastMCP prompt rejection for `**kwargs`, restoring visibility of `prompts.remote_resources` entries in prompt listings.
+- Fixed remote URI builders for skills, agents, and prompts to prioritize configured `name` when provided; URL-based name inference is now only used as fallback.
+- Fixed fallback URL name derivation to use parent folder only for `SKILL.md` and filename stem for non-skill files (e.g. `QUICK-REFERENCE.md` -> `quick-reference`).
+- Fixed remote skill manifest URI generation to preserve full namespaced skill names (for example `skill://dotnet/ef-core/_manifest` instead of truncating to `skill://dotnet/_manifest`).
+- Fixed prompt template rendering for files with no declared `parameters` so content is returned verbatim (literal `{...}` text is preserved instead of raising render errors).
 - MCP config validation now accepts nested `prompts.dirs` as a valid prompt-only MCP configuration.
 - MCP config validation now enforces unified resource structure (`skills.dirs`, `prompts.dirs`, `agents.dirs`) and rejects legacy keys (`skill_dir`, `prompt_dir`, `agents_dir`).
 - Fixed prompt registration for relative `prompts.dirs` so MCP prompt provider no longer resolves paths as `data/data/...`, restoring prompt discovery in mounted MCP routes.
