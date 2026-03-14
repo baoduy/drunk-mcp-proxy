@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Merged `drunk_ai_client.client` runtime/adapter logic into `drunk_ai_client.main` so the stdio client now has a single module entry surface.
 - Extended MCP config to support nested `skills`, `prompts`, and `agents` sections with `dirs` and `remote_resources`.
 - Switched Code Mode control from global environment toggle to per-route MCP config via `mcp[].codemode_enabled`.
 - Reorganized documentation into module-based roots under `docs/drunk_ai_proxy` and `docs/drunk_ai_client`, archived loose legacy docs into `docs/drunk_ai_proxy/legacy`, and converted top-level `docs/README.md` + `docs/INDEX.md` into module routers.
@@ -40,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Removed legacy MCP JSON-schema validation from `McpConfig` and now rely on Pydantic model/validator-based config validation.
 - Completed phased architecture refactor plan for app/auth/llm/mcp/utils: introduced `AuthTypeRegistry`, `LlmRouter` + `LlmRequestDispatcher`, `McpServerFactory`, `AppConfigReader`, and `EnvReader`, with compatibility shims preserved for existing imports and patch targets.
 - Split configuration concerns by moving YAML model definitions into `utils/config_yaml_models.py` and reducing `utils/config_yaml.py` to a loader-focused `ConfigYaml` surface with backward-compatible re-exports.
+- Completed phased `drunk_ai_client` refactor: introduced class-first runtime orchestration (`StdioBridgeApplication`, `ClientCliEntrypoint`), split sync/config/models into dedicated modules, added protocol-based resource sync abstractions, centralized DRY path/content helpers, and added `FastMCP.from_client` composition with compatibility fallback to manual proxy mounting.
 
 ### Fixed
 

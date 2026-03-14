@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from drunk_ai_client.client import ClientConfig
+from drunk_ai_client.main import ClientConfig
 
 
 ENV_KEYS = [
