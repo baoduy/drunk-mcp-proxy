@@ -32,5 +32,3 @@ jobs:
       - name: Publish to PyPI
         working-directory: src/drunk_ai_client
         run: uv publish
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
