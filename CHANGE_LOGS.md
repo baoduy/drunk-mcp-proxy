@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Refactored Swagger and LLM/MCP proxy internals for stricter class-first architecture: extracted OpenAPI component builders into `app/swagger_schemas.py`, introduced `RemoteProviderBootstrap` and injected shared HTTP client dependencies through MCP providers, introduced `LlmModelCatalog` plus `LlmEndpointMixin` to slim `LlmProxiesProvider`, and added typed alias cleanup in `app_config_provider`, `env_resolver`, and `anthropic_provider`.
+- Simplified MCP proxy config construction to instantiate a FastMCP route for every configured `mcp` entry without pre-filtering no-spec configs; each route now relies on `_add_mcp_proxy`, `_add_open_api_proxy`, and resource provider adders to attach capabilities independently.
 - Completed phased architecture refactor implementation for `src/drunk_ai_proxy/drunk_ai_proxy`: consolidated middleware assembly on `MiddlewareProvider` canonical path, introduced class-first utility facades (`EnvResolver`, `ConfigYamlUriBuilder`, `ResourcePathNamespaceResolver`, `EnvConfig` snapshot), extracted SRP helpers in server/LLM/MCP provider flows, and added auth registry extension hook.
 - Aligned MCP remote-resource wiring with protocol-based cache dependency injection (`TokenStore`) across remote providers and on-demand fetch service, removing direct proxy-layer coupling to concrete cache storage implementations.
 - Segregated LLM provider capabilities by introducing `MountableLlmProvider` while keeping endpoint-only providers compatible.
@@ -55,6 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Fixed inbound auth initialization to auto-enable when `auth.default_provider` is configured and `FASTMCP_AUTH_ENABLED` is unset, while still honoring explicit `FASTMCP_AUTH_ENABLED=false` overrides.
 - Fixed MCP proxy config filtering so routes with only nested remote resources (for example `/remotes`) are still mounted at `/<path>/mcp` even when `mcp_servers` is not configured.
+- Fixed MCP proxy config filtering so local-only resource routes (for example `/locals` with `skills/prompts/agents` dirs) are mounted at `/<path>/mcp` when `mcp_servers` is not configured.
 - Fixed prompt template parsing to support markdown prompts without YAML frontmatter by returning full content with default metadata instead of failing.
 - Fixed remote prompt rendering for markdown files without YAML frontmatter by falling back to raw markdown template content with default prompt metadata.
 - Fixed remote prompt registration to omit companion `prompt://<name>/_manifest` resources so prompts are registered and used without manifest requirements.

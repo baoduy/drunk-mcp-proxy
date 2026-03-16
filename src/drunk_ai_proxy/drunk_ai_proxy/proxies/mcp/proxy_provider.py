@@ -192,32 +192,6 @@ class McpProxyProvider(McpBaseProvider):
             )
 
     @staticmethod
-    def _should_include_no_spec_config(config: McpConfig) -> bool:
-        """Return whether a config without spec_data should be included.
-
-        Include when remote configuration is explicitly present and non-empty,
-        or when configuration intent is unknown (defensive include).
-        Skip when local directories are explicitly configured and no explicit
-        remote resources are configured.
-        """
-        skill_remote = config.get_skill_remote_resources()
-        prompt_remote = config.get_prompt_remote_resources()
-        agent_remote = config.get_agent_remote_resources()
-
-        remote_values = [skill_remote, prompt_remote, agent_remote]
-        has_explicit_remote_config = any(isinstance(value, list) for value in remote_values)
-        has_remote_resources = any(isinstance(value, list) and bool(value) for value in remote_values)
-        if has_explicit_remote_config:
-            return has_remote_resources
-
-        local_values = [config.get_skill_dirs(), config.get_prompt_dirs(), config.get_agent_dirs()]
-        has_explicit_local_config = any(isinstance(value, list) for value in local_values)
-        if has_explicit_local_config:
-            return False
-
-        return True
-
-    @staticmethod
     def create_mcp_proxies_configs(
         configs: list[McpConfig],
         auth_factory: AuthProviderFactory | None = None,
@@ -236,14 +210,8 @@ class McpProxyProvider(McpBaseProvider):
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
-        filtered_configs = [
-            config
-            for config in configs
-            if config.spec_data is not None
-            or McpProxyProvider._should_include_no_spec_config(config)
-        ]
         return McpProxyBuilder.build_mcp_proxy_configs(
-            configs=filtered_configs,
+            configs=configs,
             provider_factory=lambda config, root_mcp: McpProxyProvider(
                 config,
                 root_mcp=root_mcp,

@@ -357,6 +357,33 @@ class TestMcpProxyProviderCreateMcpProxiesConfigs:
         passed_configs = mock_build_mcp_proxy_configs.call_args.kwargs["configs"]
         assert passed_configs == [mcp_server_config, remote_only_config]
 
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.build_mcp_proxy_configs")
+    def test_includes_local_only_configs_without_spec_data(
+        self,
+        mock_build_mcp_proxy_configs,
+    ) -> None:
+        """Local-only MCP configs must not be filtered out when spec_data is None."""
+        mcp_server_config = Mock(spec=McpConfig)
+        mcp_server_config.path = "/"
+        mcp_server_config.spec_data = {"mcpServers": {"memory": {}}}
+
+        local_only_config = Mock(spec=McpConfig)
+        local_only_config.path = "/locals"
+        local_only_config.spec_data = None
+        local_only_config.get_skill_remote_resources.return_value = []
+        local_only_config.get_prompt_remote_resources.return_value = []
+        local_only_config.get_agent_remote_resources.return_value = []
+        local_only_config.get_skill_dirs.return_value = ["skills/dotnet"]
+        local_only_config.get_prompt_dirs.return_value = ["prompts/custom"]
+        local_only_config.get_agent_dirs.return_value = ["agents/core"]
+
+        McpProxyProvider.create_mcp_proxies_configs(
+            configs=[mcp_server_config, local_only_config]
+        )
+
+        passed_configs = mock_build_mcp_proxy_configs.call_args.kwargs["configs"]
+        assert passed_configs == [mcp_server_config, local_only_config]
+
 
 class TestMcpConfigResourcesField:
     """Test suite for resource fields in McpConfig."""
