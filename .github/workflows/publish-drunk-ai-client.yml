@@ -7,15 +7,16 @@ on:
       - dev
     paths:
       - 'src/drunk_ai_client/**'
-      - '.github/workflows/publish-drunk-ai-client.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
