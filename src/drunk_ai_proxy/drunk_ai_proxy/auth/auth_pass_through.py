@@ -1,11 +1,11 @@
 import typing
-import logging
 
 import httpx
 from fastmcp.server.dependencies import get_access_token
+from fastmcp.utilities import logging
 from mcp.server.auth.provider import AccessToken
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class AuthPassThrough(httpx.Auth):

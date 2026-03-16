@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from drunk_ai_proxy.utils.config_yaml_uri import (
-    build_name_from_url,
-    build_agent_resource_uri,
-    build_prompt_resource_uri,
-    build_skill_resource_uris,
-)
+from drunk_ai_proxy.utils.config_yaml_uri import ConfigYamlUriBuilder
+
+build_name_from_url = ConfigYamlUriBuilder.build_name_from_url
+build_agent_resource_uri = ConfigYamlUriBuilder.build_agent_resource_uri
+build_prompt_resource_uri = ConfigYamlUriBuilder.build_prompt_resource_uri
+build_skill_resource_uris = ConfigYamlUriBuilder.build_skill_resource_uris
 
 
 class TestBuildNameFromUrl:

@@ -14,13 +14,15 @@ from .config_yaml_models import (
     LlmConfig,
     RemoteResourceConfig,
 )
-from .config_yaml_uri import (
-    build_skill_resource_uris,
-    build_agent_resource_uri,
-    build_prompt_resource_uri,
-    build_name_from_url,
-)
-from .env_resolver import resolve_env_vars
+from .config_yaml_uri import ConfigYamlUriBuilder
+from .env_resolver import EnvResolver
+
+# Convenience re-exports sourced from class static methods
+build_skill_resource_uris = ConfigYamlUriBuilder.build_skill_resource_uris
+build_agent_resource_uri = ConfigYamlUriBuilder.build_agent_resource_uri
+build_prompt_resource_uri = ConfigYamlUriBuilder.build_prompt_resource_uri
+build_name_from_url = ConfigYamlUriBuilder.build_name_from_url
+resolve_env_vars = EnvResolver.resolve_env_vars
 from .security import (
     sanitize_error_response,
     is_user_actionable_error,

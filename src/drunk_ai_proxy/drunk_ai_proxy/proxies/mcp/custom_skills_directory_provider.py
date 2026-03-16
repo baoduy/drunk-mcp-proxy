@@ -10,7 +10,7 @@ from fastmcp.server.providers.aggregate import AggregateProvider
 from fastmcp.server.providers.skills.skill_provider import SkillProvider
 from fastmcp.utilities.versions import VersionSpec
 
-from drunk_ai_proxy.proxies.mcp.resource_path_utils import get_root_namespace
+from drunk_ai_proxy.proxies.mcp.resource_path_utils import ResourcePathNamespaceResolver
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -82,7 +82,7 @@ class CustomSkillsDirectoryProvider(AggregateProvider):
         seen_skill_names: set[str] = set()
 
         for root in self._roots:
-            root_namespace = get_root_namespace(root)
+            root_namespace = ResourcePathNamespaceResolver.get_root_namespace(root)
             for namespace, skill_dir in self._iter_skill_dirs(root):
                 skill_name = skill_dir.name
                 namespace_parts: list[str] = []

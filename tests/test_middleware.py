@@ -17,41 +17,41 @@ from drunk_ai_proxy.app.middleware_provider import AuthHeaderMiddleware, RateLim
 
 
 class TestParseCsv:
-    """Test suite for _parse_csv helper function."""
+    """Test suite for MiddlewareProvider._parse_csv static method."""
 
     def test_parse_csv_simple(self):
         """Test parsing simple comma-separated values."""
-        result = middleware_provider._parse_csv("a,b,c")
+        result = middleware_provider.MiddlewareProvider._parse_csv("a,b,c")
         assert result == ["a", "b", "c"]
 
     def test_parse_csv_with_spaces(self):
         """Test parsing CSV with spaces around values."""
-        result = middleware_provider._parse_csv("a, b , c")
+        result = middleware_provider.MiddlewareProvider._parse_csv("a, b , c")
         assert result == ["a", "b", "c"]
 
     def test_parse_csv_empty_string(self):
         """Test parsing empty string returns empty list."""
-        result = middleware_provider._parse_csv("")
+        result = middleware_provider.MiddlewareProvider._parse_csv("")
         assert result == []
 
     def test_parse_csv_with_empty_items(self):
         """Test parsing CSV filters out empty items."""
-        result = middleware_provider._parse_csv("a,,b,")
+        result = middleware_provider.MiddlewareProvider._parse_csv("a,,b,")
         assert result == ["a", "b"]
 
     def test_parse_csv_single_item(self):
         """Test parsing single item."""
-        result = middleware_provider._parse_csv("single")
+        result = middleware_provider.MiddlewareProvider._parse_csv("single")
         assert result == ["single"]
 
     def test_parse_csv_whitespace_only(self):
         """Test parsing whitespace-only string returns empty list."""
-        result = middleware_provider._parse_csv("   ")
+        result = middleware_provider.MiddlewareProvider._parse_csv("   ")
         assert result == []
 
-    def test_parse_csv_none_value(self):
-        """Test parsing None value returns empty list."""
-        result = middleware_provider._parse_csv(None)
+    def test_parse_csv_empty_fallback(self):
+        """Test parsing empty string as fallback returns empty list."""
+        result = middleware_provider.MiddlewareProvider._parse_csv("")
         assert result == []
 
 
@@ -64,7 +64,7 @@ class TestBuildCorsMiddleware:
     @patch('drunk_ai_proxy.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_disabled(self):
         """Test CORS middleware with default values when origins not set."""
-        result = middleware_provider._create_cors_middleware()
+        result = middleware_provider.MiddlewareProvider(Mock())._create_cors_middleware()
         assert result is not None
         assert isinstance(result, Middleware)
         assert result.kwargs['allow_origins'] == ['*']  # Defaults to allow all
@@ -77,7 +77,7 @@ class TestBuildCorsMiddleware:
     @patch('drunk_ai_proxy.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_with_origin(self):
         """Test CORS middleware is built with single origin."""
-        result = middleware_provider._create_cors_middleware()
+        result = middleware_provider.MiddlewareProvider(Mock())._create_cors_middleware()
         
         assert result is not None
         assert isinstance(result, Middleware)
@@ -92,7 +92,7 @@ class TestBuildCorsMiddleware:
     @patch('drunk_ai_proxy.app.middleware_provider.CORS_EXPOSE_HEADERS', 'X-Request-ID')
     def test_build_cors_middleware_all_options(self):
         """Test CORS middleware with all options configured."""
-        result = middleware_provider._create_cors_middleware()
+        result = middleware_provider.MiddlewareProvider(Mock())._create_cors_middleware()
         
         assert result is not None
         assert result.kwargs['allow_origins'] == ['https://example.com', 'https://app.example.com']
@@ -106,113 +106,82 @@ class TestBuildCorsMiddleware:
     @patch('drunk_ai_proxy.app.middleware_provider.CORS_EXPOSE_HEADERS', '')
     def test_build_cors_middleware_strips_whitespace(self):
         """Test CORS middleware strips whitespace from values."""
-        result = middleware_provider._create_cors_middleware()
+        result = middleware_provider.MiddlewareProvider(Mock())._create_cors_middleware()
         
         assert result is not None
         assert result.kwargs['allow_origins'] == ['https://example.com']
 
 
-class TestGetMiddlewares:
-    """Test suite for get_middlewares function."""
+class TestMiddlewareProviderBuild:
+    """Test suite for MiddlewareProvider.build() method."""
 
     @patch('drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('drunk_ai_proxy.app.middleware_provider._create_security_headers_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_request_size_limit_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_cors_middleware')
-    def test_get_middlewares_with_cors(
-        self,
-        mock_create_cors,
-        mock_create_request_size,
-        mock_create_security_headers,
-    ):
-        """Test get_middlewares includes CORS middleware."""
-        mock_cors_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_request_size_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_security_headers_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_create_cors.return_value = mock_cors_middleware
-        mock_create_request_size.return_value = mock_request_size_middleware
-        mock_create_security_headers.return_value = mock_security_headers_middleware
-        
-        result = middleware_provider.get_middlewares()
-        
+    def test_build_with_core_middlewares(self):
+        """Test build includes CORS, request-size, and security-headers middleware."""
+        provider = middleware_provider.MiddlewareProvider(cache=Mock())
+        mock_cors = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_size = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_sec = Middleware(CORSMiddleware, allow_origins=['*'])
+        provider._create_cors_middleware = lambda: mock_cors
+        provider._create_request_size_limit_middleware = lambda: mock_size
+        provider._create_security_headers_middleware = lambda: mock_sec
+
+        result = provider.build()
+
         assert len(result) == 3
-        assert result[0] == mock_cors_middleware
-        assert result[1] == mock_request_size_middleware
-        assert result[2] == mock_security_headers_middleware
+        assert result[0] == mock_cors
+        assert result[1] == mock_size
+        assert result[2] == mock_sec
 
     @patch('drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('drunk_ai_proxy.app.middleware_provider._create_security_headers_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_request_size_limit_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_cors_middleware')
-    def test_get_middlewares_without_cors(
-        self,
-        mock_create_cors,
-        mock_create_request_size,
-        mock_create_security_headers,
-    ):
-        """Test get_middlewares still returns list when CORS middleware is mocked as None."""
-        mock_request_size_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_security_headers_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_create_cors.return_value = None
-        mock_create_request_size.return_value = mock_request_size_middleware
-        mock_create_security_headers.return_value = mock_security_headers_middleware
-        
-        result = middleware_provider.get_middlewares()
-        
-        # When CORS middleware is None, it is still included in the middleware list.
+    def test_build_with_none_cors_still_includes_slot(self):
+        """Test build still returns list when CORS middleware factory returns None."""
+        provider = middleware_provider.MiddlewareProvider(cache=Mock())
+        mock_size = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_sec = Middleware(CORSMiddleware, allow_origins=['*'])
+        provider._create_cors_middleware = lambda: None
+        provider._create_request_size_limit_middleware = lambda: mock_size
+        provider._create_security_headers_middleware = lambda: mock_sec
+
+        result = provider.build()
+
         assert len(result) == 3
         assert result[0] is None
-        assert result[1] == mock_request_size_middleware
-        assert result[2] == mock_security_headers_middleware
+        assert result[1] == mock_size
+        assert result[2] == mock_sec
 
     @patch('drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_ENABLED', False)
-    @patch('drunk_ai_proxy.app.middleware_provider._create_security_headers_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_request_size_limit_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_cors_middleware')
-    def test_get_middlewares_returns_list(
-        self,
-        mock_create_cors,
-        mock_create_request_size,
-        mock_create_security_headers,
-    ):
-        """Test get_middlewares always returns a list."""
-        mock_create_cors.return_value = []
-        mock_create_request_size.return_value = []
-        mock_create_security_headers.return_value = []
-        
-        result = middleware_provider.get_middlewares()
-        
+    def test_build_returns_list(self):
+        """Test build always returns a list."""
+        provider = middleware_provider.MiddlewareProvider(cache=Mock())
+        provider._create_cors_middleware = lambda: []
+        provider._create_request_size_limit_middleware = lambda: []
+        provider._create_security_headers_middleware = lambda: []
+
+        result = provider.build()
+
         assert isinstance(result, list)
 
     @patch('drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_ENABLED', True)
-    @patch('drunk_ai_proxy.app.middleware_provider._create_rate_limit_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_security_headers_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_request_size_limit_middleware')
-    @patch('drunk_ai_proxy.app.middleware_provider._create_cors_middleware')
-    def test_get_middlewares_includes_rate_limit(
-        self,
-        mock_create_cors,
-        mock_create_request_size,
-        mock_create_security_headers,
-        mock_rate_limit,
-    ):
-        """Test get_middlewares includes rate limit middleware when enabled."""
-        mock_cors_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_request_size_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_security_headers_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_rate_middleware = Middleware(CORSMiddleware, allow_origins=['*'])
-        mock_create_cors.return_value = mock_cors_middleware
-        mock_create_request_size.return_value = mock_request_size_middleware
-        mock_create_security_headers.return_value = mock_security_headers_middleware
-        mock_rate_limit.return_value = mock_rate_middleware
+    def test_build_includes_rate_limit_when_enabled(self):
+        """Test build appends rate limit middleware when RATE_LIMIT_ENABLED is True."""
+        provider = middleware_provider.MiddlewareProvider(cache=Mock())
+        mock_cors = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_size = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_sec = Middleware(CORSMiddleware, allow_origins=['*'])
+        mock_rate = Middleware(CORSMiddleware, allow_origins=['*'])
+        provider._create_cors_middleware = lambda: mock_cors
+        provider._create_request_size_limit_middleware = lambda: mock_size
+        provider._create_security_headers_middleware = lambda: mock_sec
+        provider._create_rate_limit_middleware = lambda: mock_rate
 
-        result = middleware_provider.get_middlewares()
+        result = provider.build()
 
         assert len(result) == 4
-        assert result[0] == mock_cors_middleware
-        assert result[1] == mock_request_size_middleware
-        assert result[2] == mock_security_headers_middleware
-        assert result[3] == mock_rate_middleware
+        assert result[0] == mock_cors
+        assert result[1] == mock_size
+        assert result[2] == mock_sec
+        assert result[3] == mock_rate
 
 class TestAuthHeaderMiddleware:
     """Tests for AuthHeaderMiddleware dispatch logic."""
@@ -376,7 +345,7 @@ class TestRateLimitMiddleware:
             ValueError,
             match="RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW_SECONDS must be greater than 0",
         ):
-            middleware_provider._create_rate_limit_middleware()
+            middleware_provider.MiddlewareProvider(Mock())._create_rate_limit_middleware()
 
     @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_REQUESTS", 10)
     @patch("drunk_ai_proxy.app.middleware_provider.RATE_LIMIT_WINDOW_SECONDS", 0)
@@ -386,7 +355,7 @@ class TestRateLimitMiddleware:
             ValueError,
             match="RATE_LIMIT_REQUESTS and RATE_LIMIT_WINDOW_SECONDS must be greater than 0",
         ):
-            middleware_provider._create_rate_limit_middleware()
+            middleware_provider.MiddlewareProvider(Mock())._create_rate_limit_middleware()
 
     @pytest.mark.asyncio
     async def test_rate_limit_allows_below_threshold(self) -> None:

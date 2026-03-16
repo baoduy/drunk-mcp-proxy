@@ -12,7 +12,7 @@ from fastmcp.server.providers import Provider
 from fastmcp.server.providers.openapi import MCPType, OpenAPIProvider
 from fastmcp.utilities.openapi import HTTPRoute
 from drunk_ai_proxy.proxies.mcp.base_provider import McpBaseProvider, McpProxyConfig
-from drunk_ai_proxy.utils.protocols import AuthProviderFactory
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 from drunk_ai_proxy.utils import McpConfig, SpecType, audit_log
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION, CONFIG_DIR
 from drunk_ai_proxy.proxies.mcp.mcp_server_factory import McpServerFactory
@@ -29,8 +29,15 @@ class McpProxyProvider(McpBaseProvider):
         config: McpConfig,
         root_mcp: FastMCP | None = None,
         auth_factory: AuthProviderFactory | None = None,
+        cache_store: TokenStore | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
-        super().__init__(config, auth_factory=auth_factory)
+        super().__init__(
+            config,
+            auth_factory=auth_factory,
+            cache_store=cache_store,
+            http_client=http_client,
+        )
         self.root_mcp = root_mcp
         self.mcp: FastMCP | None = None
 
@@ -141,7 +148,7 @@ class McpProxyProvider(McpBaseProvider):
             mcp: FastMCP instance to mount prompt provider to.
         """
         prompt_dirs = self.config.get_prompt_dirs()
-        if not prompt_dirs:
+        if not isinstance(prompt_dirs, list) or not prompt_dirs:
             return
 
         valid_prompt_paths = self._validate_resource_directories(prompt_dirs, "prompt")
@@ -185,9 +192,37 @@ class McpProxyProvider(McpBaseProvider):
             )
 
     @staticmethod
+    def _should_include_no_spec_config(config: McpConfig) -> bool:
+        """Return whether a config without spec_data should be included.
+
+        Include when remote configuration is explicitly present and non-empty,
+        or when configuration intent is unknown (defensive include).
+        Skip when local directories are explicitly configured and no explicit
+        remote resources are configured.
+        """
+        skill_remote = config.get_skill_remote_resources()
+        prompt_remote = config.get_prompt_remote_resources()
+        agent_remote = config.get_agent_remote_resources()
+
+        remote_values = [skill_remote, prompt_remote, agent_remote]
+        has_explicit_remote_config = any(isinstance(value, list) for value in remote_values)
+        has_remote_resources = any(isinstance(value, list) and bool(value) for value in remote_values)
+        if has_explicit_remote_config:
+            return has_remote_resources
+
+        local_values = [config.get_skill_dirs(), config.get_prompt_dirs(), config.get_agent_dirs()]
+        has_explicit_local_config = any(isinstance(value, list) for value in local_values)
+        if has_explicit_local_config:
+            return False
+
+        return True
+
+    @staticmethod
     def create_mcp_proxies_configs(
         configs: list[McpConfig],
         auth_factory: AuthProviderFactory | None = None,
+        cache_store: TokenStore | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> list[McpProxyConfig]:
         """
         Create MCP proxy configurations from a list of McpConfig instances.
@@ -201,12 +236,20 @@ class McpProxyProvider(McpBaseProvider):
         Returns:
             List of McpProxyConfig instances with initialized FastMCP servers
         """
+        filtered_configs = [
+            config
+            for config in configs
+            if config.spec_data is not None
+            or McpProxyProvider._should_include_no_spec_config(config)
+        ]
         return McpProxyBuilder.build_mcp_proxy_configs(
-            configs=configs,
+            configs=filtered_configs,
             provider_factory=lambda config, root_mcp: McpProxyProvider(
                 config,
                 root_mcp=root_mcp,
                 auth_factory=auth_factory,
+                cache_store=cache_store,
+                http_client=http_client,
             ),
             server_name=SERVER_NAME,
             server_version=SERVER_VERSION,
@@ -216,6 +259,8 @@ class McpProxyProvider(McpBaseProvider):
     def create_openapi_proxies_configs(
         configs: list[McpConfig],
         auth_factory: AuthProviderFactory | None = None,
+        cache_store: TokenStore | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> list[McpProxyConfig]:
         """Create OpenAPI-backed MCP proxy configurations."""
         return McpProxyBuilder.build_openapi_proxy_configs(
@@ -223,5 +268,7 @@ class McpProxyProvider(McpBaseProvider):
             provider_factory=lambda config: McpProxyProvider(
                 config=config,
                 auth_factory=auth_factory,
+                cache_store=cache_store,
+                http_client=http_client,
             ),
         )

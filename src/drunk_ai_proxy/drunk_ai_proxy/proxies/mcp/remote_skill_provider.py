@@ -17,12 +17,12 @@ from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.base import Provider
 from fastmcp.utilities.versions import VersionSpec
 
-from drunk_ai_proxy.app.cache_provider import TTLAsyncKeyValue
 from drunk_ai_proxy.proxies.resource.on_demand_remote_resource_service import (
     OnDemandRemoteResourceService,
 )
 from drunk_ai_proxy.utils.config_yaml import OnDemandRemoteResourceConfig
-from drunk_ai_proxy.utils.config_yaml_uri import build_skill_resource_uris
+from drunk_ai_proxy.utils.config_yaml_uri import ConfigYamlUriBuilder
+from drunk_ai_proxy.utils.protocols import TokenStore
 
 import httpx
 from fastmcp.utilities import logging
@@ -127,7 +127,7 @@ class RemoteSkillProvider(Provider):
     def __init__(
         self,
         config: OnDemandRemoteResourceConfig,
-        cache: TTLAsyncKeyValue,
+        cache: TokenStore,
         http_client: httpx.AsyncClient,
     ) -> None:
         """Initialize the remote skill provider.
@@ -150,7 +150,7 @@ class RemoteSkillProvider(Provider):
         self._service = OnDemandRemoteResourceService(cache=cache, http_client=http_client)
 
         # Build URI map: url -> mcp resource uri
-        self._uri_map: dict[str, str] = build_skill_resource_uris(
+        self._uri_map: dict[str, str] = ConfigYamlUriBuilder.build_skill_resource_uris(
             config.urls,
             resource_name=config.name,
         )

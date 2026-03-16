@@ -1,8 +1,7 @@
+"""LLM proxy provider that mounts OpenAI-compatible and Anthropic-compatible endpoints."""
+
 from __future__ import annotations
 
-import asyncio
-import json
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -13,10 +12,11 @@ from drunk_ai_proxy.proxies.llm.request_dispatcher import LlmRequestDispatcher
 from drunk_ai_proxy.proxies.llm.router import LlmRouter
 from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 from drunk_ai_proxy.utils.env import SERVER_NAME, SERVER_VERSION
-from drunk_ai_proxy.utils import LlmConfig, audit_log
-from drunk_ai_proxy.proxies.llm.base_provider import LlmBaseProvider
-from drunk_ai_proxy.proxies.llm.anthropic_provider import AnthropicProvider
+from drunk_ai_proxy.utils import LlmConfig
+from drunk_ai_proxy.proxies.llm.base_provider import LlmBaseProvider, MountableLlmProvider
 from drunk_ai_proxy.proxies.llm.client_factory import AsyncOpenAIFactory
+from drunk_ai_proxy.proxies.llm.model_catalog import LlmModelCatalog
+from drunk_ai_proxy.proxies.llm.endpoint_mixin import LlmEndpointMixin
 
 if TYPE_CHECKING:
     from drunk_ai_proxy.proxies.llm.websocket_provider import LlmWebSocketProvider
@@ -79,7 +79,7 @@ class ProvidersResponse(ModelBase):
     data: list[ProviderModel]
 
 
-class LlmProxiesProvider(LlmBaseProvider):
+class LlmProxiesProvider(LlmEndpointMixin, MountableLlmProvider):
     def __init__(
         self,
         providers: list[LlmConfig],
@@ -96,6 +96,12 @@ class LlmProxiesProvider(LlmBaseProvider):
         self.open_ai_factory = AsyncOpenAIFactory(self.providers)
         self.websocket_provider = LlmWebSocketProvider(self.providers)
         self._fastapi_app: FastAPI | None = None
+        self._model_catalog = LlmModelCatalog(
+            providers=[provider.provider for provider in self.providers],
+            cache=self.cache,
+            get_client=lambda provider_name: self._get_openai_client(provider_name),
+            to_dict=self._to_dict,
+        )
         self._dispatcher = LlmRequestDispatcher(
             get_client=lambda provider_name: self._get_openai_client(provider_name),
             handle_exception=self.handle_exception,
@@ -119,92 +125,19 @@ class LlmProxiesProvider(LlmBaseProvider):
             providers_response_model=ProvidersResponse,
         )
 
-    def mount(self, app: Starlette, route_prefix: str) -> None:
-        logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
-        app.mount(route_prefix, self._get_fastapi_app())
-
-    def _get_fastapi_app(self) -> FastAPI:
-        if self._fastapi_app is None:
-            self._fastapi_app = self._router.get_app()
-        return self._fastapi_app
-
     @staticmethod
     def _transform_models(models: list[dict[str, object]], provider: str) -> list[dict[str, object]]:
-        # This is a placeholder for any transformation logic you might want to apply to the models list.
-        # For now, it just returns the input as-is.
-        for model in models:
-            model["provider"] = provider
-            model["id"] = f"{provider}_{model.get('id', '')}"
-        return models
-
-    @staticmethod
-    async def _format_response(
-        response: object,
-        is_streaming: bool,
-    ) -> JSONResponse | StreamingResponse:
-        """Format chat completion response as either streaming or JSON response.
-        
-        Args:
-            response: The response object from OpenAI client
-            is_streaming: Whether streaming was requested
-            
-        Returns:
-            StreamingResponse if streaming, JSONResponse otherwise
-        """
-        if is_streaming:
-            async def stream_generator():
-                async for chunk in response:
-                    chunk_dict = LlmProxiesProvider._to_dict(chunk)
-                    yield f"data: {json.dumps(chunk_dict)}\n\n"
-            
-            return StreamingResponse(stream_generator(), media_type="text/event-stream")
-        else:
-            return JSONResponse(content=LlmProxiesProvider._to_dict(response))
-
-    def _get_openai_client(self, provider_name: str) -> AsyncOpenAI:
-        return self.open_ai_factory.get_client(provider_name)
+        return LlmModelCatalog._transform_models(models, provider)
 
     async def _get_models_by_provider(self, provider_name: str) -> list[LlmModel]:
-        # Check cache first
-        cache_key = f"models_{provider_name}"
-        cached_models = await self.cache.get(cache_key)
-        if cached_models is not None:
-            logger.info("Cache hit for models of provider '%s'", provider_name)
-            return cached_models
-        
-        # Cache miss, fetch from provider
-        logger.info("Fetching models of provider '%s'", provider_name)
-        client = self._get_openai_client(provider_name)
-        
-        # Get models from provider
-        response = await client.models.list()
-        if not response or not hasattr(response, "data") or not response.data:
-            logger.warning(
-                "No models data found in response from provider '%s'",
-                provider_name,
-            )
-            return []
-        # Transform models to dict and add provider info
-        models = [self._to_dict(model) for model in response.data]
-        models = self._transform_models(models, provider_name)
-        
-        # Cache the models list with TTL
-        await self.cache.set(cache_key, models)
+        models = await self._model_catalog.get_models_by_provider(provider_name)
         return [LlmModel(**model) for model in models]
-    
+
     async def _get_all_models(self) -> list[LlmModel]:
-        # Fetch models from all providers and aggregate them
-        results = await asyncio.gather(
-            *[
-                self._get_models_by_provider(provider.provider)
-                for provider in self.providers
-            ]
-        )
-        return [model for models in results for model in models]
-    
+        models = await self._model_catalog.get_all_models()
+        return [LlmModel(**model) for model in models]
+
     async def _get_models_endpoint(self, request: Request) -> ModelsResponse:
-        # For simplicity, we return a static list of models for each provider.
-        # In a real implementation, you might want to cache this and refresh it periodically.
         provider = request.query_params.get("provider")
         models = await self._get_models_by_provider(provider) if provider else await self._get_all_models()
         return ModelsResponse(data=models)
@@ -212,13 +145,13 @@ class LlmProxiesProvider(LlmBaseProvider):
     def _get_providers_endpoint(self) -> ProvidersResponse:
         providers_list = [ProviderModel(name=p.provider, slug=p.provider) for p in self.providers]
         return ProvidersResponse(data=providers_list)
-    
+
     async def _embeddings_endpoint(
         self,
-        body: EmbeddingsRequest,
+        request: Request,
     ) -> JSONResponse | StreamingResponse:
-        """Handle embeddings requests."""
-        payload = body.model_dump(exclude_none=True)
+        body = await request.json()
+        payload = body if isinstance(body, dict) else {}
         result = self.extract_and_validate_model(payload)
         if isinstance(result, JSONResponse):
             return result
@@ -232,180 +165,19 @@ class LlmProxiesProvider(LlmBaseProvider):
             context=f"embeddings for '{model_name}'",
             response_builder=self._format_json_response,
         )
-    
-    async def _audio_transcriptions_endpoint(
-        self,
-        request: Request,
-    ) -> JSONResponse | StreamingResponse:
-        """Handle audio transcriptions requests."""
-        form_data = await request.form()
-        result = self.extract_and_validate_model(form_data)
-        if isinstance(result, JSONResponse):
-            return result
-        provider_name, model_name = result
-        file_error = self._require_form_field(form_data, "file")
-        if file_error:
-            return file_error
-        form_dict = self._form_data_to_dict(form_data)
-        return await self._call_openai_endpoint(
-            provider_name=provider_name,
-            model_name=model_name,
-            payload=form_dict,
-            known_params=self._AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS,
-            call_fn=lambda client, params: client.audio.transcriptions.create(  # type: ignore[arg-type]
-                **params
-            ),
-            context=f"audio transcriptions for '{model_name}'",
-            response_builder=self._format_json_response,
-        )
-    
-    async def _audio_translations_endpoint(
-        self,
-        request: Request,
-    ) -> JSONResponse | StreamingResponse:
-        """Handle audio translations requests."""
-        form_data = await request.form()
-        result = self.extract_and_validate_model(form_data)
-        if isinstance(result, JSONResponse):
-            return result
-        provider_name, model_name = result
-        file_error = self._require_form_field(form_data, "file")
-        if file_error:
-            return file_error
-        form_dict = self._form_data_to_dict(form_data)
-        return await self._call_openai_endpoint(
-            provider_name=provider_name,
-            model_name=model_name,
-            payload=form_dict,
-            known_params=self._AUDIO_TRANSLATIONS_KNOWN_PARAMS,
-            call_fn=lambda client, params: client.audio.translations.create(  # type: ignore[arg-type]
-                **params
-            ),
-            context=f"audio translations for '{model_name}'",
-            response_builder=self._format_json_response,
-        )
-    
-    async def _images_generations_endpoint(
-        self,
-        request: Request,
-    ) -> JSONResponse | StreamingResponse:
-        """Handle image generations requests."""
-        body = await request.json()
-        result = self.extract_and_validate_model(body)
-        if isinstance(result, JSONResponse):
-            return result
-        provider_name, model_name = result
-        return await self._call_openai_endpoint(
-            provider_name=provider_name,
-            model_name=model_name,
-            payload=body,
-            known_params=self._IMAGES_GENERATE_KNOWN_PARAMS,
-            call_fn=lambda client, params: client.images.generate(**params),
-            context=f"images generations for '{model_name}'",
-            response_builder=self._format_json_response,
-        )
-    
-    # Known parameters accepted by the OpenAI embeddings API.
-    _EMBEDDINGS_KNOWN_PARAMS: set[str] = {
-        "input",
-        "model",
-        "dimensions",
-        "encoding_format",
-        "user",
-    }
-
-    # Known parameters accepted by the OpenAI images generate API.
-    _IMAGES_GENERATE_KNOWN_PARAMS: set[str] = {
-        "prompt",
-        "background",
-        "model",
-        "moderation",
-        "n",
-        "output_compression",
-        "output_format",
-        "partial_images",
-        "quality",
-        "response_format",
-        "size",
-        "stream",
-        "style",
-        "user",
-    }
-
-    # Known parameters accepted by the OpenAI audio transcriptions API.
-    _AUDIO_TRANSCRIPTIONS_KNOWN_PARAMS: set[str] = {
-        "file",
-        "model",
-        "chunking_strategy",
-        "include",
-        "known_speaker_names",
-        "known_speaker_references",
-        "language",
-        "prompt",
-        "response_format",
-        "stream",
-        "temperature",
-        "timestamp_granularities",
-    }
-
-    # Known parameters accepted by the OpenAI audio translations API.
-    _AUDIO_TRANSLATIONS_KNOWN_PARAMS: set[str] = {
-        "file",
-        "model",
-        "prompt",
-        "response_format",
-        "temperature",
-    }
-
-    # Known parameters accepted by the OpenAI chat completions API.
-    _CHAT_COMPLETION_KNOWN_PARAMS: set[str] = {
-        "messages",
-        "model",
-        "audio",
-        "frequency_penalty",
-        "function_call",
-        "functions",
-        "logit_bias",
-        "logprobs",
-        "max_completion_tokens",
-        "max_tokens",
-        "metadata",
-        "modalities",
-        "n",
-        "parallel_tool_calls",
-        "prediction",
-        "presence_penalty",
-        "prompt_cache_key",
-        "prompt_cache_retention",
-        "reasoning_effort",
-        "response_format",
-        "safety_identifier",
-        "seed",
-        "service_tier",
-        "stop",
-        "store",
-        "stream",
-        "stream_options",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p",
-        "user",
-        "verbosity",
-        "web_search_options",
-    }
 
     async def _chat_completions_endpoint(
         self,
-        body: ChatCompletionRequest,
+        request: Request,
     ) -> JSONResponse | StreamingResponse:
-        payload = body.model_dump(exclude_none=True)
+        body = await request.json()
+        payload = body if isinstance(body, dict) else {}
         result = self.extract_and_validate_model(payload)
         if isinstance(result, JSONResponse):
             return result
         provider_name, model_name = result
-        if not body.messages:
+        messages = payload.get("messages")
+        if not messages:
             return JSONResponse(
                 content={"error": {"message": "messages is required"}},
                 status_code=400,
@@ -420,127 +192,12 @@ class LlmProxiesProvider(LlmBaseProvider):
             response_builder=self._format_chat_response,
         )
 
-    def _build_openai_params(
-        self,
-        payload: dict[str, object],
-        model_name: str,
-        known_params: set[str],
-    ) -> dict[str, object]:
-        return self._dispatcher.build_openai_params(
-            payload=payload,
-            model_name=model_name,
-            split_params=self._split_params,
-            known_params=known_params,
-        )
+    def mount(self, app: Starlette, route_prefix: str) -> None:
+        logger.info("Mounting LLM proxies at prefix '%s'", route_prefix)
+        app.mount(route_prefix, self._get_fastapi_app())
 
-    async def _call_openai_endpoint(
-        self,
-        *,
-        provider_name: str,
-        model_name: str,
-        payload: dict[str, object],
-        known_params: set[str],
-        call_fn: Callable[[AsyncOpenAI, dict[str, object]], Awaitable[object]],
-        context: str,
-        response_builder: Callable[[object, dict[str, object]], Awaitable[JSONResponse | StreamingResponse]],
-    ) -> JSONResponse | StreamingResponse:
-        return await self._dispatcher.call_openai_endpoint(
-            provider_name=provider_name,
-            model_name=model_name,
-            payload=payload,
-            known_params=known_params,
-            split_params=self._split_params,
-            call_fn=call_fn,
-            context=context,
-            response_builder=response_builder,
-        )
+    def _get_fastapi_app(self) -> FastAPI:
+        if self._fastapi_app is None:
+            self._fastapi_app = self._router.get_app()
+        return self._fastapi_app
 
-    @staticmethod
-    async def _format_json_response(
-        response: object,
-        _: dict[str, object],
-    ) -> JSONResponse:
-        return LlmBaseProvider._json_response(response)
-
-    async def _format_chat_response(
-        self,
-        response: object,
-        payload: dict[str, object],
-    ) -> JSONResponse | StreamingResponse:
-        is_streaming = bool(payload.get("stream", False))
-        return await self._format_response(response, is_streaming)
-
-    # Anthropic conversion handled by AnthropicProvider
-
-    @staticmethod
-    def _anthropic_to_openai_request(
-        body: dict[str, object],
-        model_name: str,
-    ) -> dict[str, object]:
-        """Delegate to AnthropicProvider for conversion."""
-        return AnthropicProvider.anthropic_to_openai_request(body, model_name)
-
-    @staticmethod
-    def _openai_to_anthropic_response(
-        response: object,
-        model_id: str,
-    ) -> dict[str, object]:
-        """Delegate to AnthropicProvider for conversion."""
-        return AnthropicProvider.openai_to_anthropic_response(response, model_id)
-
-    @staticmethod
-    async def _format_anthropic_streaming_response(
-        stream: object,
-        model_id: str,
-    ) -> StreamingResponse:
-        """Delegate to AnthropicProvider for streaming conversion."""
-        return await AnthropicProvider.format_anthropic_streaming_response(stream, model_id)
-
-    async def _anthropic_messages_endpoint(
-        self,
-        request: Request,
-    ) -> JSONResponse | StreamingResponse:
-        """Handle Anthropic Messages API compatible requests (POST /messages)."""
-        body = await request.json()
-        result = self.extract_and_validate_model(body)
-        if isinstance(result, JSONResponse):
-            return result
-        provider_name, model_name = result
-
-        if "messages" not in body:
-            return JSONResponse(
-                content={"type": "error", "error": {"type": "invalid_request_error", "message": "messages is required"}},
-                status_code=400,
-            )
-        if "max_tokens" not in body:
-            return JSONResponse(
-                content={"type": "error", "error": {"type": "invalid_request_error", "message": "max_tokens is required"}},
-                status_code=400,
-            )
-
-        client = self._get_openai_client(provider_name)
-        try:
-            oai_body = self._anthropic_to_openai_request(body, model_name)
-            is_streaming = bool(oai_body.get("stream", False))
-
-            known_params, extra_body = self._split_params(oai_body, self._CHAT_COMPLETION_KNOWN_PARAMS)
-            if extra_body:
-                known_params["extra_body"] = extra_body
-
-            response = await client.chat.completions.create(**known_params)
-
-            if is_streaming:
-                return await self._format_anthropic_streaming_response(response, body.get("model", model_name))
-
-            return JSONResponse(
-                content=self._openai_to_anthropic_response(response, body.get("model", model_name))
-            )
-        except Exception as e:
-            audit_log(
-                logger=logger,
-                event="anthropic_messages_failed",
-                status="failure",
-                resource="/messages",
-                details={"provider": provider_name, "model": model_name, "error_type": type(e).__name__},
-            )
-            return self.handle_exception(e, f"anthropic messages for '{model_name}'")

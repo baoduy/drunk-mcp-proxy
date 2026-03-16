@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from drunk_ai_proxy.proxies.mcp.resource_path_utils import get_root_namespace
+from drunk_ai_proxy.proxies.mcp.resource_path_utils import ResourcePathNamespaceResolver
+
+get_root_namespace = ResourcePathNamespaceResolver.get_root_namespace
 
 
 class TestGetRootNamespace:

@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING, cast
 
 import httpx
 
-from drunk_ai_proxy.app.cache_provider import TTLAsyncKeyValue
 from drunk_ai_proxy.utils.env import REMOTE_RESOURCE_TTL_HOURS
+from drunk_ai_proxy.utils.protocols import TokenStore
 
 from fastmcp.utilities import logging
 
@@ -74,21 +74,21 @@ class OnDemandRemoteResourceService:
     """Cache-aside service for on-demand remote HTTPS resource fetching.
 
     Fetches remote HTTPS content on first access and stores the result in a
-    :class:`~drunk_ai_proxy.app.cache_provider.TTLAsyncKeyValue` store.
+    TokenStore-compatible cache store.
     Subsequent accesses within the TTL window are served from cache.
 
     The service enforces strict security controls on all outbound requests
     to reduce SSRF exposure.
 
     Args:
-        cache: TTL-aware cache store instance.
+        cache: TokenStore-compatible cache store instance.
         http_client: Shared ``httpx.AsyncClient`` used for outbound requests.
         max_size_bytes: Maximum permitted response body size in bytes.
     """
 
     def __init__(
         self,
-        cache: TTLAsyncKeyValue,
+        cache: TokenStore,
         http_client: httpx.AsyncClient,
         max_size_bytes: int = _DEFAULT_MAX_SIZE_BYTES,
     ) -> None:

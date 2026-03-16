@@ -12,7 +12,7 @@ import yaml
 from fastmcp.utilities import logging
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .env_resolver import resolve_env_vars, resolve_env_vars_in_dict
+from .env_resolver import EnvResolver
 
 logger = logging.get_logger(__name__)
 
@@ -73,13 +73,13 @@ class ConfigBaseModel(BaseModel):
         for field_name in self.__class__.model_fields.keys():
             current_value = getattr(self, field_name, None)
             if current_value is not None:
-                resolved_value = resolve_env_vars(current_value)
+                resolved_value = EnvResolver.resolve_env_vars(current_value)
                 setattr(self, field_name, resolved_value)
 
         if hasattr(self, "__pydantic_extra__") and self.__pydantic_extra__:
             for extra_key, extra_value in self.__pydantic_extra__.items():
                 if extra_value is not None:
-                    resolved_value = resolve_env_vars(extra_value)
+                    resolved_value = EnvResolver.resolve_env_vars(extra_value)
                     self.__pydantic_extra__[extra_key] = resolved_value
 
     @model_validator(mode="after")
@@ -320,7 +320,7 @@ class McpResourceConfig(ConfigBaseModel):
     @model_validator(mode="after")
     def normalize_remote_resources(self) -> "McpResourceConfig":
         """Normalize shorthand string entries into OnDemandRemoteResourceConfig."""
-        from drunk_ai_proxy.utils.config_yaml_uri import build_name_from_url  # noqa: PLC0415
+        from drunk_ai_proxy.utils.config_yaml_uri import ConfigYamlUriBuilder  # noqa: PLC0415
 
         normalized: list[str | OnDemandRemoteResourceConfig] = []
         for entry in self.remote_resources:
@@ -329,7 +329,7 @@ class McpResourceConfig(ConfigBaseModel):
                     raise ValueError(
                         f"Shorthand remote_resource URL must use HTTPS. Got: {entry}"
                     )
-                name = build_name_from_url(entry)
+                name = ConfigYamlUriBuilder.build_name_from_url(entry)
                 logger.warning(
                     "Shorthand remote_resource string '%s' detected. "
                     "Recommend using explicit object form with 'name' and 'urls'.",
@@ -608,7 +608,7 @@ class McpConfig(ConfigBaseModel):
                 return
 
             data = self._load_spec_file_data(self.open_api.spec_file)
-            resolved_data = resolve_env_vars_in_dict(data)
+            resolved_data = EnvResolver.resolve_env_vars_in_dict(data)
             self.open_api.spec_data = resolved_data
             self._validate_openapi_spec(resolved_data)
             return

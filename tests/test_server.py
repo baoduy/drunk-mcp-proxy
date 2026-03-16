@@ -90,7 +90,7 @@ def test_log_startup_configuration_logs(mock_logger, monkeypatch):
 async def test_async_start_server_runs_uvicorn(monkeypatch):
     """_async_start_server should create uvicorn server and call serve."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
-    monkeypatch.setattr(server, "get_middlewares", lambda: ["mw1"])
+    monkeypatch.setattr(server.MiddlewareProvider, "build", lambda self: ["mw1"])
     monkeypatch.setattr(server, "HOST", "127.0.0.1")
     monkeypatch.setattr(server, "PORT", 9999)
     monkeypatch.setattr(server, "LOG_LEVEL", "INFO")
@@ -116,7 +116,7 @@ async def test_async_start_server_runs_uvicorn(monkeypatch):
 async def test_async_start_server_import_error(monkeypatch):
     """_async_start_server should surface ImportError for uvicorn."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
-    monkeypatch.setattr(server, "get_middlewares", lambda: [])
+    monkeypatch.setattr(server.MiddlewareProvider, "build", lambda self: [])
 
     original_import = __import__
 

@@ -512,8 +512,8 @@ def validate_content_type(
     return None
 
 
-class SecurityUtils:
-    """Static utility wrapper for security helper functions."""
+class SecurityService:
+    """Primary class-first API wrapper for security helper functions."""
 
     USER_ACTIONABLE_KEYWORDS = _USER_ACTIONABLE_KEYWORDS
 
@@ -530,14 +530,4 @@ class SecurityUtils:
     validate_content_type = staticmethod(validate_content_type)
 
 
-sanitize_error_response = SecurityUtils.sanitize_error_response
-is_user_actionable_error = SecurityUtils.is_user_actionable_error
-get_actionable_message = SecurityUtils.get_actionable_message
-handle_validation_error = SecurityUtils.handle_validation_error
-validate_url = SecurityUtils.validate_url
-safe_path_join = SecurityUtils.safe_path_join
-validate_file_upload = SecurityUtils.validate_file_upload
-mask_sensitive_value = SecurityUtils.mask_sensitive_value
-audit_log = SecurityUtils.audit_log
-validate_request_size = SecurityUtils.validate_request_size
-validate_content_type = SecurityUtils.validate_content_type
+

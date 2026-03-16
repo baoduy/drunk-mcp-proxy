@@ -113,18 +113,6 @@ class LlmWebSocketProvider(LlmBaseProvider):
         provider_config = self._get_provider_config(provider_name)
         return provider_config.websocket
 
-    def mount(self, app: object, route_prefix: str) -> None:
-        """Mount provider to Starlette application.
-        
-        Note: WebSocket endpoint is now registered directly on the LLM FastAPI app,
-        so this method is a no-op stub to satisfy the abstract base class requirement.
-        
-        Args:
-            app: Starlette application instance (unused)
-            route_prefix: Route prefix for mounting (unused)
-        """
-        pass
-
     @staticmethod
     def create_error(
         error_code: str,

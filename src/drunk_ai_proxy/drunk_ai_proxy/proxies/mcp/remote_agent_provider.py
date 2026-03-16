@@ -15,12 +15,12 @@ from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.base import Provider
 from fastmcp.utilities.versions import VersionSpec
 
-from drunk_ai_proxy.app.cache_provider import TTLAsyncKeyValue
 from drunk_ai_proxy.proxies.resource.on_demand_remote_resource_service import (
     OnDemandRemoteResourceService,
 )
 from drunk_ai_proxy.utils.config_yaml import OnDemandRemoteResourceConfig
-from drunk_ai_proxy.utils.config_yaml_uri import build_agent_resource_uri
+from drunk_ai_proxy.utils.config_yaml_uri import ConfigYamlUriBuilder
+from drunk_ai_proxy.utils.protocols import TokenStore
 
 import httpx
 from fastmcp.utilities import logging
@@ -104,7 +104,7 @@ class RemoteAgentProvider(Provider):
     def __init__(
         self,
         config: OnDemandRemoteResourceConfig,
-        cache: TTLAsyncKeyValue,
+        cache: TokenStore,
         http_client: httpx.AsyncClient,
     ) -> None:
         """Initialize the remote agent provider.
@@ -125,7 +125,7 @@ class RemoteAgentProvider(Provider):
 
         self._config = config
         self._service = OnDemandRemoteResourceService(cache=cache, http_client=http_client)
-        self._resource_uri: str = build_agent_resource_uri(
+        self._resource_uri: str = ConfigYamlUriBuilder.build_agent_resource_uri(
             config.url,
             resource_name=config.name,
         )

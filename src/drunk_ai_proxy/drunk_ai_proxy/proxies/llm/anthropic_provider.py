@@ -20,10 +20,12 @@ Supported Features:
 from __future__ import annotations
 
 import json
-from typing import Any
+
+AnthropicValue = str | int | float | bool | None | dict[str, object] | list[object]
+AnthropicMessage = dict[str, AnthropicValue]
 
 from fastapi.responses import StreamingResponse
-from drunk_ai_proxy.utils.serialization import to_dict
+from drunk_ai_proxy.utils.serialization import SerializationService
 
 
 class AnthropicProvider:
@@ -57,7 +59,10 @@ class AnthropicProvider:
     }
 
     @staticmethod
-    def anthropic_to_openai_request(body: dict[str, Any], model_name: str) -> dict[str, Any]:
+    def anthropic_to_openai_request(
+        body: dict[str, AnthropicValue],
+        model_name: str,
+    ) -> dict[str, object]:
         """Convert Anthropic Messages API request to OpenAI chat completions format.
 
         Args:
@@ -67,11 +72,11 @@ class AnthropicProvider:
         Returns:
             Dict suitable for passing to the AsyncOpenAI client.
         """
-        oai: dict[str, Any] = {"model": model_name}
-        messages: list[dict[str, Any]] = []
+        oai: dict[str, object] = {"model": model_name}
+        messages: list[dict[str, object]] = []
 
         # Convert system prompt
-        system: Any = body.get("system")
+        system: AnthropicValue = body.get("system")
         if system:
             if isinstance(system, str):
                 system_text: str = system
@@ -85,11 +90,11 @@ class AnthropicProvider:
             messages.append({"role": "system", "content": system_text})
 
         # Convert messages
-        raw_messages: list[Any] = body.get("messages") or []
+        raw_messages: list[object] = body.get("messages") if isinstance(body.get("messages"), list) else []
         for msg in raw_messages:
-            msg_dict_raw: dict[str, Any] = msg if isinstance(msg, dict) else {}
+            msg_dict_raw: dict[str, object] = msg if isinstance(msg, dict) else {}
             role: str = str(msg_dict_raw.get("role") or "")
-            content: Any = msg_dict_raw.get("content")
+            content: object = msg_dict_raw.get("content")
 
             # Simple text content
             if isinstance(content, str):
@@ -102,20 +107,20 @@ class AnthropicProvider:
                 continue
 
             # Complex content with multiple blocks
-            oai_content: list[dict[str, Any]] = []
-            tool_calls: list[dict[str, Any]] = []
-            tool_result_messages: list[dict[str, Any]] = []
+            oai_content: list[dict[str, object]] = []
+            tool_calls: list[dict[str, object]] = []
+            tool_result_messages: list[dict[str, object]] = []
 
             for block in content:
-                block_d: dict[str, Any] = block if isinstance(block, dict) else {}
-                block_type: Any = block_d.get("type")
+                block_d: dict[str, object] = block if isinstance(block, dict) else {}
+                block_type: object = block_d.get("type")
 
                 if block_type == "text":
                     oai_content.append({"type": "text", "text": str(block_d.get("text") or "")})
 
                 elif block_type == "image":
-                    source: dict[str, Any] = block_d.get("source") if isinstance(block_d.get("source"), dict) else {}
-                    src_type: Any = source.get("type")
+                    source: dict[str, object] = block_d.get("source") if isinstance(block_d.get("source"), dict) else {}
+                    src_type: object = source.get("type")
                     if src_type == "base64":
                         media_type: str = str(source.get("media_type") or "image/jpeg")
                         data: str = str(source.get("data") or "")
@@ -137,7 +142,7 @@ class AnthropicProvider:
                     })
 
                 elif block_type == "tool_result":
-                    raw_result: Any = block_d.get("content") or ""
+                    raw_result: object = block_d.get("content") or ""
                     if isinstance(raw_result, list):
                         result_content: str = " ".join(
                             str(b.get("text") or "")
@@ -156,7 +161,7 @@ class AnthropicProvider:
             if tool_result_messages:
                 messages.extend(tool_result_messages)
             elif tool_calls:
-                assembled: dict[str, Any] = {"role": role}
+                assembled: dict[str, object] = {"role": role}
                 if oai_content:
                     assembled["content"] = oai_content
                 assembled["tool_calls"] = tool_calls
@@ -178,7 +183,7 @@ class AnthropicProvider:
             oai["stop"] = body["stop_sequences"]
 
         # Extract user_id from metadata
-        metadata: Any = body.get("metadata")
+        metadata: object = body.get("metadata")
         if isinstance(metadata, dict) and "user_id" in metadata:
             oai["user"] = metadata["user_id"]
 
@@ -187,9 +192,9 @@ class AnthropicProvider:
             oai["top_k"] = body["top_k"]
 
         # Convert tools
-        raw_tools: Any = body.get("tools")
+        raw_tools: object = body.get("tools")
         if raw_tools:
-            tools_list: list[Any] = raw_tools if isinstance(raw_tools, list) else []
+            tools_list: list[object] = raw_tools if isinstance(raw_tools, list) else []
             oai["tools"] = [
                 {
                     "type": "function",
@@ -203,10 +208,10 @@ class AnthropicProvider:
             ]
 
         # Convert tool_choice
-        raw_tool_choice: Any = body.get("tool_choice")
+        raw_tool_choice: object = body.get("tool_choice")
         if raw_tool_choice and isinstance(raw_tool_choice, dict):
-            tool_choice: dict[str, Any] = raw_tool_choice
-            tc_type: Any = tool_choice.get("type")
+            tool_choice: dict[str, object] = raw_tool_choice
+            tc_type: object = tool_choice.get("type")
             if tc_type == "auto":
                 oai["tool_choice"] = "auto"
             elif tc_type == "any":
@@ -220,7 +225,7 @@ class AnthropicProvider:
         return oai
 
     @staticmethod
-    def openai_to_anthropic_response(response: Any, model_id: str) -> dict[str, Any]:
+    def openai_to_anthropic_response(response: object, model_id: str) -> dict[str, object]:
         """Convert OpenAI chat completion response to Anthropic Messages API format.
 
         Args:
@@ -230,26 +235,26 @@ class AnthropicProvider:
         Returns:
             Dict conforming to the Anthropic Messages API response schema.
         """
-        resp_dict: dict[str, Any] = to_dict(response)
+        resp_dict: dict[str, object] = SerializationService.to_dict(response)
 
-        choices: list[Any] = resp_dict.get("choices") or []
-        choice: dict[str, Any] = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+        choices: list[object] = resp_dict.get("choices") if isinstance(resp_dict.get("choices"), list) else []
+        choice: dict[str, object] = choices[0] if choices and isinstance(choices[0], dict) else {}
 
-        message: dict[str, Any] = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+        message: dict[str, object] = choice.get("message") if isinstance(choice.get("message"), dict) else {}
         content: list[dict[str, Any]] = []
 
         # Convert text content
-        text: Any = message.get("content")
+        text: object = message.get("content")
         if text:
             content.append({"type": "text", "text": str(text)})
 
         # Convert tool calls
-        raw_tool_calls: Any = message.get("tool_calls")
+        raw_tool_calls: object = message.get("tool_calls")
         for tc in (raw_tool_calls if isinstance(raw_tool_calls, list) else []):
-            tc_d: dict[str, Any] = tc if isinstance(tc, dict) else {}
-            fn: dict[str, Any] = tc_d.get("function") if isinstance(tc_d.get("function"), dict) else {}
+            tc_d: dict[str, object] = tc if isinstance(tc, dict) else {}
+            fn: dict[str, object] = tc_d.get("function") if isinstance(tc_d.get("function"), dict) else {}
             try:
-                input_data: Any = json.loads(str(fn.get("arguments") or "{}"))
+                input_data: object = json.loads(str(fn.get("arguments") or "{}"))
             except (json.JSONDecodeError, ValueError):
                 input_data = {}
             content.append({
@@ -264,7 +269,7 @@ class AnthropicProvider:
         stop_reason: str = AnthropicProvider.FINISH_REASON_MAP.get(finish_reason, "end_turn")
 
         # Convert usage
-        usage_raw: dict[str, Any] = resp_dict.get("usage") if isinstance(resp_dict.get("usage"), dict) else {}
+        usage_raw: dict[str, object] = resp_dict.get("usage") if isinstance(resp_dict.get("usage"), dict) else {}
         usage = {
             "input_tokens": int(usage_raw.get("prompt_tokens") or 0),
             "output_tokens": int(usage_raw.get("completion_tokens") or 0),
@@ -282,7 +287,7 @@ class AnthropicProvider:
         }
 
     @staticmethod
-    async def format_anthropic_streaming_response(stream: Any, model_id: str) -> StreamingResponse:
+    async def format_anthropic_streaming_response(stream: object, model_id: str) -> StreamingResponse:
         """Wrap OpenAI SSE stream as Anthropic-format SSE events.
 
         Args:
@@ -299,7 +304,7 @@ class AnthropicProvider:
             started: bool = False
 
             async for chunk in stream:
-                chunk_dict: dict[str, Any] = to_dict(chunk)
+                chunk_dict: dict[str, object] = SerializationService.to_dict(chunk)
 
                 if not started:
                     msg_id = str(chunk_dict.get("id") or "msg_stream")
@@ -317,25 +322,25 @@ class AnthropicProvider:
                     yield f"event: ping\ndata: {json.dumps({'type': 'ping'})}\n\n"
                     started = True
 
-                raw_choices: Any = chunk_dict.get("choices")
-                choices: list[Any] = raw_choices if isinstance(raw_choices, list) else []
+                raw_choices: object = chunk_dict.get("choices")
+                choices: list[object] = raw_choices if isinstance(raw_choices, list) else []
                 if choices:
-                    choice: dict[str, Any] = choices[0] if isinstance(choices[0], dict) else {}
-                    delta: dict[str, Any] = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
-                    text: Any = delta.get("content")
+                    choice: dict[str, object] = choices[0] if isinstance(choices[0], dict) else {}
+                    delta: dict[str, object] = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
+                    text: object = delta.get("content")
                     if text:
                         # Emit content_block_delta event
                         yield (
                             f"event: content_block_delta\n"
                             f"data: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': str(text)}})}\n\n"
                         )
-                    raw_finish: Any = choice.get("finish_reason")
+                    raw_finish: object = choice.get("finish_reason")
                     if raw_finish:
                         stop_reason = AnthropicProvider.FINISH_REASON_MAP.get(str(raw_finish), "end_turn")
 
-                raw_usage: Any = chunk_dict.get("usage")
+                raw_usage: object = chunk_dict.get("usage")
                 if isinstance(raw_usage, dict):
-                    usage: dict[str, Any] = raw_usage
+                    usage: dict[str, object] = raw_usage
                     output_tokens = int(usage.get("completion_tokens") or output_tokens)
 
             # Emit content_block_stop event

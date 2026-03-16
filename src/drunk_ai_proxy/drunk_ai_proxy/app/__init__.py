@@ -27,7 +27,6 @@ __all__ = [
     # middleware_provider
     "AuthHeaderMiddleware",
     "RateLimitMiddleware",
-    "get_middlewares",
     # server
     "MCPProxyServer",
     # starlette_app
@@ -63,7 +62,7 @@ def __getattr__(name: str) -> object:
 
         return lifespan.AppLifespanManager
 
-    if name in {"AuthHeaderMiddleware", "RateLimitMiddleware", "get_middlewares"}:
+    if name in {"AuthHeaderMiddleware", "RateLimitMiddleware"}:
         from . import middleware_provider
 
         return getattr(middleware_provider, name)

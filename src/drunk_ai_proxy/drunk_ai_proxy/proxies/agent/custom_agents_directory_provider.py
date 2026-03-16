@@ -11,7 +11,7 @@ from fastmcp.resources.template import ResourceTemplate
 from fastmcp.server.providers.aggregate import AggregateProvider
 from fastmcp.utilities.versions import VersionSpec
 from .agent_provider import AgentProvider
-from drunk_ai_proxy.proxies.mcp.resource_path_utils import get_root_namespace
+from drunk_ai_proxy.proxies.mcp.resource_path_utils import ResourcePathNamespaceResolver
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -167,7 +167,7 @@ class CustomAgentsDirectoryProvider(AggregateProvider):
         seen_agent_names: set[str] = set()
 
         for root in self._roots:
-            root_namespace = get_root_namespace(root)
+            root_namespace = ResourcePathNamespaceResolver.get_root_namespace(root)
             for namespace, agent_file in self._iter_agent_files(root):
                 try:
                     # Read file content for frontmatter

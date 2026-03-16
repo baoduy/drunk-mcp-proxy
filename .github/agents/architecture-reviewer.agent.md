@@ -8,7 +8,7 @@ agents: ["Explore"]
 handoffs:
   - label: Build Refactor Plan
     agent: "Refactor Planner"
-    prompt: "The architecture review report file path is shown at the top of the previous output (labelled **Report File:**). Read that file as your primary input and create a phased refactor plan from it, focusing on: (1) replacing hand-rolled code with FastMCP/FastAPI built-ins, (2) DRY cleanup and reusable abstractions, (3) OOP class-per-module refactors, and (4) SOLID principle remediation. When the plan is complete, mark the architecture review report as PLANNED with a link to the plan file, and append the following section to the plan file exactly as shown:\n\n## Status\n\n✅ Implementation completed on <today's date>.\n\nList each completed task with a ✅ prefix."
+    prompt: "The architecture review report file path is shown at the top of the previous output (labelled **Report File:**). Read that file as your primary input and create a phased refactor plan from it, focusing on: (1) replacing hand-rolled code with FastMCP/FastAPI built-ins, (2) DRY cleanup and reusable abstractions, (3) OOP class-per-module refactors, and (4) SOLID principle remediation. and (5) ensure the Architecture Scorecard of this project is above 4. When the plan is complete, mark the architecture review report as PLANNED with a link to the plan file, and append the following section to the plan file exactly as shown:\n\n## Status\n\n✅ Implementation completed on <today's date>.\n\nList each completed task with a ✅ prefix."
     send: true
   - label: Build Feature Plan
     agent: "Feature Planner"
@@ -37,6 +37,14 @@ This codebase is a **FastAPI/FastMCP Python gateway**. All recommendations must 
    - [ ] Module docstring and Google-style class/method docstrings present
    - [ ] Logger follows `logger = logging.get_logger(__name__)` pattern at module level
 
+## Method-Level SRP Requirement (Mandatory)
+For every class in scope, audit methods for single responsibility:
+- Flag methods that combine multiple concerns (e.g., validation + transformation + I/O + error mapping + logging decisions).
+- Require decomposition into focused helpers with explicit responsibilities.
+- Recommend private helper methods for internal orchestration steps (e.g., `_validate_input`, `_build_request`, `_execute_call`, `_map_result`).
+- Prefer `@staticmethod` for pure helper logic that does not read/write instance or class state, but do not require it.
+- For each flagged method, provide: method path, mixed concerns, split proposal, and extraction order.
+
 ## Constraints
 - DO NOT implement code changes.
 - ONLY edit a generated review report file under `docs/architecture/reviews/`.
@@ -51,6 +59,7 @@ This codebase is a **FastAPI/FastMCP Python gateway**. All recommendations must 
 - **Library-native audit:** FastMCP tool/resource/prompt registration, lifespan hooks, OAuth provider, streaming, middleware, and dependency injection. FastAPI `APIRouter`, `Depends`, `HTTPException`, `response_model`, and async I/O patterns.
 - **DRY/reuse audit:** Duplication hotspots, repeated flows, copy-paste logic, near-identical classes, inlined logic that belongs in a shared utility.
 - **SOLID audit:** SRP violations (class does too much), OCP violations (conditionals that grow instead of using abstractions), LSP violations (subclass breaks parent contract), ISP violations (fat interfaces), DIP violations (depends on concretes, not abstractions/Protocols).
+- **Method-level SRP audit:** detect multi-purpose methods and propose private helper extraction boundaries plus optional static helper opportunities.
 - **Best practices audit:** Type hint completeness, `Any` usage, docstring coverage, logger pattern, Pydantic v2 patterns, modern Python 3.10+ syntax (`X | Y`, `match/case`, lowercase generics).
 - **Layering and dependency direction:** (`app`, `proxies`, `auth`, `utils`, `middleware`, `tests`) — no upward imports, no circular deps.
 - **Security architecture:** Validation boundaries, sanitization, auth integration points, safe defaults, secret handling.
@@ -61,19 +70,21 @@ This codebase is a **FastAPI/FastMCP Python gateway**. All recommendations must 
 2. Fetch current FastMCP and FastAPI documentation via `io.github.upstash/context7/*` to ground library-native findings in the latest API surface.
 3. Map module boundaries and dependency flow for the requested scope.
 4. For each module: confirm the primary class (or escalate the absence as a P0 finding), verify no procedural top-level logic, and check SOLID compliance.
-5. Identify every place a FastMCP or FastAPI built-in could replace hand-rolled code — document the specific API to use.
-6. Detect DRY violations; for each, name the concrete abstraction that would eliminate the duplication.
-7. Verify conformance with repository conventions (`AGENTS.md`, `copilot-instructions.md`) and identify drift.
-8. Evaluate security architecture touchpoints.
-9. Prioritize findings by impact (OOP > library-native > DRY > SOLID > other).
-10. Provide staged guidance: quick wins (OOP wrapping, drop-in replacements), medium refactors (class restructuring), long-horizon (boundary redesign).
-11. Generate a timestamp in `YYYYMMDD-HHMMSS` format and write a report to `docs/architecture/reviews/architecture-review-<timestamp>.md`. Create the directory if it does not exist.
-12. Always finish your reply with the exact line: `**Report File:** <absolute-path-to-report>` so downstream agents and handoffs can locate the file.
+5. Run a method-level SRP pass for each class and record candidate method splits into private helpers and optional static helpers.
+6. Identify every place a FastMCP or FastAPI built-in could replace hand-rolled code — document the specific API to use.
+7. Detect DRY violations; for each, name the concrete abstraction that would eliminate the duplication.
+8. Verify conformance with repository conventions (`AGENTS.md`, `copilot-instructions.md`) and identify drift.
+9. Evaluate security architecture touchpoints.
+10. Prioritize findings by impact (OOP > method-level SRP > library-native > DRY > SOLID > other).
+11. Provide staged guidance: quick wins (OOP wrapping, method split extractions, drop-in replacements), medium refactors (class restructuring), long-horizon (boundary redesign).
+12. Generate a timestamp in `YYYYMMDD-HHMMSS` format and write a report to `docs/architecture/reviews/architecture-review-<timestamp>.md`. Create the directory if it does not exist.
+13. Always finish your reply with the exact line: `**Report File:** <absolute-path-to-report>` so downstream agents and handoffs can locate the file.
 ## Output Format
 - **Report File:** `<absolute path>` — emit this as the final line of every response
 - **Scope + Assumptions**
 - **Architecture Scorecard (0–5):** OOP/class-per-module (first), library-native usage, DRY/reuse, SOLID compliance, layering, security, naming, testability
 - **OOP/Class Findings (P0 — always first):** module path, violation type (procedural logic / god class / missing class / mixed responsibility / mutable module state), specific lines, recommended primary class name, what to move into it
+- **Method SRP Findings (P0.5):** class + method path, mixed concerns, proposed private helper methods, optional static helper candidates, extraction sequence
 - **Library-Native Findings:** hand-rolled code, FastMCP/FastAPI built-in replacement, effort to swap (S/M/L)
 - **DRY/Reuse Findings:** duplicated code location, proposed shared abstraction, expected gain
 - **SOLID Findings:** principle violated, class/file, evidence, recommended fix

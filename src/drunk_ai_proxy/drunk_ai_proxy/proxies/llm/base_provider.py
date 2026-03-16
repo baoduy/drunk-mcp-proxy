@@ -13,7 +13,7 @@ from typing import Protocol
 
 from fastapi.responses import JSONResponse
 from drunk_ai_proxy.utils.security import get_actionable_message
-from drunk_ai_proxy.utils.serialization import to_dict
+from drunk_ai_proxy.utils.serialization import SerializationService
 
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
@@ -92,7 +92,7 @@ class LlmBaseProvider(ABC):
         Returns:
             Dictionary representation of the object.
         """
-        return to_dict(obj)
+        return SerializationService.to_dict(obj)
 
     @staticmethod
     def _json_response(
@@ -221,12 +221,10 @@ class LlmBaseProvider(ABC):
 
         return known, extra or None
 
+class MountableLlmProvider(LlmBaseProvider, ABC):
+    """LLM provider capability for mountable sub-app providers."""
+
     @abstractmethod
     def mount(self, app: object, route_prefix: str) -> None:
-        """Mount provider to Starlette application.
-
-        Args:
-            app: Starlette application instance.
-            route_prefix: Route prefix for mounting (e.g., "/api/llm", "/api/v1").
-        """
+        """Mount provider to Starlette application."""
         pass

@@ -374,7 +374,7 @@ class TestConfigYamlLoading:
             assert config.llm is not None
             assert len(config.llm) == 6
             assert config.mcp is not None
-            assert len(config.mcp) == 5
+            assert len(config.mcp) == 6
 
     def test_load_config_yaml_missing_file(self) -> None:
         """Test that loading missing YAML file raises FileNotFoundError."""

@@ -2,29 +2,43 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import os
+from typing import TYPE_CHECKING
 
 from drunk_ai_proxy.utils import ConfigYaml, AuthType, McpConfig, LlmConfig, RemoteResourceConfig
 from drunk_ai_proxy.utils.env import AUTH_ENABLED, CONFIG_DIR
 from drunk_ai_proxy.app.auth_provider_registry import AuthProviderRegistry
 from drunk_ai_proxy.app.client_auth_handler_factory import ClientAuthHandlerFactory
+from fastmcp.utilities import logging
+
+logger = logging.get_logger(__name__)
+
+AuthConfigDict = dict[str, object]
+
 if TYPE_CHECKING:
     from fastmcp.server.auth import AuthProvider
     from httpx import Auth
 
 
-class AppConfigReader:
-    """Read-only application configuration accessor."""
+class AppConfigProvider:
+    """Application configuration provider with auth factory methods.
+
+    Loads configuration from YAML at construction and exposes typed accessors
+    for MCP, LLM, and auth configuration alongside full auth provider creation.
+    """
+
+    _instance: "AppConfigProvider | None" = None
 
     def __init__(self) -> None:
+        """Load configuration from the default config file."""
         self._configs = ConfigYaml.load_from_file(f"{CONFIG_DIR}/config.yaml")
 
     def get_mcp_configs(self) -> list["McpConfig"]:
-        """Get the list of MCP server configurations."""
+        """Get the list of enabled MCP server configurations."""
         return [mcp for mcp in self._configs.mcp if mcp.enabled] if self._configs.mcp else []
 
     def get_llm_configs(self) -> list["LlmConfig"]:
-        """Get the list of LLM provider configurations."""
+        """Get the list of enabled LLM provider configurations."""
         return [llm for llm in self._configs.llm if llm.enabled] if self._configs.llm else []
 
     def get_remote_resources(self) -> list[RemoteResourceConfig]:
@@ -35,16 +49,10 @@ class AppConfigReader:
         """
         return self._configs.remote_resources if self._configs.remote_resources else []
 
-
-class AppConfigProvider(AppConfigReader):
-    """Configuration provider with auth factory methods."""
-
-    _instance: "AppConfigProvider | None" = None
-
     def _get_auth_config(
         self,
         provider_name: AuthType | str | None = None,
-    ) -> tuple[AuthType | None, dict[str, Any] | None]:
+    ) -> tuple[AuthType | None, AuthConfigDict | None]:
         """Get the authentication configuration for a given provider name."""
         auth_config = self._configs.auth
         if auth_config is None:
@@ -69,7 +77,7 @@ class AppConfigProvider(AppConfigReader):
         provider_name: AuthType | None = None,
     ) -> "AuthProvider | None":
         """Get the FastMCP authentication provider configuration."""
-        if not AUTH_ENABLED:
+        if not self._is_auth_enabled():
             return None
 
         name, config = self._get_auth_config(provider_name)
@@ -81,6 +89,32 @@ class AppConfigProvider(AppConfigReader):
             config=config,
             provider_names=self._get_auth_provider_names(),
         )
+
+    def _is_auth_enabled(self) -> bool:
+        """Resolve whether inbound auth checks should be enabled.
+
+        Priority order:
+        1. If `FASTMCP_AUTH_ENABLED` is explicitly set, honor it.
+        2. Otherwise, enable auth when config defines a default provider.
+
+        Returns:
+            True when auth should be enforced, False otherwise.
+        """
+        raw_env_value = os.environ.get("FASTMCP_AUTH_ENABLED")
+        if raw_env_value is not None:
+            return AUTH_ENABLED
+
+        configs = getattr(self, "_configs", None)
+        auth_config = getattr(configs, "auth", None)
+        inferred_enabled = bool(
+            auth_config is not None and auth_config.default_provider is not None
+        )
+        if inferred_enabled:
+            logger.info(
+                "Auth enabled from config default_provider because "
+                "FASTMCP_AUTH_ENABLED is not set"
+            )
+        return inferred_enabled
 
     def get_client_auth_handler(
         self,

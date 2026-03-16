@@ -22,6 +22,13 @@ Every module planned in this feature **must** follow strict class-first OOP desi
 - For each new module in the plan, explicitly state: (a) the primary class name, (b) its single responsibility, (c) its `__init__` parameters, and (d) its key public methods.
 - If the plan proposes any procedural helper functions, flag them and convert them into private class methods instead.
 
+## Method-Level SRP Mandate (Non-Negotiable)
+Every class planned in this feature must have methods with a single responsibility:
+- Identify methods at risk of mixing concerns (validation, orchestration, I/O, transformation, error mapping, logging decisions).
+- Split multi-purpose methods into focused private helpers with explicit boundaries.
+- Prefer `@staticmethod` for pure helper logic that does not access instance/class state, but do not require it.
+- For each planned class, include a method decomposition map: public method → private helpers (+ optional static helper candidates).
+
 The plan is rejected if any of these rules are violated.
 
 ## Constraints
@@ -35,16 +42,18 @@ The plan is rejected if any of these rules are violated.
 ## Approach
 1. Inspect the codebase to understand existing architecture, patterns, and constraints.
 2. **OOP mapping:** For each new module the feature requires, define: primary class name, single responsibility, constructor parameters, and key public methods. Verify no existing touched module violates class-first design; if it does, note it as a prerequisite fix.
-3. Research best practices from the web for the specific feature area.
-4. Draft a step-by-step implementation plan with risks, tests, and rollout notes.
-5. Generate a timestamp in `YYYYMMDD-HHMMSS` format and write a report file at `docs/features/feature-name-<timestamp>.md`.
-6. If the file exists, read it and improve it in place by integrating new findings and keeping useful existing sections.
-7. If the file does not exist, create it with the full plan.
-8. Always finish your reply with the exact line: `**Plan File:** <absolute-path-to-plan>` so downstream agents and handoffs can locate the file and mark it complete.
+3. **Method SRP mapping:** For each planned class, define method decomposition into private helpers and optional static helpers, and verify each public method has one core responsibility.
+4. Research best practices from the web for the specific feature area.
+5. Draft a step-by-step implementation plan with risks, tests, and rollout notes.
+6. Generate a timestamp in `YYYYMMDD-HHMMSS` format and write a report file at `docs/features/feature-name-<timestamp>.md`.
+7. If the file exists, read it and improve it in place by integrating new findings and keeping useful existing sections.
+8. If the file does not exist, create it with the full plan.
+9. Always finish your reply with the exact line: `**Plan File:** <absolute-path-to-plan>` so downstream agents and handoffs can locate the file and mark it complete.
 
 ## Output Format
 - **Plan File:** `<absolute path>` — emit this as the final line of every response
 - Action taken: updated existing file | created new file
 - Brief summary of key decisions
 - **OOP Module Map:** for each new module — file path, primary class name, responsibility, constructor params, key public methods
+- **Method Decomposition Map:** for each planned class — public methods, extracted private helpers, optional static helper candidates
 - Sources consulted (links)

@@ -1,8 +1,9 @@
 """Static MCP/OpenAPI proxy configuration provider module."""
 
 from typing import TYPE_CHECKING
+import httpx
 from drunk_ai_proxy.utils import SpecType, McpConfig
-from drunk_ai_proxy.utils.protocols import AuthProviderFactory
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 
 if TYPE_CHECKING:
     from .base_provider import McpProxyConfig
@@ -25,10 +26,14 @@ class StaticProxiesProvider:
         self,
         configs: list[McpConfig],
         auth_factory: AuthProviderFactory | None = None,
+        cache: TokenStore | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         """Initialize the StaticProxiesProvider."""
         self.configs = configs
         self._auth_factory = auth_factory
+        self._cache = cache
+        self._http_client = http_client
 
     def _get_configs_by_type(self, spec_type: SpecType) -> list[McpConfig]:
         """ Get all configurations of a specific type. """
@@ -54,6 +59,8 @@ class StaticProxiesProvider:
         return McpProxyProvider.create_mcp_proxies_configs(
             mcp_configs,
             auth_factory=self._auth_factory,
+            cache_store=self._cache,
+            http_client=self._http_client,
         )
 
     def _get_openapi_services(self) -> list["McpProxyConfig"]:
@@ -77,6 +84,8 @@ class StaticProxiesProvider:
         return McpProxyProvider.create_openapi_proxies_configs(
             openapi_configs,
             auth_factory=self._auth_factory,
+            cache_store=self._cache,
+            http_client=self._http_client,
         )
         
     def get_config_services(self) -> list["McpProxyConfig"]:

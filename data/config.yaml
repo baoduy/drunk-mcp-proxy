@@ -85,7 +85,7 @@ llm:
 mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
   - enabled: true # Set to false to disable this server 
-    codemode_enabled: true # Enable or disable Code Mode for this MCP route
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     path: /deepsea # URL path where this service is available
     spec_type: openapi
     open_api:
@@ -161,7 +161,7 @@ mcp:
 
   # ========== Example 5: Prompt provider with markdown templates ==========
   - path: /locals # URL path for prompt templates
-    codemode_enabled: true # Enable or disable Code Mode for this MCP route
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     skills: 
       dirs:
@@ -178,7 +178,7 @@ mcp:
         - agents/tools
 
   - path: /remotes # URL path for prompt templates
-    codemode_enabled: true # Enable or disable Code Mode for this MCP route
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     skills:
       # remote_resources: serve HTTPS-hosted skill files on-demand (no local sync).

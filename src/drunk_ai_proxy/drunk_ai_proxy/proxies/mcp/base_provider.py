@@ -10,14 +10,15 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from drunk_ai_proxy.utils import audit_log
-from drunk_ai_proxy.utils.protocols import AuthProviderFactory
+from drunk_ai_proxy.utils.protocols import AuthProviderFactory, TokenStore
 from drunk_ai_proxy.utils.env import SERVER_TRANSPORT
+from drunk_ai_proxy.proxies.mcp.remote_provider_bootstrap import RemoteProviderBootstrap
 
 if TYPE_CHECKING:
     from pathlib import Path
     from drunk_ai_proxy.utils import McpConfig
     from fastmcp.server.auth import AuthProvider
-    from httpx import Auth
+    from httpx import AsyncClient, Auth
     from fastmcp import FastMCP
     from fastmcp.server.middleware import Middleware
     from fastmcp.server.http import StarletteWithLifespan
@@ -56,6 +57,8 @@ class McpBaseProvider(ABC):
         self,
         config: McpConfig,
         auth_factory: AuthProviderFactory | None = None,
+        cache_store: TokenStore | None = None,
+        http_client: "AsyncClient | None" = None,
     ) -> None:
         """Initialize the McpBaseProvider.
 
@@ -65,6 +68,16 @@ class McpBaseProvider(ABC):
         """
         self.config = config
         self._auth_factory = auth_factory
+        self._cache_store = cache_store
+        self._http_client = http_client
+
+    def _remote_bootstrap(self) -> RemoteProviderBootstrap:
+        """Create remote-provider bootstrap service for this config."""
+        return RemoteProviderBootstrap(
+            config=self.config,
+            cache_store=self._cache_store,
+            http_client=self._http_client,
+        )
 
     def _get_middlewares(self) -> list[Middleware]:
         """Get the list of middlewares to apply to the FastMCP server.
@@ -158,7 +171,7 @@ class McpBaseProvider(ABC):
 
     def _add_skill_proxy(self, mcp: FastMCP):
         skill_dirs = self.config.get_skill_dirs()
-        if not skill_dirs:
+        if not isinstance(skill_dirs, list) or not skill_dirs:
             return
 
         from drunk_ai_proxy.proxies.mcp.custom_skills_directory_provider import (
@@ -224,92 +237,12 @@ class McpBaseProvider(ABC):
                 details={"error_type": type(e).__name__},
             )
 
-    def _attach_remote_providers(
-        self,
-        mcp: FastMCP,
-        entries: list[object],
-        resource_type: str,
-        create_provider: Callable[[object], object],
-        register_provider: Callable[[object, FastMCP], None],
-        failure_event: str,
-    ) -> None:
-        """Create and attach remote providers for each configured entry.
-
-        Args:
-            mcp: FastMCP server to attach provider resources to.
-            entries: Remote resource configuration entries.
-            resource_type: Resource type label used in logs.
-            create_provider: Provider factory for each remote entry.
-            register_provider: Registration callback for created providers.
-            failure_event: Audit event name used on provider-creation failure.
-        """
-        for entry in entries:
-            entry_name = getattr(entry, "name", "unknown")
-            try:
-                provider = create_provider(entry)
-                register_provider(provider, mcp)
-                logger.info(
-                    "Registered remote %s provider '%s' for path '%s'",
-                    resource_type,
-                    entry_name,
-                    self.config.path,
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to create remote %s provider '%s' for path '%s': %s",
-                    resource_type,
-                    entry_name,
-                    self.config.path,
-                    type(e).__name__,
-                )
-                audit_log(
-                    logger=logger,
-                    event=failure_event,
-                    status="failure",
-                    resource=self.config.path,
-                    details={"entry_name": entry_name, "error_type": type(e).__name__},
-                )
-
     def _add_remote_skill_proxy(self, mcp: FastMCP) -> None:
-        """Mount remote on-demand skill providers from section-level remote_resources.
-
-        Each entry in ``skills.remote_resources`` is wired to a
-        :class:`~drunk_ai_proxy.proxies.mcp.remote_skill_provider.RemoteSkillProvider`
-        backed by the shared on-demand service.
-
-        Args:
-            mcp: FastMCP instance to mount skill providers to.
-        """
+        """Mount remote on-demand skill providers from section-level remote_resources."""
         remote_skills = self.config.get_skill_remote_resources()
-        if not remote_skills:
+        if not isinstance(remote_skills, list) or not remote_skills:
             return
-
-        if self.config.get_skill_dirs():
-            logger.warning(
-                "Path '%s' has both skills.dirs and skills.remote_resources configured. "
-                "Local and remote skill URIs may overlap if names collide.",
-                self.config.path,
-            )
-
-        from drunk_ai_proxy.app.cache_provider import CacheProvider
-        from drunk_ai_proxy.proxies.mcp.remote_skill_provider import RemoteSkillProvider
-        import httpx
-
-        cache = CacheProvider.get_cache_store()
-        http_client = httpx.AsyncClient()
-
-        self._attach_remote_providers(
-            mcp=mcp,
-            entries=remote_skills,
-            resource_type="skill",
-            create_provider=lambda entry: RemoteSkillProvider(
-                config=entry,
-                cache=cache,
-                http_client=http_client,
-            ),
-            register_provider=lambda provider, target_mcp: target_mcp.add_provider(provider),
-            failure_event="mcp_remote_skill_provider_failed",
-        )
+        self._remote_bootstrap().add_remote_skill_proxy(mcp)
 
     def _add_agent_proxy(self, mcp: FastMCP) -> None:
         """Create and mount agent provider if agents are configured.
@@ -318,7 +251,7 @@ class McpBaseProvider(ABC):
             mcp: FastMCP instance to mount agent provider to.
         """
         agent_dirs = self.config.get_agent_dirs()
-        if not agent_dirs:
+        if not isinstance(agent_dirs, list) or not agent_dirs:
             return
 
         from drunk_ai_proxy.proxies.agent.custom_agents_directory_provider import (
@@ -337,86 +270,18 @@ class McpBaseProvider(ABC):
         )
 
     def _add_remote_agent_proxy(self, mcp: FastMCP) -> None:
-        """Mount remote on-demand agent providers from section-level remote_resources.
-
-        Each entry in ``agents.remote_resources`` is wired to a
-        :class:`~drunk_ai_proxy.proxies.mcp.remote_agent_provider.RemoteAgentProvider`
-        backed by the shared on-demand service.
-
-        Args:
-            mcp: FastMCP instance to mount agent providers to.
-        """
+        """Mount remote on-demand agent providers from section-level remote_resources."""
         remote_agents = self.config.get_agent_remote_resources()
-        if not remote_agents:
+        if not isinstance(remote_agents, list) or not remote_agents:
             return
-
-        if self.config.get_agent_dirs():
-            logger.warning(
-                "Path '%s' has both agents.dirs and agents.remote_resources configured. "
-                "Local and remote agent URIs may overlap if names collide.",
-                self.config.path,
-            )
-
-        from drunk_ai_proxy.app.cache_provider import CacheProvider
-        from drunk_ai_proxy.proxies.mcp.remote_agent_provider import RemoteAgentProvider
-        import httpx
-
-        cache = CacheProvider.get_cache_store()
-        http_client = httpx.AsyncClient()
-
-        self._attach_remote_providers(
-            mcp=mcp,
-            entries=remote_agents,
-            resource_type="agent",
-            create_provider=lambda entry: RemoteAgentProvider(
-                config=entry,
-                cache=cache,
-                http_client=http_client,
-            ),
-            register_provider=lambda provider, target_mcp: target_mcp.add_provider(provider),
-            failure_event="mcp_remote_agent_provider_failed",
-        )
+        self._remote_bootstrap().add_remote_agent_proxy(mcp)
 
     def _add_remote_prompt_proxy(self, mcp: FastMCP) -> None:
-        """Mount remote on-demand prompt providers from section-level remote_resources.
-
-        Each entry in ``prompts.remote_resources`` is wired to a lazy remote
-        prompt backed by the shared on-demand service.
-
-        Args:
-            mcp: FastMCP instance to register remote prompts to.
-        """
+        """Mount remote on-demand prompt providers from section-level remote_resources."""
         remote_prompts = self.config.get_prompt_remote_resources()
-        if not remote_prompts:
+        if not isinstance(remote_prompts, list) or not remote_prompts:
             return
-
-        if self.config.get_prompt_dirs():
-            logger.warning(
-                "Path '%s' has both prompts.dirs and prompts.remote_resources configured. "
-                "Local and remote prompt names may collide.",
-                self.config.path,
-            )
-
-        from drunk_ai_proxy.app.cache_provider import CacheProvider
-        from drunk_ai_proxy.proxies.prompt.remote_prompt_provider import RemotePromptProvider
-        import httpx
-
-        cache = CacheProvider.get_cache_store()
-        http_client = httpx.AsyncClient()
-
-        self._attach_remote_providers(
-            mcp=mcp,
-            entries=remote_prompts,
-            resource_type="prompt",
-            create_provider=lambda entry: RemotePromptProvider(
-                config=self.config,
-                remote_config=entry,
-                cache=cache,
-                http_client=http_client,
-            ),
-            register_provider=lambda provider, target_mcp: provider.register_to_mcp(target_mcp),
-            failure_event="mcp_remote_prompt_provider_failed",
-        )
+        self._remote_bootstrap().add_remote_prompt_proxy(mcp)
 
     def _create_client_auth(self) -> "Auth | None":
         pass_through = self.config.auth.pass_through if self.config.auth else False

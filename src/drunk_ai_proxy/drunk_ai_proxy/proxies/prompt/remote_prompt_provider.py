@@ -13,13 +13,13 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 
-from drunk_ai_proxy.app.cache_provider import TTLAsyncKeyValue
 from drunk_ai_proxy.proxies.prompt.prompt_template import PromptTemplate
 from drunk_ai_proxy.proxies.resource.on_demand_remote_resource_service import (
     OnDemandRemoteResourceService,
 )
 from drunk_ai_proxy.utils.config_yaml import McpConfig, OnDemandRemoteResourceConfig
-from drunk_ai_proxy.utils.config_yaml_uri import build_prompt_resource_uri
+from drunk_ai_proxy.utils.config_yaml_uri import ConfigYamlUriBuilder
+from drunk_ai_proxy.utils.protocols import TokenStore
 from drunk_ai_proxy.utils import audit_log
 
 import httpx
@@ -46,7 +46,7 @@ class RemotePromptProvider:
         self,
         config: McpConfig,
         remote_config: OnDemandRemoteResourceConfig,
-        cache: TTLAsyncKeyValue,
+        cache: TokenStore,
         http_client: httpx.AsyncClient,
     ) -> None:
         """Initialize the remote prompt provider.
@@ -68,7 +68,7 @@ class RemotePromptProvider:
         self._config = config
         self._remote_config = remote_config
         self._service = OnDemandRemoteResourceService(cache=cache, http_client=http_client)
-        self._resource_uri: str = build_prompt_resource_uri(
+        self._resource_uri: str = ConfigYamlUriBuilder.build_prompt_resource_uri(
             remote_config.url,
             resource_name=remote_config.name,
         )

@@ -174,3 +174,32 @@ class AuthTypeRegistry:
         if entry is None or entry.httpx_factory is None:
             raise ValueError(f"Unsupported authentication provider type: {name} in {provider_names}")
         return entry.httpx_factory(config)
+
+    @classmethod
+    def register(
+        cls,
+        name: AuthType,
+        fastmcp_factory: Callable[[dict[str, Any]], "AuthProvider"],
+        httpx_factory: Callable[[dict[str, Any]], "httpx.Auth"] | None = None,
+        *,
+        override: bool = False,
+    ) -> None:
+        """Register or override an auth provider entry.
+
+        Args:
+            name: Auth type key to register.
+            fastmcp_factory: Factory creating FastMCP auth provider.
+            httpx_factory: Optional factory creating outbound httpx auth handler.
+            override: When True, allows replacing an existing registration.
+
+        Raises:
+            ValueError: If entry already exists and override is False.
+        """
+        cls._ensure_registry()
+        if not override and name in cls._REGISTRY:
+            raise ValueError(f"Auth type '{name}' is already registered")
+
+        cls._REGISTRY[name] = _AuthTypeEntry(
+            fastmcp_factory=fastmcp_factory,
+            httpx_factory=httpx_factory,
+        )

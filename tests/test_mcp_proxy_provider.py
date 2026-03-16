@@ -333,6 +333,31 @@ class TestMcpProxyProviderCreateProxy:
         assert mock_create_skill_proxy.call_count == 1
 
 
+class TestMcpProxyProviderCreateMcpProxiesConfigs:
+    """Tests for create_mcp_proxies_configs static factory behavior."""
+
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.build_mcp_proxy_configs")
+    def test_includes_remote_only_configs_without_spec_data(
+        self,
+        mock_build_mcp_proxy_configs,
+    ) -> None:
+        """Remote-only MCP configs must not be filtered out when spec_data is None."""
+        mcp_server_config = Mock(spec=McpConfig)
+        mcp_server_config.path = "/"
+        mcp_server_config.spec_data = {"mcpServers": {"memory": {}}}
+
+        remote_only_config = Mock(spec=McpConfig)
+        remote_only_config.path = "/remotes"
+        remote_only_config.spec_data = None
+
+        McpProxyProvider.create_mcp_proxies_configs(
+            configs=[mcp_server_config, remote_only_config]
+        )
+
+        passed_configs = mock_build_mcp_proxy_configs.call_args.kwargs["configs"]
+        assert passed_configs == [mcp_server_config, remote_only_config]
+
+
 class TestMcpConfigResourcesField:
     """Test suite for resource fields in McpConfig."""
 

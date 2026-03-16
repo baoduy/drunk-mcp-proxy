@@ -15,7 +15,9 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from drunk_ai_proxy.proxies.llm.anthropic_provider import AnthropicProvider
-from drunk_ai_proxy.utils.serialization import to_dict
+from drunk_ai_proxy.utils.serialization import SerializationService
+
+to_dict = SerializationService.to_dict
 
 
 class TestAnthropicToOpenAIRequest:
