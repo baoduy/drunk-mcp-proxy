@@ -53,7 +53,7 @@
 				"drunk_ai_client"
 			],
 			"env": {
-				"API_URL": "http://0.0.0.0:9123/resources/mcp/",
+				"API_URL": "http://0.0.0.0:9123/locals/mcp/",
 				"API_KEY": "518104e2-865e-4eb2-a050-caec8d67125f",
 				"SKILL_DIR": "client-sample/skills",
 				"AGENTS_DIR": "client-sample/agents"
