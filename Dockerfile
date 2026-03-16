@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.12
 ARG NODE_VERSION=25
 ARG TARGETPLATFORM
 FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim AS builder
@@ -7,21 +7,21 @@ FROM nikolaik/python-nodejs:python${PYTHON_VERSION}-nodejs${NODE_VERSION}-slim A
 # Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      build-essential && \
+            build-essential \
+            ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
 # Copy project files for building
-COPY pyproject.toml README.md ./
-COPY src/ ./src/
+COPY src/drunk_ai_proxy/ ./src/drunk_ai_proxy/
 
-# Build the package as a wheel using build tool
+# Build the package as a wheel using build tool with explicit outdir
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir build && \
-    python -m build --wheel && \
-    ls -la dist/
+    python -m build --wheel src/drunk_ai_proxy --outdir ./dist && \
+    ls -la ./dist/
 
 # ============================================================
 # Final stage - minimal runtime image
@@ -38,27 +38,29 @@ RUN useradd -m -u 10001 appuser
 # Install only runtime dependencies (nodejs/npm already in base image)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      curl && \
+            ca-certificates \
+            curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment in runtime stage
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
 
 # Copy built wheel from builder stage
 COPY --from=builder /build/dist/drunk_ai_proxy-*.whl /tmp/
 
 # Install the built wheel package
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir /tmp/drunk_ai_proxy-*.whl
+    pip install --no-cache-dir --prefer-binary --retries 10 --timeout 120 /tmp/drunk_ai_proxy-*.whl
 
 # Verify package installation and entry point
 RUN drunk-ai-proxy --help 2>&1 | head -5 || echo "Entry point verification skipped"
 
-# Copy application data and schemas directly from project
+# Copy application data directly from project
 RUN mkdir -p ./data && chown -R appuser:appuser ./data
-COPY --chown=appuser:appuser schemas/ ./schemas/
 
 # Setup user directories and environment in single layer
 RUN mkdir -p /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/appuser/.cache/uv /home/appuser/.local/uv/tools && \
@@ -66,7 +68,6 @@ RUN mkdir -p /tmp/pip-cache /home/appuser/.npm-global /home/appuser/.npm /home/a
 
 # Consolidate environment variables
 ENV FASTMCP_CONFIG_DIR=/drunk-ai-proxy/data \
-    FASTMCP_SCHEMA_DIR=/drunk-ai-proxy/schemas \
     FASTMCP_STATELESS_HTTP=true \
     PYTHONUNBUFFERED=1 \
     HOME=/home/appuser \

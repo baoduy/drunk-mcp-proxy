@@ -2,12 +2,12 @@
 Unit tests for Azure OAuth2 authentication module.
 
 Tests cover both sync and async flows, token caching, expiry detection,
-and error handling for the AzureOauth class.
+and error handling for the HttpxAzureOauth class.
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import asyncio
 import httpx
@@ -15,7 +15,8 @@ import pytest
 import pytest_asyncio
 import time
 
-from drunk_ai_proxy.auth_providers.azure_oauth import AzureOauth
+from drunk_ai_proxy.auth.httpx_azure_oauth import HttpxAzureOauth
+from httpx_oauth.oauth2 import GetAccessTokenError
 
 
 # =============================================================================
@@ -29,8 +30,8 @@ def oauth_config() -> dict:
     return {
         "client_id": "test-client-id",
         "client_secret": "test-client-secret",
-        "token_url": "https://login.microsoftonline.com/test-tenant/oauth2/v2.0/token",
-        "scope": "https://graph.microsoft.com/.default",
+        "tenant_id": "test-tenant",
+        "scopes": ["https://graph.microsoft.com/.default"],
     }
 
 
@@ -46,15 +47,15 @@ def mock_token_response() -> dict:
 
 
 @pytest.fixture
-def azure_oauth(oauth_config) -> AzureOauth:
-    """Create AzureOauth instance for testing."""
-    return AzureOauth(**oauth_config)
+def azure_oauth(oauth_config) -> HttpxAzureOauth:
+    """Create HttpxAzureOauth instance for testing."""
+    return HttpxAzureOauth(**oauth_config)
 
 
 @pytest_asyncio.fixture
-async def azure_oauth_async(oauth_config) -> AzureOauth:
-    """Create AzureOauth instance for async testing."""
-    return AzureOauth(**oauth_config)
+async def azure_oauth_async(oauth_config) -> HttpxAzureOauth:
+    """Create HttpxAzureOauth instance for async testing."""
+    return HttpxAzureOauth(**oauth_config)
 
 
 # =============================================================================
@@ -63,28 +64,31 @@ async def azure_oauth_async(oauth_config) -> AzureOauth:
 
 
 def test_azure_oauth_initialization(oauth_config):
-    """Test that AzureOauth initializes with correct attributes."""
-    oauth = AzureOauth(**oauth_config)
+    """Test that HttpxAzureOauth initializes with correct attributes."""
+    oauth = HttpxAzureOauth(**oauth_config)
 
     assert oauth.client_id == "test-client-id"
     assert oauth.client_secret == "test-client-secret"
-    assert oauth.token_url == oauth_config["token_url"]
+    # token_url is computed internally, we can check _oauth_client instead
+    assert oauth._oauth_client is not None
+    assert oauth._oauth_client.client_id == "test-client-id"
+
     assert oauth.scope == "https://graph.microsoft.com/.default"
-    assert oauth._cached_token is None
 
 
 def test_azure_oauth_initialization_no_scope(oauth_config):
-    """Test initialization without scope."""
-    del oauth_config["scope"]
-    oauth = AzureOauth(**oauth_config)
+    """Test initialization without scope (uses Azure default)."""
+    del oauth_config["scopes"]
+    oauth = HttpxAzureOauth(**oauth_config)
 
-    assert oauth.scope is None
-    assert oauth._cached_token is None
+    # When scopes is None, HttpxAzureOauth defaults to graph.microsoft.com
+    assert oauth.scope is not None
+    assert "graph.microsoft.com" in oauth.scope
 
 
 def test_azure_oauth_storage_defaults(oauth_config):
     """Test that default storage is created if not provided."""
-    oauth = AzureOauth(**oauth_config)
+    oauth = HttpxAzureOauth(**oauth_config)
 
     # Should have storage initialized
     assert oauth.storage is not None
@@ -104,7 +108,7 @@ def test_is_token_expired_dict_expired():
         "expires_at": time.time() - 100,  # Expired 100 seconds ago
     }
 
-    assert AzureOauth._is_token_expired_dict(expired_token) is True
+    assert HttpxAzureOauth._is_token_expired_dict(expired_token) is True
 
 
 def test_is_token_expired_dict_valid():
@@ -114,23 +118,23 @@ def test_is_token_expired_dict_valid():
         "expires_at": time.time() + 3600,  # Valid for 1 hour
     }
 
-    assert AzureOauth._is_token_expired_dict(valid_token) is False
+    assert HttpxAzureOauth._is_token_expired_dict(valid_token) is False
 
 
 def test_is_token_expired_dict_none():
     """Test that None token is considered expired."""
-    assert AzureOauth._is_token_expired_dict(None) is True
+    assert HttpxAzureOauth._is_token_expired_dict(None) is True
 
 
 def test_is_token_expired_dict_empty():
     """Test that empty dict is considered expired."""
-    assert AzureOauth._is_token_expired_dict({}) is True
+    assert HttpxAzureOauth._is_token_expired_dict({}) is True
 
 
 def test_is_token_expired_dict_no_expires_at():
     """Test that token without expires_at is considered expired."""
     token = {"access_token": "token"}
-    assert AzureOauth._is_token_expired_dict(token) is True
+    assert HttpxAzureOauth._is_token_expired_dict(token) is True
 
 
 # =============================================================================
@@ -141,22 +145,15 @@ def test_is_token_expired_dict_no_expires_at():
 @pytest.mark.asyncio
 async def test_fetch_token_success(azure_oauth_async, mock_token_response):
     """Test successful token fetch from Azure AD."""
-    with patch("httpx.AsyncClient") as mock_client_class:
-        # Create a mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_token_response
-        mock_response.raise_for_status = MagicMock()
-
-        # Create a mock client instance
-        mock_client_instance = AsyncMock()
-        mock_client_instance.post = AsyncMock(return_value=mock_response)
-
-        # Set up the context manager
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+    with patch.object(
+        azure_oauth_async._oauth_client,
+        "get_client_credentials_token",
+        new_callable=AsyncMock,
+    ) as mock_get_token:
+        mock_get_token.return_value = mock_token_response
 
         token = await azure_oauth_async._fetch_token()
 
-        # Verify token structure
         assert token["access_token"] == "test-access-token-12345"
         assert token["token_type"] == "Bearer"
         assert token["expires_in"] == 3600
@@ -167,51 +164,32 @@ async def test_fetch_token_success(azure_oauth_async, mock_token_response):
 @pytest.mark.asyncio
 async def test_fetch_token_adds_expiry_buffer(azure_oauth_async, mock_token_response):
     """Test that fetch_token adds 60-second buffer to expiry."""
-    with patch("httpx.AsyncClient") as mock_client_class:
-        # Create a mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_token_response
-        mock_response.raise_for_status = MagicMock()
-
-        # Create a mock client instance
-        mock_client_instance = AsyncMock()
-        mock_client_instance.post = AsyncMock(return_value=mock_response)
-
-        # Set up the context manager
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+    with patch.object(
+        azure_oauth_async._oauth_client,
+        "get_client_credentials_token",
+        new_callable=AsyncMock,
+    ) as mock_get_token:
+        mock_get_token.return_value = mock_token_response
 
         before_time = time.time()
         token = await azure_oauth_async._fetch_token()
         after_time = time.time()
 
-        # Expiry should be approximately (now + 3600 - 60)
         expected_expiry = before_time + 3600 - 60
-        # Allow 2-second buffer for test execution
         assert abs(token["expires_at"] - expected_expiry) < 2
 
 
 @pytest.mark.asyncio
 async def test_fetch_token_http_error(azure_oauth_async):
     """Test that HTTP errors are raised during token fetch."""
-    with patch("httpx.AsyncClient") as mock_client_class:
-        # Create a mock response that raises error on raise_for_status
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError(
-                "401 Unauthorized",
-                request=MagicMock(),
-                response=MagicMock(),
-            )
-        )
+    with patch.object(
+        azure_oauth_async._oauth_client,
+        "get_client_credentials_token",
+        new_callable=AsyncMock,
+    ) as mock_get_token:
+        mock_get_token.side_effect = GetAccessTokenError("401 Unauthorized")
 
-        # Create a mock client instance
-        mock_client_instance = AsyncMock()
-        mock_client_instance.post = AsyncMock(return_value=mock_response)
-
-        # Set up the context manager
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
-
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(GetAccessTokenError):
             await azure_oauth_async._fetch_token()
 
 
@@ -222,24 +200,26 @@ async def test_fetch_token_http_error(azure_oauth_async):
 
 @pytest.mark.asyncio
 async def test_async_get_token_from_cache(azure_oauth_async, mock_token_response):
-    """Test that cached token is returned without fetching new one."""
-    # Pre-populate the cache
-    cached_token = mock_token_response.copy()
-    cached_token["expires_at"] = time.time() + 3600
+    """Test that token is returned from storage without fetching new one."""
+    # Pre-populate storage
+    stored_token = mock_token_response.copy()
+    stored_token["expires_at"] = time.time() + 3600
 
-    azure_oauth_async._cached_token = cached_token
+    with patch.object(azure_oauth_async.storage, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = stored_token
+        
+        with patch.object(azure_oauth_async, "_fetch_token") as mock_fetch:
+            token = await azure_oauth_async._async_get_token()
 
-    with patch.object(azure_oauth_async, "_fetch_token") as mock_fetch:
-        token = await azure_oauth_async._async_get_token()
-
-        # Should return cached token without calling fetch
-        assert token == cached_token
-        mock_fetch.assert_not_called()
+            # Should return stored token without calling fetch
+            assert token == stored_token
+            mock_fetch.assert_not_called()
+            mock_get.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_async_get_token_from_storage(azure_oauth_async, mock_token_response):
-    """Test that token is retrieved from storage and cached."""
+    """Test that token is retrieved from storage."""
     stored_token = mock_token_response.copy()
     stored_token["expires_at"] = time.time() + 3600
 
@@ -249,34 +229,33 @@ async def test_async_get_token_from_storage(azure_oauth_async, mock_token_respon
 
         token = await azure_oauth_async._async_get_token()
 
-        # Should return storage token and cache it
+        # Should return storage token
         assert token == stored_token
-        assert azure_oauth_async._cached_token == stored_token
         mock_get.assert_called_once_with("test-client-id")
 
 
 @pytest.mark.asyncio
 async def test_async_get_token_fetches_new_when_expired(azure_oauth_async, mock_token_response):
-    """Test that new token is fetched when cached token is expired."""
+    """Test that new token is fetched when storage token is expired."""
     expired_token = mock_token_response.copy()
     expired_token["expires_at"] = time.time() - 100  # Expired
-
-    azure_oauth_async._cached_token = expired_token
 
     new_token = mock_token_response.copy()
     new_token["expires_at"] = time.time() + 3600
 
-    with patch.object(azure_oauth_async, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
-        with patch.object(azure_oauth_async.storage, "put", new_callable=AsyncMock) as mock_put:
-            mock_fetch.return_value = new_token
+    with patch.object(azure_oauth_async.storage, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = expired_token
+        
+        with patch.object(azure_oauth_async, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
+            with patch.object(azure_oauth_async.storage, "put", new_callable=AsyncMock) as mock_put:
+                mock_fetch.return_value = new_token
 
-            token = await azure_oauth_async._async_get_token()
+                token = await azure_oauth_async._async_get_token()
 
-            # Should fetch and cache new token
-            assert token == new_token
-            assert azure_oauth_async._cached_token == new_token
-            mock_fetch.assert_called_once()
-            mock_put.assert_called_once()
+                # Should fetch and store new token
+                assert token == new_token
+                mock_fetch.assert_called_once()
+                mock_put.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -328,20 +307,18 @@ def test_get_token_fails_in_async_context(azure_oauth):
 
 
 def test_get_token_uses_cached_token(azure_oauth, mock_token_response):
-    """Test that sync retrieval uses cached token from _cached_token."""
-    cached_token = mock_token_response.copy()
-    cached_token["expires_at"] = time.time() + 3600
+    """Test that sync retrieval uses stored token from storage."""
+    stored_token = mock_token_response.copy()
+    stored_token["expires_at"] = time.time() + 3600
 
-    azure_oauth._cached_token = cached_token
-
-    # The _cached_token should be returned by _get_token_async without fetching new one
-    with patch.object(azure_oauth, "_fetch_token", new_callable=AsyncMock) as mock_fetch:
+    # The stored token should be returned by _get_token via _async_get_token
+    with patch.object(azure_oauth, "_async_get_token", new_callable=AsyncMock) as mock_async_get:
+        mock_async_get.return_value = stored_token
+        
         token = azure_oauth._get_token()
 
-        # Should return cached token without calling fetch
-        assert token == cached_token
-        # Fetch should not be called since cache is valid
-        mock_fetch.assert_not_called()
+        # Should return stored token
+        assert token == stored_token
 
 
 # =============================================================================
@@ -479,7 +456,7 @@ async def test_async_auth_flow_is_async_generator(azure_oauth_async, mock_token_
 @pytest.mark.asyncio
 async def test_end_to_end_async_flow(oauth_config, mock_token_response):
     """Test complete async flow with AsyncClient."""
-    oauth = AzureOauth(**oauth_config)
+    oauth = HttpxAzureOauth(**oauth_config)
 
     token_with_expiry = mock_token_response.copy()
     token_with_expiry["expires_at"] = time.time() + 3600
@@ -501,7 +478,7 @@ async def test_end_to_end_async_flow(oauth_config, mock_token_response):
 
 def test_end_to_end_sync_flow(oauth_config, mock_token_response):
     """Test complete sync flow with Client."""
-    oauth = AzureOauth(**oauth_config)
+    oauth = HttpxAzureOauth(**oauth_config)
 
     token_with_expiry = mock_token_response.copy()
     token_with_expiry["expires_at"] = time.time() + 3600
@@ -521,7 +498,7 @@ def test_end_to_end_sync_flow(oauth_config, mock_token_response):
 @pytest.mark.asyncio
 async def test_concurrent_async_requests(oauth_config, mock_token_response):
     """Test that concurrent async requests share the same token."""
-    oauth = AzureOauth(**oauth_config)
+    oauth = HttpxAzureOauth(**oauth_config)
 
     token_with_expiry = mock_token_response.copy()
     token_with_expiry["expires_at"] = time.time() + 3600

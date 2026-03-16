@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drunk-ai-proxy"
+version = "0.1.0"
+description = "MCP proxy and model provider gateway"
+readme = "README.md"
+requires-python = ">=3.10"
+
+# Runtime dependencies (migrated from requirements.txt)
+dependencies = [
+    "fastmcp>=3.1.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-core>=2.41.5",
+    "openai>=2.24.0",
+    "fastapi>=0.110.0",
+    "pandas>=2.2.0",
+    "botocore>=1.35.0",
+    "starlette>=0.34.0",
+    "httpx>=0.6.7",
+    "httpx-oauth>=0.14.1",
+    "py-key-value-aio[disk,keyring,memory,redis]>=0.4.0",
+    "key-value>=0.1.2",
+    "pyyaml>=6.0.0",
+    "websockets>=12.0",
+]
+
+[project.scripts]
+drunk-ai-proxy = "drunk_ai_proxy.main:main"
+
+[project.optional-dependencies]
+# Development-only dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.20.0",
+    "flake8>=7.3.0",
+    "import-linter>=2.5",
+    "pyright>=1.1.408",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["drunk_ai_proxy*"]
+
+[tool.pyright]
+extraPaths = ["."]
+include = ["."]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"

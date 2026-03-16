@@ -1,0 +1,36 @@
+name: Publish drunk-ai-client
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/drunk_ai_client/**'
+      - '.github/workflows/publish-drunk-ai-client.yml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: latest
+
+      - name: Build package
+        working-directory: src/drunk_ai_client
+        run: uv build
+
+      - name: Publish to PyPI
+        working-directory: src/drunk_ai_client
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}

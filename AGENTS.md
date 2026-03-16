@@ -58,12 +58,264 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
 
 ## 3. Code Style & Conventions
 
+### Python Version & Modern Syntax (Critical)
+
+- **Python Version**: 3.10+ required. Do not write code compatible with Python 3.8 or 3.9.
+- **Modern Union Types**: Always use `X | Y` syntax, never `Union[X, Y]` or `Optional[X]`.
+  - **✅ GOOD**: `def get(self) -> str | None:`
+  - **❌ BAD**: `def get(self) -> Optional[str]:` or `def get(self) -> Union[str, None]:`
+- **Modern Generic Types**: Use lowercase built-in generics: `list[str]`, `dict[str, int]`, never `List[str]`, `Dict[str, int]`.
+- **Pattern Matching**: Use `match/case` for complex conditional logic (Python 3.10+ feature).
+  ```python
+  match status:
+      case 200:
+          return "OK"
+      case 404:
+          return "Not Found"
+      case _:
+          return "Unknown"
+  ```
+- **Parenthesized Context Managers**: Use for multi-line context managers:
+  ```python
+  with (
+      open("file1.txt") as f1,
+      open("file2.txt") as f2
+  ):
+      data = f1.read()
+      f2.write(data)
+  ```
+- **F-strings Only**: Never use `%` formatting or `str.format()`. Always use f-strings:
+  - **✅ GOOD**: `f"User {user.name} logged in"`
+  - **❌ BAD**: `"User %s logged in" % user.name` or `"User {} logged in".format(user.name)`
+
+### Framework Version Compliance (Critical)
+
+**All code must follow the latest stable conventions of these frameworks:**
+
+- **FastMCP**: Use the current `fastmcp` API patterns. Do not use deprecated methods. Check `fastmcp` documentation for latest patterns for resources, tools, and prompts.
+- **Pydantic**: This project uses Pydantic v2. Never use v1 patterns:
+  - **✅ GOOD (v2)**: `from pydantic import BaseModel, Field` with `model_config = ConfigDict(...)` 
+  - **❌ BAD (v1)**: `from pydantic import BaseModel` with `class Config:` inner class
+  - **✅ GOOD**: `Field(default=None, description="...")` for field metadata
+  - **❌ BAD**: `Field(default=...)` without description or using deprecated parameters
+- **FastAPI**: Follow current FastAPI best practices:
+  - Use `APIRouter` for modular routes
+  - Use `Depends()` for dependency injection
+  - Define proper response models with Pydantic schemas
+  - Use `HTTPException` with proper status codes
+- **Uvicorn**: Use `uvicorn.run()` with current configuration options. No legacy ASGI server patterns.
+
 ### Python PEP 8 Compliance
 - **Line Length**: Maximum 100 characters per line (enforced by `flake8`).
 - **Indentation**: Use 4 spaces per indentation level. Never use tabs.
 - **Whitespace**: Two blank lines between top-level definitions, one blank line between method definitions.
 - **Trailing Whitespace**: Remove all trailing whitespace.
 - **Blank Lines in Functions**: Use blank lines sparingly within functions to separate logical sections.
+
+### Modern Pydantic v2 Patterns (Critical)
+
+This project uses **Pydantic v2** exclusively. Never use v1 patterns:
+
+- **✅ GOOD (v2)**:
+  ```python
+  from pydantic import BaseModel, Field, ConfigDict
+
+  class User(BaseModel):
+      model_config = ConfigDict(populate_by_name=True)
+      
+      name: str = Field(..., description="User name")
+      email: str = Field(..., description="Email address")
+      age: int | None = Field(default=None, description="User age")
+  ```
+
+- **❌ BAD (v1)**:
+  ```python
+  from pydantic import BaseModel
+  
+  class User(BaseModel):
+      name: str
+      email: str
+      age: Optional[int] = None
+      
+      class Config:
+          populate_by_name = True
+  ```
+
+- **Key v2 Differences**:
+  - No inner `Config` class – use `model_config = ConfigDict(...)`
+  - Use `field_validator` decorator, not `@validator`
+  - Use `model_validate` / `model_dump` instead of `parse_obj` / `dict()`
+  - `Json` type is `Json` from `pydantic.json`, not `pydantic.Json`
+  - `ValidationError` import from `pydantic` directly
+  - Use `field_serializer` / `field_validator` instead of `@validator` with `pre=True`
+
+### Modern FastAPI Patterns (Critical)
+
+Follow these FastAPI best practices:
+
+- **✅ GOOD - Modern FastAPI**:
+  ```python
+  from fastapi import APIRouter, Depends, HTTPException, status
+  from pydantic import BaseModel
+  
+  router = APIRouter(prefix="/api", tags=["items"])
+  
+  class ItemCreate(BaseModel):
+      name: str
+      price: float
+  
+  async def get_current_user() -> User:
+      # Dependency function
+      return user
+  
+  @router.post("/items", response_model=Item)
+  async def create_item(
+      item: ItemCreate,
+      user: User = Depends(get_current_user)
+  ) -> Item:
+      """Create new item."""
+      return await item_service.create(item, user)
+  ```
+
+- **❌ BAD - Legacy Patterns**:
+  ```python
+  from fastapi import FastAPI, Depends
+  app = FastAPI()  # Should use APIRouter for modularity
+  
+  # Missing response_model
+  @app.post("/items")
+  async def create_item(item: dict):  # Should use Pydantic model
+      return service.create(item)
+  
+  # Using old-style dependency without async
+  def get_user():  # Should be async when I/O is involved
+      return db.get_user()
+  ```
+
+- **Key Rules**:
+  - Use `APIRouter` for all route definitions, not directly on `FastAPI`
+  - Define explicit `response_model` for all endpoints
+  - Use Pydantic v2 models for request/response schemas
+  - Dependencies should be async when they perform I/O
+  - Use proper HTTP status codes (`status.HTTP_201_CREATED`, etc.)
+  - Always include docstrings for OpenAPI documentation
+
+### Modern Async/Await Patterns
+
+Use modern async patterns (Python 3.11+):
+
+- **✅ GOOD - TaskGroup (3.11+)**:
+  ```python
+  import asyncio
+  
+  async def fetch_all(urls: list[str]) -> list[str]:
+      async with asyncio.TaskGroup() as tg:
+          tasks = [tg.create_task(fetch(url)) for url in urls]
+      return [task.result() for task in tasks]
+  ```
+
+- **✅ GOOD - gather with return_exceptions**:
+  ```python
+  import asyncio
+  
+  async def fetch_all_safe(urls: list[str]) -> list[str | Exception]:
+      results = await asyncio.gather(
+          *[fetch(url) for url in urls],
+          return_exceptions=True
+      )
+      return results
+  ```
+
+- **❌ BAD - Legacy patterns**:
+  ```python
+  # Don't use asyncio.wait or manual task management
+  tasks = [asyncio.create_task(fetch(url)) for url in urls]
+  await asyncio.wait(tasks)  # No TaskGroup
+  ```
+
+### Enhanced Python Best Practices
+
+#### Consistency Requirements (Critical)
+
+**Every class in the codebase must follow these standards:**
+
+1. **Logger Pattern** - Always:
+    - `from fastmcp.utilities import logging` at the **top of each module**
+    - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
+    - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
+    - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
+    - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
+
+2. **OOP and Class Design** - Always:
+    - **One primary class per module**: Every module must have a primary class (e.g., `AuthService`, `ProxyBuilder`, `ConfigLoader`) that encapsulates all core business logic.
+    - **No module-level procedural functions for business logic**: All orchestration, state management, and executable logic must be inside class methods. Only pure utility/helper functions (stateless, no side effects) are allowed at module level.
+    - **No global mutable state**: Avoid module-level variables that change during execution. All state must be stored as private attributes in class instances (`self._state`).
+    - **Module-level code restriction**: The only code that can execute at module level (outside functions/classes) should be imports, constants, type aliases, and class/function definitions. No I/O, no initialization, no computation.
+    - **Example violation**: Don't do this: `cached_config = load_config()` at module top. Instead, wrap in a class: `class ConfigService: ... def load(self): ...`
+
+3. **Type Hints** - Always:
+   - Avoid `Any` type - use specific types or `Protocol`
+   - Use `dict[str, str]` not `dict[str, Any]`
+   - Use union types: `str | int | None`
+   - Type all function parameters and return values
+
+3. **Dependency Injection** - Always:
+   - Pass dependencies to `__init__`, never use globals
+   - Store as private attributes: `self._dependency`
+   - Use `Protocol` for interface dependencies
+   - Validate critical dependencies on initialization
+
+4. **Naming Conventions** - Always:
+   - Private attributes: `self._attribute_name`
+   - Public methods: `def method_name(self) -> ReturnType:`
+   - Constants: `CONSTANT_NAME`
+   - Classes: `ClassName`
+
+5. **Documentation** - Always:
+   - Module docstring at top
+   - Google-style docstrings for all public classes/methods
+   - Type hints serve as inline documentation
+   - Document "why", not "what"
+
+### Code Organization
+- **One class per file** (with exceptions for small related classes).
+- **Class-first modules**: For new development, structure each module around one primary class and keep orchestration logic in class methods.
+- **Group related methods** together within a class.
+- **Keep files under 500 lines** where possible.
+- **Keep public APIs minimal** and expose only what callers need.
+- **Favor composition** and small interfaces over deep inheritance chains.
+- **Aim for high cohesion** within modules and low coupling between modules.
+
+Use modern async patterns (Python 3.11+):
+
+- **✅ GOOD - TaskGroup (3.11+)**:
+  ```python
+  import asyncio
+  
+  async def fetch_all(urls: list[str]) -> list[str]:
+      async with asyncio.TaskGroup() as tg:
+          tasks = [tg.create_task(fetch(url)) for url in urls]
+      return [task.result() for task in tasks]
+  ```
+
+- **✅ GOOD - gather with return_exceptions**:
+  ```python
+  import asyncio
+  
+  async def fetch_all_safe(urls: list[str]) -> list[str | Exception]:
+      results = await asyncio.gather(
+          *[fetch(url) for url in urls],
+          return_exceptions=True
+      )
+      return results
+  ```
+
+- **❌ BAD - Legacy patterns**:
+  ```python
+  # Don't use asyncio.wait or manual task management
+  tasks = [asyncio.create_task(fetch(url)) for url in urls]
+  await asyncio.wait(tasks)  # No TaskGroup
+  ```
 
 ### Formatting & Syntax
 - **Docstrings**: Use Google-style docstrings for all modules, classes, and functions.
@@ -115,7 +367,8 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   ```
 
 #### Avoiding `Any` Type (Critical)
-**Rule**: Avoid `typing.Any` as much as possible. Always prefer specific types.
+
+**Rule**: Avoid `typing.Any` as much as possible. Always prefer specific types. `Any` allows legacy patterns and prevents type safety.
 
 - **❌ BAD - Using `Any`**:
   ```python
@@ -126,6 +379,76 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   
   def handle_response(response: Any) -> dict[str, Any]:
       return {"status": response.status}
+  ```
+
+- **✅ GOOD - Using Specific Types**:
+  ```python
+  from typing import Protocol
+  from starlette.responses import Response
+  
+  class DataDict(Protocol):
+      """Protocol for data dictionary."""
+      def __getitem__(self, key: str) -> str | int | bool: ...
+  
+  def process_data(data: dict[str, str | int]) -> str | int:
+      """Process data with known structure."""
+      return data["result"]
+  
+  def handle_response(response: Response) -> dict[str, int]:
+      """Handle Starlette response object."""
+      return {"status": response.status_code}
+  ```
+
+- **When You Must Use `Any`**: Only in these rare cases, and always add a comment explaining why:
+  1. **External JSON/YAML data** where structure is truly unknown:
+     ```python
+     import json
+     
+     def load_external_json(path: str) -> dict[str, object]:
+         """Load external JSON with unknown structure.
+         
+         Note: Use object instead of Any when possible.
+         """
+         with open(path) as f:
+             return json.load(f)  # Returns dict[str, Any] from json
+     ```
+  2. **Generic wrapper functions** that truly work with any type:
+     ```python
+     from typing import TypeVar
+     
+     T = TypeVar("T")
+     
+     def identity(value: T) -> T:
+         """Return value unchanged (better than Any)."""
+         return value
+     ```
+
+- **Better Alternatives to `Any`**:
+  - Use `object` for unknown types that need minimal operations
+  - Use `TypeVar` for generic functions
+  - Use `Protocol` to define expected interface
+  - Use union types: `str | int | bool | None`
+  - Use concrete library types: `Request`, `Response`, `FastAPI`, etc.
+
+- **Union Types**: Use `Type1 | Type2` syntax (Python 3.10+) instead of `Union[Type1, Type2]`.
+- **Optional Types**: Use `Type | None` instead of `Optional[Type]`.
+- **Generic Types**: Use `list[str]` instead of `List[str]` (Python 3.9+).
+- **Protocols**: Define interfaces using `Protocol` for better type checking without inheritance:
+  ```python
+  from typing import Protocol
+
+  class ConfigProvider(Protocol):
+      """Protocol for config providers."""
+      
+      def get_config(self, key: str) -> dict[str, str | int]: ...
+      def set_config(self, key: str, value: dict[str, str | int]) -> None: ...
+  ```
+- **Type Aliases**: Create meaningful aliases for complex types:
+  ```python
+  AuthToken = str
+  ConfigDict = dict[str, str | int | bool]  # Specific, not Any
+  Callback = Callable[[str], None]
+  HeadersDict = dict[str, str]
   ```
 
 - **✅ GOOD - Using Specific Types**:
@@ -217,8 +540,8 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
   ```
 - Log errors using the project's logging configuration:
   ```python
-  from tools.logging_config import setup_logging
-  logger = setup_logging(__name__)
+  from fastmcp.utilities import logging
+  logger = logging.get_logger(__name__)
   logger.error("Operation failed: %s", type(e).__name__)
   ```
 - Use context managers for resource cleanup:
@@ -285,15 +608,25 @@ Use `pytest` to run tests. **Always use `python -m pytest`** to ensure the curre
 
 ### Logger Pattern (Standard Convention)
 
-**All classes must follow this exact pattern for logging:**
+**All modules must follow this exact pattern for logging:**
+
+### OOP and Class Design (Critical)
+
+**Every module must be structured around one primary class with these strict rules:**
+
+1. **One primary class per module**: Every module must have a primary class (e.g., `AuthService`, `ProxyBuilder`, `ConfigLoader`) that encapsulates all core business logic.
+2. **No module-level procedural functions for business logic**: All orchestration, state management, and executable logic must be inside class methods. Only pure utility/helper functions (stateless, no side effects) are allowed at module level.
+3. **No global mutable state**: Avoid module-level variables that change during execution. All state must be stored as private attributes in class instances (`self._state`).
+4. **Module-level code restriction**: The only code that can execute at module level (outside functions/classes) should be imports, constants, type aliases, and class/function definitions. No I/O, no initialization, no computation.
+5. **Example violation**: Don't do this: `cached_config = load_config()` at module top. Instead, wrap in a class: `class ConfigService: ... def load(self): ...`
 
 ```python
 """Module docstring."""
 
 from __future__ import annotations
 
-from logging import Logger
-from tools.logging_config import setup_logging
+from fastmcp.utilities import logging
+logger = logging.get_logger(__name__)
 
 
 class MyClass:
@@ -305,30 +638,29 @@ class MyClass:
         Args:
             config: Configuration dictionary.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._config = config
+        logger.debug("MyClass initialized")
     
     def process(self) -> None:
         """Process something."""
-        self._logger.info("Starting process")
+        logger.info("Starting process")
         try:
             result = self._do_work()
-            self._logger.debug("Process completed: %s", result)
+            logger.debug("Process completed: %s", result)
         except Exception as e:
             # Log only exception type, not message (security)
-            self._logger.error("Process failed: %s", type(e).__name__)
+            logger.error("Process failed: %s", type(e).__name__)
             raise
 ```
 
 **Key Rules for Loggers:**
 
-1. **Import**: Always `from logging import Logger` and `from tools.logging_config import setup_logging`
-2. **Initialization**: Create in `__init__` as `self._logger: Logger = setup_logging(__name__)`
-3. **Naming**: Always use `_logger` (private attribute) with type hint `Logger`
-4. **Usage**: Reference as `self._logger.info()`, `self._logger.error()`, etc.
-5. **Error Logging**: Log only exception type: `self._logger.error("Context: %s", type(e).__name__)`
-6. **Never**: Do not log full exception messages (may contain secrets/paths)
-7. **Never**: Do not pass logger as parameter; each class creates its own
+1. **Import**: Always `from fastmcp.utilities import logging`
+2. **Module-level**: Create logger at module level: `logger = logging.get_logger(__name__)`
+3. **Usage**: Reference as `logger.info()`, `logger.error()`, etc. (no `self.` prefix)
+4. **Error Logging**: Log only exception type: `logger.error("Context: %s", type(e).__name__)`
+5. **Never**: Do not log full exception messages (may contain secrets/paths)
+6. **Shared**: Logger is shared across all classes in the same module
 
 **❌ BAD - Inconsistent Logger Usage**:
 ```python
@@ -368,9 +700,8 @@ class GoodClass:
         Args:
             timeout: Operation timeout in seconds.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
-        self._logger.debug("Initialized with timeout=%d", timeout)
+        logger.debug("Initialized with timeout=%d", timeout)
     
     def process(self, data: dict[str, str]) -> bool:
         """Process data.
@@ -384,19 +715,19 @@ class GoodClass:
         Raises:
             ValueError: If data is invalid.
         """
-        self._logger.info("Processing data")
+        logger.info("Processing data")
         try:
             self._validate(data)
             result = self._execute(data)
-            self._logger.debug("Processing completed successfully")
+            logger.debug("Processing completed successfully")
             return result
         except ValueError as e:
             # Log only type, not message
-            self._logger.error("Validation failed: %s", type(e).__name__)
+            logger.error("Validation failed: %s", type(e).__name__)
             raise
         except Exception as e:
             # Generic error logging
-            self._logger.error("Processing error: %s", type(e).__name__)
+            logger.error("Processing error: %s", type(e).__name__)
             raise
 ```
 
@@ -419,24 +750,28 @@ class BadService:
     """Service with unsafe logging."""
     
     def __init__(self, api_key: str, auth_token: str):
-        self._logger: Logger = setup_logging(__name__)
         self._api_key = api_key
         
         # DANGER: Exposes full API key in logs!
-        self._logger.info(f"Initialized with API key: {api_key}")
+        logger.info(f"Initialized with API key: {api_key}")
         
         # DANGER: Full token visible in logs!
-        self._logger.debug("Auth token: %s", auth_token)
+        logger.debug("Auth token: %s", auth_token)
     
     def authenticate(self, password: str) -> bool:
         """Authenticate user."""
         # DANGER: Password in logs!
-        self._logger.info(f"Authenticating with password: {password}")
+        logger.info(f"Authenticating with password: {password}")
         return True
 ```
 
 **✅ GOOD - Safe Logging with Truncation**:
 ```python
+from fastmcp.utilities import logging
+
+logger = logging.get_logger(__name__)
+
+
 class GoodService:
     """Service with safe logging practices."""
     
@@ -447,18 +782,17 @@ class GoodService:
             api_key: API authentication key.
             auth_token: Bearer authentication token.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._api_key = api_key
         self._auth_token = auth_token
         
         # Safe: Shows last 4 chars only
-        self._logger.info("Initialized with api_key=...%s", api_key[-4:])
-        self._logger.debug("Using auth_token=...%s", auth_token[-4:])
+        logger.info("Initialized with api_key=...%s", api_key[-4:])
+        logger.debug("Using auth_token=...%s", auth_token[-4:])
     
     def authenticate(self, password: str) -> bool:
         """Authenticate user."""
         # Safe: Never log passwords, even truncated
-        self._logger.info("Authentication attempt")
+        logger.info("Authentication attempt")
         return True
     
     def _mask_sensitive(self, value: str | None, show_chars: int = 4) -> str:
@@ -477,6 +811,22 @@ class GoodService:
             return "..." + "*" * len(value)  # Don't expose short values
         return "..." + value[-show_chars:]
     
+    def _mask_sensitive(self, value: str | None, show_chars: int = 4) -> str:
+        """Mask sensitive value showing only last N characters.
+        
+        Args:
+            value: Sensitive string to mask.
+            show_chars: Number of characters to show at end.
+            
+        Returns:
+            Masked string like '...XXXX' or '[None]' if value is None.
+        """
+        if value is None:
+            return "[None]"
+        if len(value) <= show_chars:
+            return "..." + "*" * len(value)
+        return "..." + value[-show_chars:]
+    
     def process_request(self, session_id: str | None) -> dict[str, str]:
         """Process request with session.
         
@@ -488,7 +838,7 @@ class GoodService:
         """
         # Safe: Uses helper to handle None and truncation
         masked = self._mask_sensitive(session_id)
-        self._logger.info("Processing request with session_id=%s", masked)
+        logger.info("Processing request with session_id=%s", masked)
         return {"status": "ok"}
 ```
 
@@ -537,12 +887,11 @@ class ServiceClass:
             api_key: API authentication key.
             timeout: Request timeout in seconds.
         """
-        self._logger: Logger = setup_logging(__name__)
         self._config = config
         self._api_key = api_key
         self._timeout = timeout
         # Safe: Log last 4 chars of API key for debugging
-        self._logger.debug("Service initialized with api_key=...%s", api_key[-4:])
+        logger.debug("Service initialized with api_key=...%s", api_key[-4:])
     
     def execute(self) -> dict[str, str]:
         """Execute service operation."""
@@ -589,25 +938,8 @@ class ConfigManager:
         """
         # Prevent re-initialization
         if ConfigManager._initialized:
-            return
-        
-        self._logger: Logger = setup_logging(__name__)
-        self._config_path = config_path
-        self._config: dict[str, str | int] = self._load_config()
-        ConfigManager._initialized = True
-        self._logger.info("ConfigManager initialized")
     
-    def _load_config(self) -> dict[str, str | int]:
-        """Load configuration from file."""
-        # Implementation
-        return {}
-
-# Usage - always returns same instance
-config1 = ConfigManager()
-config2 = ConfigManager()
-assert config1 is config2  # True
-```
-
+            def process_request
 ### Factory Pattern (Standard Convention)
 
 **For creating objects based on configuration or type:**
@@ -630,12 +962,11 @@ class HttpHandler(Handler):
     """HTTP-specific handler."""
     
     def __init__(self, timeout: int):
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
     
     def handle(self, request: dict[str, str]) -> dict[str, str]:
         """Handle HTTP request."""
-        self._logger.debug("Handling HTTP request")
+        logger.debug("Handling HTTP request")
         return {"status": "ok"}
 
 
@@ -643,12 +974,11 @@ class GrpcHandler(Handler):
     """gRPC-specific handler."""
     
     def __init__(self, timeout: int):
-        self._logger: Logger = setup_logging(__name__)
         self._timeout = timeout
     
     def handle(self, request: dict[str, str]) -> dict[str, str]:
         """Handle gRPC request."""
-        self._logger.debug("Handling gRPC request")
+        logger.debug("Handling gRPC request")
         return {"status": "ok"}
 
 
@@ -660,10 +990,6 @@ class HandlerFactory:
         "http": HttpHandler,
         "grpc": GrpcHandler,
     }
-    
-    def __init__(self):
-        """Initialize factory."""
-        self._logger: Logger = setup_logging(__name__)
     
     @classmethod
     def create(cls, protocol: str, timeout: int = 30) -> Handler:
@@ -709,39 +1035,46 @@ result = handler.handle({"url": "https://example.com"})
 ### OOP & Modularity Principles
 
 - **Guideline**: Prefer composition over inheritance unless the relationship is a strict is-a, and keep modules cohesive with small, intentional public interfaces.
+- **Project Rule (Strict)**: New modules must be implemented with class-based design first. AVOID ALL MODULE-LEVEL PROCEDURAL FUNCTIONS FOR BUSINESS LOGIC. Core logic must be encapsulated in one primary class per module.
 - **Bad Example**:
   ```python
-  class ReportService:
+  # ❌ BAD - Module-level function with business logic
+  def process_user_data(users: list[dict]) -> dict:
+      # Procedural logic at module level - VIOLATES OOP
+      result = {}
+      for user in users:
+          if user.get("active"):
+              result[user["id"]] = user
+      return result
+
+  class UserService:
       def __init__(self):
-          self.db = Database()
-          self.mailer = Mailer()
-
-      def create_and_send(self, user_id: int) -> None:
-          report = self.db.fetch_report(user_id)
-          self.mailer.send(report)
-          self._cleanup_temp_files()
-
-      def _cleanup_temp_files(self) -> None:
-          pass
+          self.data = {}  # Module-level state should be in class
+          process_user_data(load_users())  # Procedural call in constructor
   ```
 - **Good Example**:
   ```python
-  class ReportRepository(Protocol):
-      def fetch_report(self, user_id: int) -> str: ...
+  from typing import Protocol
+
+  class UserRepository(Protocol):
+      def fetch_users(self) -> list[dict]: ...
 
 
-  class Mailer(Protocol):
-      def send(self, report: str) -> None: ...
-
-
-  class ReportService:
-      def __init__(self, repository: ReportRepository, mailer: Mailer) -> None:
+  class UserProcessor:
+      """Primary class that encapsulates ALL user processing logic."""
+      
+      def __init__(self, repository: UserRepository):
           self._repository = repository
-          self._mailer = mailer
-
-      def send_report(self, user_id: int) -> None:
-          report = self._repository.fetch_report(user_id)
-          self._mailer.send(report)
+          self._data: dict = {}  # State encapsulated in class
+      
+      def process_users(self) -> dict:
+          """Process users using class methods - NO module-level logic."""
+          users = self._repository.fetch_users()
+          return self._filter_active_users(users)
+      
+      def _filter_active_users(self, users: list[dict]) -> dict:
+          """Private helper method - logic encapsulated in class."""
+          return {user["id"]: user for user in users if user.get("active")}
   ```
 
 ### SOLID Principles
@@ -1220,29 +1553,31 @@ user = repo.find_by_id(1)
 
 ---
 
-## 5. Best Practices
+## 5. Enhanced Python Best Practices
 
 ### Consistency Requirements (Critical)
 
 **Every class in the codebase must follow these standards:**
 
 1. **Logger Pattern** - Always:
-   - `from logging import Logger`
-   - `self._logger: Logger = setup_logging(__name__)` in `__init__`
-   - Use `self._logger.info()`, `self._logger.error()`, etc.
-   - Log only exception types: `self._logger.error("Failed: %s", type(e).__name__)`
+    - `from fastmcp.utilities import logging` at the **top of each module**
+    - `logger = logging.get_logger(__name__)` as a **module-level variable** (one per module, shared by all classes in that module)
+    - Use `logger.info()`, `logger.error()`, etc. directly (no `self._logger`)
+    - Log only exception types: `logger.error("Failed: %s", type(e).__name__)`
+    - Do **not** create a per-class `self._logger`; the module-level logger is shared by all classes in the file
+    - See **Section 3.1** for the canonical logger pattern.
 
 2. **Type Hints** - Always:
-   - Avoid `Any` type - use specific types or `Protocol`
-   - Use `dict[str, str]` not `dict[str, Any]`
-   - Use union types: `str | int | None`
-   - Type all function parameters and return values
+    - Avoid `Any` type - use specific types or `Protocol`
+    - Use `dict[str, str]` not `dict[str, Any]`
+    - Use union types: `str | int | None`
+    - Type all function parameters and return values
 
 3. **Dependency Injection** - Always:
-   - Pass dependencies to `__init__`, never use globals
-   - Store as private attributes: `self._dependency`
-   - Use `Protocol` for interface dependencies
-   - Validate critical dependencies on initialization
+    - Pass dependencies to `__init__`, never use globals
+    - Store as private attributes: `self._dependency`
+    - Use `Protocol` for interface dependencies
+    - Validate critical dependencies on initialization
 
 4. **Naming Conventions** - Always:
    - Private attributes: `self._attribute_name`
@@ -1258,6 +1593,7 @@ user = repo.find_by_id(1)
 
 ### Code Organization
 - **One class per file** (with exceptions for small related classes).
+- **Class-first modules**: For new development, structure each module around one primary class and keep orchestration logic in class methods.
 - **Group related methods** together within a class.
 - **Keep files under 500 lines** where possible.
 - **Keep public APIs minimal** and expose only what callers need.
@@ -1379,8 +1715,9 @@ Use this checklist when writing or reviewing code:
 
 from __future__ import annotations
 
-from logging import Logger
-from tools.logging_config import setup_logging
+from fastmcp.utilities import logging
+
+logger = logging.get_logger(__name__)  # module-level; shared by all classes below
 
 
 class MyNewClass:
@@ -1394,17 +1731,14 @@ class MyNewClass:
             api_token: API authentication token.
             timeout: Operation timeout in seconds.
         """
-        # 1. Logger (always first)
-        self._logger: Logger = setup_logging(__name__)
-        
-        # 2. Store dependencies as private attributes with type hints
+        # Store dependencies as private attributes with type hints
         self._config = config
         self._api_token = api_token
         self._timeout = timeout
         
-        # 3. Log initialization (debug level)
+        # Log initialization (debug level)
         # Safe: Show last 4 chars of sensitive token
-        self._logger.debug(
+        logger.debug(
             "Initialized with timeout=%d, api_token=...%s",
             timeout,
             api_token[-4:]
@@ -1422,15 +1756,15 @@ class MyNewClass:
         Raises:
             ValueError: If data is invalid.
         """
-        self._logger.info("Processing started")
+        logger.info("Processing started")
         try:
             validated = self._validate_input(data)
             result = self._process_data(validated)
-            self._logger.debug("Processing completed")
+            logger.debug("Processing completed")
             return result
         except ValueError as e:
             # Log only exception type
-            self._logger.error("Validation failed: %s", type(e).__name__)
+            logger.error("Validation failed: %s", type(e).__name__)
             raise
     
     def _validate_input(self, data: dict[str, str]) -> dict[str, str]:
@@ -1467,12 +1801,12 @@ class MyNewClass:
 
 ### ✅ Logger Usage Checklist:
 
-- [ ] Import: `from logging import Logger`
-- [ ] Import: `from tools.logging_config import setup_logging`
-- [ ] Initialize in `__init__`: `self._logger: Logger = setup_logging(__name__)`
-- [ ] Use consistent naming: `self._logger` (not `self.log`, `self.logger`, etc.)
-- [ ] Error logging: `self._logger.error("Context: %s", type(e).__name__)`
+- [ ] Import: `from fastmcp.utilities import logging` at **module level**
+- [ ] Declare: `logger = logging.get_logger(__name__)` at **module level** (not inside a class)
+- [ ] Use module-level `logger` directly: `logger.info()`, `logger.error()` — no `self._logger`
+- [ ] Error logging: `logger.error("Context: %s", type(e).__name__)`
 - [ ] Never log full exception messages
+- [ ] Never create a `self._logger` per-class instance attribute
 - [ ] Never pass logger as constructor parameter
 - [ ] Sensitive data logged with truncation: `...%s", value[-4:]`
 - [ ] Never log full tokens, API keys, passwords, or secrets
@@ -1515,5 +1849,26 @@ class MyNewClass:
 - [ ] Edge cases covered
 - [ ] Error conditions tested
 - [ ] Mocks used for external dependencies
+## 10. Change Log Updates
+
+After implementing any new feature, bug fix, or improvement, you **must** update the `CHANGE_LOGS.md` file.
+
+- **Locate the `[Unreleased]` section** at the top of the file.
+- **Add your change** under the appropriate heading:
+  - `### Added` for new features.
+  - `### Changed` for modifications to existing functionality.
+  - `### Fixed` for bug fixes.
+  - `### Security` for security-related changes.
+- **Follow the format**: Use clear, concise descriptions in sentence case. End with a period. Reference issue numbers if applicable.
+- **Example**:
+  ```markdown
+  ### Added
+  - New `McpProxyProvider` class for creating MCP proxies with enhanced caching.
+  ```
+- **Never** commit code without an accompanying change log entry.
+- **Responsibility**: The author of the change is responsible for updating the change log.
+
+---
+
 - [ ] Run with: `python -m pytest tests/test_my_module.py -v`
 

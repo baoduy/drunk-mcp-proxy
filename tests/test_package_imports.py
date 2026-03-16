@@ -30,7 +30,7 @@ class TestToolsPackageImports:
 
     def test_import_config_yaml(self):
         """Test importing ConfigYaml from tools package."""
-        from drunk_ai_proxy.tools import ConfigYaml
+        from drunk_ai_proxy.utils import ConfigYaml
         assert ConfigYaml is not None
         assert ConfigYaml.__name__ == "ConfigYaml"
 
@@ -42,7 +42,7 @@ class TestToolsPackageImports:
 
     def test_tools_all_exports(self):
         """Test __all__ contains expected exports."""
-        import drunk_ai_proxy.tools as tools
+        import drunk_ai_proxy.utils as tools
         assert "ConfigYaml" in tools.__all__
         assert "AuthConfig" in tools.__all__
         assert "AuthType" in tools.__all__

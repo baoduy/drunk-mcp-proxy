@@ -1,6 +1,6 @@
 import pytest
 import hashlib
-from drunk_ai_proxy.auth_providers.api_auth_provider import ApiKeyAuthProvider
+from drunk_ai_proxy.auth.api_auth_provider import ApiKeyAuthProvider
 from fastmcp.server.auth.auth import AccessToken
 
 

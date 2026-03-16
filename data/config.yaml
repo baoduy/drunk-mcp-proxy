@@ -9,7 +9,7 @@
 #
 auth:
   # Which authentication provider to use by default (basic or jwt)
-  defaultProvider: basic
+  default_provider: basic
 
   # Basic authentication provider
   basic:
@@ -18,16 +18,16 @@ auth:
 
   # JWT authentication provider (validates JWT tokens from requests)
   jwt:
-    base_url: null # Optional: base URL for the backend service
-    jwks_uri:
-      "https://login.microsoftonline.com/common/discovery/keys"
-      # URI to fetch JSON Web Key Set for token validation
-    issuer:
-      "https://sts.windows.net/$AZURE_TENANT_ID/"
-      # Expected issuer claim in JWT tokens
-    audience:
-      "api://24d0c6c2-0786-4029-beca-1e98342bf5fb"
-      # Expected audience claim in JWT tokens
+    base_url: null
+    jwks_uri: "https://login.microsoftonline.com/common/discovery/keys"
+    issuer: "https://sts.windows.net/$AZURE_TENANT_ID/"
+    audience: "api://24d0c6c2-0786-4029-beca-1e98342bf5fb"
+    
+  azure:
+    base_url: "http://0.0.0.0:9123"
+    tenant_id: $AZURE_TENANT_ID
+    client_id: $AZURE_CLIENT_ID
+    client_secret: $AZURE_CLIENT_SECRET
 
 # ============================================================================
 # LANGUAGE MODEL (LLM) CONFIGURATION
@@ -58,10 +58,9 @@ llm:
     base_url: "http://host.docker.internal:11434/v1"
 
   - enabled: true
-    websocket: false
+    websocket: true
     provider: lms #LM Studio provider
     base_url: "http://host.docker.internal:1234/v1"
-    api_key: sk-lm-qkz9kwNn:JgbOhGt5IHGGq90XbDi5
 
   - enabled: false
     websocket: false
@@ -81,32 +80,31 @@ llm:
 # Each entry can be either:
 #   - An OpenAPI spec file: spec_type="openapi"
 #   - MCP servers via command or HTTP: spec_type="mcp"
-#   - Skills directory: skill_dir with mcp_servers
+#   - Resource directories: skills/prompts/agents with dirs list
 #
 mcp:
   # ========== Example 1: OpenAPI-based MCP server ==========
-  - path: /deepsea # URL path where this service is available
-    spec_file:
-      openapi/deepsea.openapi.json
-      # Path to OpenAPI specification file
-    spec_type: openapi # Type of specification (openapi or mcp)
-    base_url:
-      "http://host.docker.internal:5000"
-      # Backend service URL
-    filters: # Filter which operations to expose
-      methods: # Only expose these HTTP methods
-        - GET
-        - POST
-        - PUT
-      tags: # Only expose operations with these tags
-        - CurrencyPairs
-    auth: # How to handle authentication
-      pass_through: true # Pass auth headers through to backend
+  - enabled: true # Set to false to disable this server 
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
+    path: /deepsea # URL path where this service is available
+    spec_type: openapi
+    open_api:
+      spec_file: openapi/deepsea.openapi.json
+      base_url: "https://deepsea-fxrate.tsv2.dev"
+      filters: # Filter which operations to expose
+        methods: # Only expose these HTTP methods
+          - GET
+          - POST
+          - PUT
+        tags:
+          - CurrencyPairs
+    auth:
+      auth_provider: azure
 
   # ========== Example 2: MCP servers with skills directory ==========
   - path: / # Root path for these services
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
-    skill_dir: skills # Directory containing skill subdirectories
     mcp_servers: # Define MCP servers
       server-memory: # Server name
         enabled: true # Enable this server
@@ -118,9 +116,10 @@ mcp:
 
   # ========== Example 3: Multiple MCP servers on same path ==========
   - path: /stock # All servers below available under /stock
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     mcp_servers: # Multiple servers can be configured
-      tradingview: # Server 1: TradingView data
+      trading_view: # Server 1: TradingView data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package
@@ -128,7 +127,7 @@ mcp:
           - tradingview-mcp
         transport: stdio # Communication transport (stdio or http)
 
-      alphavantage: # Server 2: Alpha Vantage stock data
+      alpha_vantage: # Server 2: Alpha Vantage stock data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package
@@ -137,7 +136,7 @@ mcp:
           - "${ALPHAVANTAGE_API_KEY}" # Pass API key as argument
         transport: stdio # Communication transport (stdio or http)
 
-      yahoo-finance: # Server 3: Yahoo Finance data
+      yahoo_finance: # Server 3: Yahoo Finance data
         enabled: true # Enable this server
         timeout: 60 # Request timeout in seconds
         command: uvx # Use uv to run the package
@@ -147,6 +146,7 @@ mcp:
 
   # ========== Example 4: HTTP-based MCP server ==========
   - path: /wiki # URL path for this service
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
     spec_type: mcp # Using Model Context Protocol
     base_url: null # Backend service URL (not used for HTTP transport)
     mcp_servers: # Define MCP servers
@@ -158,3 +158,70 @@ mcp:
         env:
           OUTLINE_BASE_URL: "https://wikiv2.transwap.dev"
           OUTLINE_API_KEY: "$OUTLINE_API_KEY"
+
+  # ========== Example 5: Prompt provider with markdown templates ==========
+  - path: /locals # URL path for prompt templates
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
+    spec_type: mcp # Using Model Context Protocol
+    skills: 
+      dirs:
+        - skills/dknet
+        - skills/dotnet
+    prompts:
+      dirs:
+        - prompts/custom
+        - prompts/dotnet
+    agents:
+      dirs:
+        - agents/core
+        - agents/dotnet
+        - agents/tools
+
+  - path: /remotes # URL path for prompt templates
+    codemode_enabled: false # Enable or disable Code Mode for this MCP route
+    spec_type: mcp # Using Model Context Protocol
+    skills:
+      # remote_resources: serve HTTPS-hosted skill files on-demand (no local sync).
+      # Accepts shorthand (URL string) or full object form.
+      # Skills must use "urls" (multiple files) with one ending in SKILL.md.
+      remote_resources:
+        # Shorthand: single URL – treated as the SKILL.md entry point
+        - https://raw.githubusercontent.com/anthropics/skills/refs/heads/main/skills/pdf/SKILL.md
+        - name: dotnet/optimizing-ef-core-queries
+          urls: 
+            - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md
+        # Full object form with multiple support files
+        # - name: my-remote-skill
+        #   urls:
+        #     - https://example.com/skills/my-skill/SKILL.md
+        #     - https://example.com/skills/my-skill/query-plan.md
+        #   headers:
+        #     Authorization: "Bearer $MY_TOKEN"
+        
+    prompts:
+      # remote_resources: serve HTTPS-hosted prompt templates on-demand.
+      # Prompts must use "url" (single file) pointing to a markdown template.
+      remote_resources:
+        - https://raw.githubusercontent.com/baoduy/DKNet.Templates/refs/heads/main/Skills/QUICK-REFERENCE.md
+      #   - name: my-remote-prompt
+      #     url: https://example.com/prompts/my-template.md
+      #     headers:
+      #       Authorization: "Bearer $MY_TOKEN"
+
+    agents:
+      remote_resources: #serve HTTPS-hosted agent markdown files on-demand.
+        - https://raw.githubusercontent.com/baoduy/DKNet.Templates/refs/heads/main/Skills/02-efcore-domain-entity-development.md
+        - name: dotnet/modernize-agent
+          url: https://raw.githubusercontent.com/dotnet/modernize-dotnet/refs/heads/main/plugins/modernize-dotnet/agents/modernize-dotnet.agent.md
+      # Agents must use "url" (single file).
+      # remote_resources:
+      #   - name: my-remote-agent
+      #     url: https://example.com/agents/my-agent.md
+
+# Sync/Download the remote resources to the local filesystem on startup. This allows you to reference remote files (e.g. markdown prompts) in your skills without having to manually download them.
+remote_resources:
+  - name: dotnet_prompt # Resource name to reference in skills
+    enabled: false # Optional per-bundle toggle; defaults to true when omitted
+    to_dir: prompts/dotnet # Destination under FASTMCP_CONFIG_DIR
+    paths:
+      - https://raw.githubusercontent.com/dotnet/skills/refs/heads/main/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md

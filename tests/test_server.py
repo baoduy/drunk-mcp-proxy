@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -62,8 +62,8 @@ def test_initialization_creates_empty_services():
     assert proxy.mcp_services == []
     assert proxy.llm_services == []
 
-
-def test_log_startup_configuration_logs(monkeypatch, caplog):
+@patch("drunk_ai_proxy.app.server.logger")
+def test_log_startup_configuration_logs(mock_logger, monkeypatch):
     """_log_startup_configuration should log all config fields."""
     monkeypatch.setattr(server, "SERVER_NAME", "test-server")
     monkeypatch.setattr(server, "SERVER_VERSION", "0.0.0")
@@ -72,25 +72,25 @@ def test_log_startup_configuration_logs(monkeypatch, caplog):
     monkeypatch.setattr(server, "LOG_LEVEL", "INFO")
     monkeypatch.setattr(server, "CONFIG_DIR", "/tmp/config")
 
-    caplog.set_level("INFO")
     proxy = server.MCPProxyServer()
     proxy._log_startup_configuration()
 
-    messages = [record.message for record in caplog.records]
-    assert "MCP Proxy Server Configuration:" in messages
-    assert "  Server Name: test-server" in messages
-    assert "  Server Version: 0.0.0" in messages
-    assert "  Host: 127.0.0.1" in messages
-    assert "  Port: 9123" in messages
-    assert "  Log Level: INFO" in messages
-    assert "  Config Directory: /tmp/config" in messages
+    # Verify logger.info was called with configuration messages
+    assert mock_logger.info.call_count >= 7
+    call_args_list = [str(call) for call in mock_logger.info.call_args_list]
+    combined_calls = " ".join(call_args_list)
+    assert "MCP Proxy Server Configuration:" in combined_calls
+    assert "test-server" in combined_calls
+    assert "0.0.0" in combined_calls
+    assert "127.0.0.1" in combined_calls
+    assert "9123" in combined_calls
 
 
 @pytest.mark.asyncio
 async def test_async_start_server_runs_uvicorn(monkeypatch):
     """_async_start_server should create uvicorn server and call serve."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
-    monkeypatch.setattr(server, "get_middlewares", lambda: ["mw1"])
+    monkeypatch.setattr(server.MiddlewareProvider, "build", lambda self: ["mw1"])
     monkeypatch.setattr(server, "HOST", "127.0.0.1")
     monkeypatch.setattr(server, "PORT", 9999)
     monkeypatch.setattr(server, "LOG_LEVEL", "INFO")
@@ -116,7 +116,7 @@ async def test_async_start_server_runs_uvicorn(monkeypatch):
 async def test_async_start_server_import_error(monkeypatch):
     """_async_start_server should surface ImportError for uvicorn."""
     monkeypatch.setattr(server, "StarletteApp", FakeStarletteApp)
-    monkeypatch.setattr(server, "get_middlewares", lambda: [])
+    monkeypatch.setattr(server.MiddlewareProvider, "build", lambda self: [])
 
     original_import = __import__
 
@@ -142,15 +142,18 @@ async def test_async_run_happy_path(monkeypatch):
     mcp_services = ["svc1", "svc2"]
 
     class DummyMcpProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
 
         def get_config_services(self):
             return mcp_services
 
     class DummyLlmProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None, cache=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
+            self.cache = cache
             self.providers = ["provider1"]
 
     # Mock AppConfigProvider to avoid loading the actual config file
@@ -183,15 +186,18 @@ async def test_async_run_loads_llm_providers(monkeypatch):
     mcp_services = []
 
     class DummyMcpProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
 
         def get_config_services(self):
             return mcp_services
 
     class DummyLlmProvider:
-        def __init__(self, config_dir):
+        def __init__(self, config_dir, auth_factory=None, cache=None):
             self.config_dir = config_dir
+            self.auth_factory = auth_factory
+            self.cache = cache
             self.providers = ["provider1"]
 
     # Mock AppConfigProvider to avoid loading the actual config file

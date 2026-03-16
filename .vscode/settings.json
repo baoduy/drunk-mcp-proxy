@@ -7,12 +7,14 @@
     "speckit.implement": true
   },
   "chat.tools.terminal.autoApprove": {
-    ".specify/scripts/bash/": true,
-    ".specify/scripts/powershell/": true
+    ".specify/scripts/bash/": true
   },
   "terminal.integrated.shellIntegration.enabled": true,
   "editor.defaultFormatter": "ms-python.vscode-pylance",
-  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/src/drunk_ai_proxy",
+    "${workspaceFolder}/src/drunk_ai_client"
+  ],
   "python.analysis.autoSearchPaths": false,
   "cSpell.words": [
     "fastmcp",
@@ -22,7 +24,7 @@
     "supabase",
     "venv"
   ],
-  "editor.formatOnPaste": true,
   "notebook.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "chat.agent.maxRequests": 300
 }

@@ -54,7 +54,7 @@ services:
       retries: 3
 
   mcp-inspector:
-    image: ghcr.io/modelcontextprotocol/inspector:latest
+    image: ghcr.io/modelcontextprotocol/inspector:0.21.1
     container_name: mcp-inspector
     ports:
       - "127.0.0.1:6274:6274"

@@ -14,9 +14,9 @@ import pytest
 from unittest.mock import AsyncMock, Mock
 
 from fastapi import WebSocketDisconnect
-from drunk_ai_proxy.proxies.llm_websocket_provider import LlmWebSocketProvider
-from drunk_ai_proxy.proxies.llm_websocket_transport import WebSocketFactory
-from drunk_ai_proxy.tools import LlmConfig
+from drunk_ai_proxy.proxies.llm.websocket_provider import LlmWebSocketProvider
+from drunk_ai_proxy.proxies.llm.websocket_transport import WebSocketFactory
+from drunk_ai_proxy.utils import LlmConfig
 
 
 class TestLlmWebSocketProviderInit:
@@ -84,10 +84,10 @@ class TestWebSocketFactory:
 
 
 class TestMount:
-    """Tests for mount method."""
+    """Tests that mount is no longer present on LlmWebSocketProvider (task 2.1)."""
 
-    def test_mount_stub(self) -> None:
-        """Test mount method exists as stub."""
+    def test_mount_not_present(self) -> None:
+        """WebSocketProvider must not expose a mount method (ISP – no no-op stubs)."""
         providers = [
             LlmConfig(
                 enabled=True,
@@ -97,11 +97,9 @@ class TestMount:
             )
         ]
         provider = LlmWebSocketProvider(providers)
-        
-        # Mount should exist and not raise
-        from starlette.applications import Starlette
-        app = Starlette()
-        provider.mount(app, "/api/v1")  # Should not raise
+        assert not hasattr(provider, "mount"), (
+            "LlmWebSocketProvider should not expose mount; routes are registered via LlmRouter"
+        )
 
 
 class TestCreateError:

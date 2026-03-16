@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🔨 Building drunk-ai-proxy package..."
+echo "🔨 Building all src pyproject packages..."
 echo ""
 
 # Install the build tool
@@ -14,23 +14,46 @@ echo ""
 echo "✅ Build dependencies installed"
 echo ""
 
-# Clean previous build artifacts
-echo "🧹 Cleaning dist folder..."
-rm -rf dist
+ROOT_DIST="./dist"
+echo "🧹 Cleaning root dist folder..."
+rm -rf "$ROOT_DIST"
 
 echo ""
-echo "✅ Dist folder cleaned"
+echo "✅ Root dist folder cleaned"
 echo ""
 
-# Run the build
-echo "🏗️  Building package..."
-python -m build
+echo "🔍 Discovering pyproject.toml files under src/..."
+PYPROJECTS=()
+tmpfile=$(mktemp)
+find ./src -maxdepth 3 -name pyproject.toml -print | sort > "$tmpfile"
+while IFS= read -r pyproject; do
+	[ -n "$pyproject" ] && PYPROJECTS+=("$pyproject")
+done < "$tmpfile"
+rm -f "$tmpfile"
+
+if [ ${#PYPROJECTS[@]} -eq 0 ]; then
+	echo "❌ No pyproject.toml files found under src/"
+	exit 1
+fi
+
+for pyproject in "${PYPROJECTS[@]}"; do
+	project_dir=$(dirname "$pyproject")
+	project_name=$(basename "$project_dir")
+	project_dist="${ROOT_DIST}/${project_name}"
+
+	echo ""
+	echo "🧹 Cleaning build artifacts for ${project_name}..."
+	rm -rf "$project_dist"
+	rm -rf "${project_dir}/build"
+	rm -rf "${project_dir}/dist"
+	rm -rf "${project_dir}"/*.egg-info
+
+	echo "🏗️  Building ${project_name}..."
+	python -m build "$project_dir" --outdir "$project_dist"
+
+	echo "📦 Built packages for ${project_name}:"
+	ls -lh "$project_dist/"
+done
 
 echo ""
-echo "✅ Build complete!"
-echo ""
-echo "📦 Built packages:"
-ls -lh dist/
-echo ""
-echo "💡 Install locally: pip install dist/drunk_ai_proxy-*.whl"
-echo "💡 Test with uvx: uvx --from dist/drunk_ai_proxy-*.whl drunk-ai-proxy"
+echo "✅ Build complete for all src packages!"

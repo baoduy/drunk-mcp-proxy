@@ -1,271 +1,226 @@
-"""
-Unit tests for src/proxies/openapi_mcp_provider.py module.
+"""Unit tests for OpenAPI flow in MCP proxy provider."""
 
-Tests OpenAPI MCP provider functionality.
-"""
+from __future__ import annotations
 
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from drunk_ai_proxy.proxies.openapi_mcp_provider import OpenApiMcpProvider
-from drunk_ai_proxy.tools.config_yaml import McpConfig, McpAuthConfig
+from drunk_ai_proxy.proxies.mcp.proxy_provider import McpProxyProvider
+from drunk_ai_proxy.utils import SpecType
+from drunk_ai_proxy.utils.config_yaml import McpConfig
 
 
-class TestOpenApiMcpProviderInit:
-    """Test suite for OpenApiMcpProvider initialization."""
+class TestMcpProxyProviderOpenApiRouteMapper:
+    """Tests for OpenAPI route filtering behavior."""
 
-    def test_init_with_config(self):
-        """Test initialization with SpecConfig."""
+    def test_route_mapper_no_filters_returns_original_type(self) -> None:
+        """Return original MCP type when no filters are configured."""
         mock_config = Mock(spec=McpConfig)
-        provider = OpenApiMcpProvider(mock_config)
+        mock_config.get_openapi_filters.return_value = None
 
-        assert provider.config == mock_config
-        assert provider.mcp is None
-        assert provider._logger is not None
+        provider = McpProxyProvider(mock_config)
 
+        route = Mock()
+        mcp_type = Mock()
 
-class TestOpenApiMcpProviderCustomRouteMapper:
-    """Test suite for custom_route_mapper method."""
+        mapper = getattr(provider, "_openapi_route_mapper")
+        result = mapper(route, mcp_type)
 
-    def test_route_mapper_no_filters(self):
-        """Test route mapper with no filters configured."""
-        mock_config = Mock(spec=McpConfig)
-        mock_config.filters = None
-        provider = OpenApiMcpProvider(mock_config)
+        assert result == mcp_type
 
-        mock_route = Mock()
-        mock_mcp_type = Mock()
+    def test_route_mapper_excludes_non_matching_method(self) -> None:
+        """Exclude route when method is not in allowed filter list."""
+        from fastmcp.server.providers.openapi import MCPType
 
-        result = provider.custom_route_mapper(mock_route, mock_mcp_type)
-        assert result == mock_mcp_type
-
-    def test_route_mapper_method_filter_passes(self):
-        """Test route mapper when method matches filter."""
-
-        mock_config = Mock(spec=McpConfig)
         mock_filters = Mock()
         mock_filters.methods = ["GET", "POST"]
         mock_filters.tags = None
-        mock_config.filters = mock_filters
 
-        provider = OpenApiMcpProvider(mock_config)
-
-        mock_route = Mock()
-        mock_route.method = "GET"
-        mock_mcp_type = Mock()
-
-        result = provider.custom_route_mapper(mock_route, mock_mcp_type)
-        assert result == mock_mcp_type
-
-    def test_route_mapper_method_filter_excludes(self):
-        """Test route mapper when method doesn't match filter."""
         mock_config = Mock(spec=McpConfig)
-        mock_filters = Mock()
-        mock_filters.methods = ["GET", "POST"]
-        mock_filters.tags = None
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
-        provider = OpenApiMcpProvider(mock_config)
+        provider = McpProxyProvider(mock_config)
 
-        mock_route = Mock()
-        mock_route.method = "DELETE"
+        route = Mock()
+        route.method = "DELETE"
+        route.tags = []
 
-        # Import MCPType locally to avoid module-level import
-        from fastmcp.server.providers.openapi import MCPType
+        mapper = getattr(provider, "_openapi_route_mapper")
+        result = mapper(route, MCPType.TOOL)
 
-        mock_mcp_type = Mock()
-
-        result = provider.custom_route_mapper(mock_route, mock_mcp_type)
         assert result == MCPType.EXCLUDE
 
-    def test_route_mapper_tag_filter_passes(self):
-        """Test route mapper when tag matches filter."""
-        mock_config = Mock(spec=McpConfig)
+    def test_route_mapper_excludes_non_matching_tag(self) -> None:
+        """Exclude route when tags do not intersect configured tag filters."""
+        from fastmcp.server.providers.openapi import MCPType
+
         mock_filters = Mock()
         mock_filters.methods = None
         mock_filters.tags = ["public", "v1"]
-        mock_config.filters = mock_filters
 
-        provider = OpenApiMcpProvider(mock_config)
-
-        mock_route = Mock()
-        mock_route.tags = ["public", "api"]
-        mock_mcp_type = Mock()
-
-        result = provider.custom_route_mapper(mock_route, mock_mcp_type)
-        assert result == mock_mcp_type
-
-    def test_route_mapper_tag_filter_excludes(self):
-        """Test route mapper when tag doesn't match filter."""
         mock_config = Mock(spec=McpConfig)
-        mock_filters = Mock()
-        mock_filters.methods = None
-        mock_filters.tags = ["public", "v1"]
-        mock_config.filters = mock_filters
+        mock_config.get_openapi_filters.return_value = mock_filters
 
-        provider = OpenApiMcpProvider(mock_config)
+        provider = McpProxyProvider(mock_config)
 
-        mock_route = Mock()
-        mock_route.tags = ["internal", "admin"]
+        route = Mock()
+        route.method = "GET"
+        route.tags = ["internal"]
 
-        # Import MCPType locally to avoid module-level import
-        from fastmcp.server.providers.openapi import MCPType
+        mapper = getattr(provider, "_openapi_route_mapper")
+        result = mapper(route, MCPType.TOOL)
 
-        mock_mcp_type = Mock()
-
-        result = provider.custom_route_mapper(mock_route, mock_mcp_type)
         assert result == MCPType.EXCLUDE
 
 
-class TestOpenApiMcpProviderCreateClient:
-    """Test suite for create_client method."""
+class TestMcpProxyProviderOpenApiClient:
+    """Tests for OpenAPI HTTP client creation."""
 
-    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.httpx.AsyncClient")
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    def test_create_client_without_auth(self, mock_get_app_config, mock_client_cls):
-        """Test creating client without authentication."""
-        # Mock AppConfigProvider
-        mock_app_config = Mock()
-        mock_app_config.get_client_auth_handler.return_value = None
-        mock_get_app_config.return_value = mock_app_config
-        
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.httpx.AsyncClient")
+    def test_create_openapi_client_uses_base_url_and_auth(self, mock_client_cls: Mock) -> None:
+        """Create async client with resolved base URL and auth handler."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.auth = None
-        mock_config.base_url = "https://api.example.com"
-        mock_config.path = "/test"
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
 
-        mock_client = Mock()
-        mock_client_cls.return_value = mock_client
+        provider = McpProxyProvider(mock_config)
 
-        provider = OpenApiMcpProvider(mock_config)
-        result = provider.create_client()
+        with patch.object(provider, "_create_client_auth", return_value="auth-token"):
+            create_openapi_client = getattr(provider, "_create_openapi_client")
+            client = create_openapi_client()
 
         mock_client_cls.assert_called_once_with(
-            base_url="https://api.example.com", auth=None
+            base_url="https://api.example.com",
+            auth="auth-token",
         )
-        assert result == mock_client
+        assert client == mock_client_cls.return_value
 
-    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.httpx.AsyncClient")
-    def test_create_client_with_azure_auth(self, mock_client_cls):
-        """Test creating client with Azure authentication."""
-        mock_azure_config = Mock(spec=McpAuthConfig)
-        mock_auth_obj = Mock()
+    def test_create_openapi_client_without_base_url_raises(self) -> None:
+        """Raise ValueError when OpenAPI base URL is missing."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.base_url = "https://api.example.com"
-        mock_config.path = "/test"
-        mock_config.auth = Mock()
-        mock_config.auth.azure = mock_azure_config
+        mock_config.get_openapi_base_url.return_value = None
 
-        mock_client = Mock()
-        mock_client_cls.return_value = mock_client
+        provider = McpProxyProvider(mock_config)
 
-        provider = OpenApiMcpProvider(mock_config)
+        with pytest.raises(ValueError, match="base_url is required"):
+            create_openapi_client = getattr(provider, "_create_openapi_client")
+            create_openapi_client()
 
-        with patch.object(provider, "_create_client_auth", return_value=mock_auth_obj):
-            result = provider.create_client()
 
-        mock_client_cls.assert_called_once_with(
-            base_url="https://api.example.com", auth=mock_auth_obj
-        )
-        assert result == mock_client
+class TestMcpProxyProviderOpenApiCreateProxy:
+    """Tests for create_proxy OpenAPI branch."""
 
-    def test_create_client_without_base_url_raises_error(self):
-        """Test creating client without base_url raises ValueError."""
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.OpenAPIProvider")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
+    def test_create_proxy_openapi_success(
+        self,
+        mock_create_fastmcp_server: Mock,
+        mock_openapi_provider: Mock,
+    ) -> None:
+        """Build OpenAPI provider and attach it to a FastMCP server."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.auth = None
-        mock_config.base_url = None
-        mock_config.path = "/test"
-
-        provider = OpenApiMcpProvider(mock_config)
-
-class TestOpenApiMcpProviderCreateProxy:
-    """Test suite for create_proxy method."""
-
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.FastMCP")
-    @patch.object(OpenApiMcpProvider, "create_client")
-    def test_create_proxy_success(
-        self, mock_create_client, mock_fastmcp_cls, mock_get_app_config
-    ):
-        """Test successful proxy creation."""
-        mock_config = Mock(spec=McpConfig)
-        mock_config.path = "/test-api"
-        mock_config.base_url = "https://api.example.com"
-        mock_config.auth = None
-        mock_config.spec_data = {
+        mock_config.path = "/openapi"
+        mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
+        mock_config.tags = ["v1"]
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
+        mock_config.get_openapi_spec_data.return_value = {
             "openapi": "3.0.0",
-            "info": {"title": "Test API", "version": "1.0.0"},
+            "info": {"title": "Demo", "version": "1.0.0"},
             "paths": {},
         }
-        mock_config.tags = ["v1"]
-        mock_config.skill_dir = None
 
-        mock_client = Mock()
-        mock_create_client.return_value = mock_client
 
-        mock_mcp = MagicMock()
-        mock_fastmcp_cls.from_openapi.return_value = mock_mcp
+        openapi_mcp = MagicMock()
+        mock_create_fastmcp_server.return_value = openapi_mcp
+        provider_instance = Mock()
+        mock_openapi_provider.return_value = provider_instance
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
+        provider = McpProxyProvider(mock_config)
 
-        provider = OpenApiMcpProvider(mock_config)
-        result = provider.create_proxy()
+        with (
+            patch.object(provider, "_add_skill_proxy"),
+            patch.object(provider, "_add_prompt_proxy"),
+            patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
+            patch.object(provider, "_create_openapi_client", return_value=Mock()),
+        ):
+            result = provider.create_proxy()
 
-        assert result == mock_mcp
-        assert provider.mcp == mock_mcp
-        mock_fastmcp_cls.from_openapi.assert_called_once()
+        assert result == openapi_mcp
+        mock_create_fastmcp_server.assert_called_once_with(
+            "drunk-ai-proxy/openapi",
+            "1.0.0",
+            True,
+        )
+        mock_openapi_provider.assert_called_once()
+        openapi_mcp.add_provider.assert_called_once_with(provider_instance)
 
-    @patch("drunk_ai_proxy.proxies.mcp_base_provider.AppConfigProvider.get_instance")
-    @patch("drunk_ai_proxy.proxies.openapi_mcp_provider.FastMCP")
-    @patch.object(OpenApiMcpProvider, "create_client")
-    def test_create_proxy_returns_cached(
-        self, mock_create_client, mock_fastmcp_cls, mock_get_app_config
-    ):
-        """Test that create_proxy returns cached MCP instance."""
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.OpenAPIProvider")
+    @patch("drunk_ai_proxy.proxies.mcp.proxy_provider.McpProxyBuilder.create_fastmcp_server")
+    def test_create_proxy_openapi_returns_cached(
+        self,
+        mock_create_fastmcp_server: Mock,
+        mock_openapi_provider: Mock,
+    ) -> None:
+        """Avoid rebuilding OpenAPI proxy on repeated calls."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.path = "/test-api"
-        mock_config.base_url = "https://api.example.com"
-        mock_config.auth = None
-        mock_config.spec_data = {
+        mock_config.path = "/openapi"
+        mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
+        mock_config.tags = []
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
+        mock_config.get_openapi_spec_data.return_value = {
             "openapi": "3.0.0",
-            "info": {"title": "Test API", "version": "1.0.0"},
+            "info": {"title": "Demo", "version": "1.0.0"},
             "paths": {},
         }
-        mock_config.tags = ["v1"]
-        mock_config.skill_dir = None
 
-        mock_client = Mock()
-        mock_create_client.return_value = mock_client
 
-        mock_mcp = MagicMock()
-        mock_fastmcp_cls.from_openapi.return_value = mock_mcp
+        mock_create_fastmcp_server.return_value = MagicMock()
+        mock_openapi_provider.return_value = Mock()
 
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
+        provider = McpProxyProvider(mock_config)
 
-        provider = OpenApiMcpProvider(mock_config)
+        with (
+            patch.object(provider, "_add_skill_proxy"),
+            patch.object(provider, "_add_prompt_proxy"),
+            patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
+            patch.object(provider, "_create_openapi_client", return_value=Mock()),
+        ):
+            first = provider.create_proxy()
+            second = provider.create_proxy()
 
-        # Call twice
-        result1 = provider.create_proxy()
-        result2 = provider.create_proxy()
+        assert first == second
+        assert mock_create_fastmcp_server.call_count == 1
+        assert mock_openapi_provider.call_count == 1
 
-        # Should only create once
-        assert mock_fastmcp_cls.from_openapi.call_count == 1
-        assert result1 == result2
-
-    def test_create_proxy_without_base_url_and_no_auth_raises_error(self):
-        """Test create_proxy raises error without base_url and no Azure auth."""
+    def test_create_proxy_openapi_missing_spec_data_raises(self) -> None:
+        """Raise ValueError when OpenAPI spec data is not loaded."""
         mock_config = Mock(spec=McpConfig)
-        mock_config.path = "/test-api"
-        mock_config.base_url = None
-        mock_config.auth = None
+        mock_config.path = "/openapi"
+        mock_config.spec_type = SpecType.OPENAPI
+        mock_config.codemode_enabled = True
+        mock_config.tags = []
+        mock_config.get_openapi_base_url.return_value = "https://api.example.com"
+        mock_config.get_openapi_spec_data.return_value = None
 
-        provider = OpenApiMcpProvider(mock_config)
 
-        with pytest.raises(ValueError) as exc_info:
+        provider = McpProxyProvider(mock_config)
+
+        with (
+            patch.object(provider, "_add_skill_proxy"),
+            patch.object(provider, "_add_prompt_proxy"),
+            patch.object(provider, "_add_agent_proxy"),
+            patch.object(provider, "_add_remote_skill_proxy"),
+            patch.object(provider, "_add_remote_prompt_proxy"),
+            patch.object(provider, "_add_remote_agent_proxy"),
+            patch.object(provider, "_create_openapi_client", return_value=Mock()),
+            pytest.raises(ValueError, match="open_api.spec_data is required"),
+        ):
             provider.create_proxy()
-        assert "base_url is required" in str(exc_info.value)

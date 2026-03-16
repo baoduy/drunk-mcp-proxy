@@ -17,9 +17,9 @@ from starlette.testclient import TestClient
 
 from fastapi.responses import JSONResponse
 
-from drunk_ai_proxy.proxies.llm_client_factory import AsyncOpenAIFactory
-from drunk_ai_proxy.proxies.llm_proxies_provider import LlmModel, LlmProxiesProvider
-from drunk_ai_proxy.tools.config_yaml import LlmConfig
+from drunk_ai_proxy.proxies.llm.client_factory import AsyncOpenAIFactory
+from drunk_ai_proxy.proxies.llm.proxies_provider import LlmModel, LlmProxiesProvider
+from drunk_ai_proxy.utils.config_yaml import LlmConfig
 
 
 def _build_provider() -> LlmProxiesProvider:
@@ -31,19 +31,23 @@ def _build_provider() -> LlmProxiesProvider:
             "api_key": "test-key",
         }
     )
-    return LlmProxiesProvider(providers=[provider_config])
+    mock_auth_factory = Mock()
+    mock_auth_factory.get_fast_mcp_auth_provider.return_value = None
+
+    mock_cache = Mock()
+    mock_cache.get = AsyncMock(return_value=None)
+    mock_cache.set = AsyncMock()
+
+    return LlmProxiesProvider(
+        providers=[provider_config],
+        auth_factory=mock_auth_factory,
+        cache=mock_cache,
+    )
 
 
 def _build_app(provider: LlmProxiesProvider) -> Starlette:
     app = Starlette()
-    # Patch the correct import path used in src/proxies/llm_proxies_provider.py
-    with patch(
-        "drunk_ai_proxy.proxies.llm_proxies_provider.AppConfigProvider.get_instance"
-    ) as mock_get_app_config:
-        mock_app_config = Mock()
-        mock_app_config.get_fast_mcp_auth_provider.return_value = None
-        mock_get_app_config.return_value = mock_app_config
-        provider.mount(app, route_prefix="/llm/v1")
+    provider.mount(app, route_prefix="/llm/v1")
     return app
 
 
@@ -553,8 +557,6 @@ def test_audio_translations_missing_file():
 
 
 # Test models caching
-@pytest.mark.asyncio
-
 # Test load providers from file
 def test_chat_completions_streaming(monkeypatch: pytest.MonkeyPatch):
     """Test chat completions with streaming enabled."""

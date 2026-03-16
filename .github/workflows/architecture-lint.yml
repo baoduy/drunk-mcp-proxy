@@ -1,0 +1,32 @@
+name: architecture-lint
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+  push:
+    branches:
+      - "main"
+permissions:
+  contents: read
+  
+jobs:
+  import-linter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install proxy dev dependencies
+        working-directory: src/drunk_ai_proxy
+        run: pip install -e ".[dev]"
+
+      - name: Run import-linter (non-blocking bootstrap)
+        working-directory: src/drunk_ai_proxy
+        continue-on-error: true
+        run: lint-imports

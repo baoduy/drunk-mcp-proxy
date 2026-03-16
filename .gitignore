@@ -40,6 +40,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+client-sample
 
 # Docker
 *.log
