@@ -1,30 +1,31 @@
 {
-  "chat.promptFilesRecommendations": {
-    "speckit.constitution": true,
-    "speckit.specify": true,
-    "speckit.plan": true,
-    "speckit.tasks": true,
-    "speckit.implement": true
-  },
-  "chat.tools.terminal.autoApprove": {
-    ".specify/scripts/bash/": true
-  },
-  "terminal.integrated.shellIntegration.enabled": true,
-  "editor.defaultFormatter": "ms-python.vscode-pylance",
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}/src/drunk_ai_proxy",
-    "${workspaceFolder}/src/drunk_ai_client"
-  ],
-  "python.analysis.autoSearchPaths": false,
-  "cSpell.words": [
-    "fastmcp",
-    "openrouter",
-    "pycache",
-    "streamable",
-    "supabase",
-    "venv"
-  ],
-  "notebook.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "chat.agent.maxRequests": 300
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
+    },
+    "terminal.integrated.shellIntegration.enabled": true,
+    "editor.defaultFormatter": "ms-python.vscode-pylance",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/src/drunk_ai_proxy",
+        "${workspaceFolder}/src/drunk_ai_client"
+    ],
+    "python.analysis.autoSearchPaths": false,
+    "cSpell.words": [
+        "fastmcp",
+        "openrouter",
+        "pycache",
+        "streamable",
+        "supabase",
+        "venv"
+    ],
+    "notebook.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "chat.agent.maxRequests": 300
 }
